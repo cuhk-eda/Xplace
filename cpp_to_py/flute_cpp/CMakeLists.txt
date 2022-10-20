@@ -1,0 +1,15 @@
+set(TARGET_NAME flute_cpp)
+
+pybind11_add_module(${TARGET_NAME} MODULE ${TARGET_NAME}.cpp)
+target_include_directories(${TARGET_NAME} PRIVATE ${TORCH_INCLUDE_DIRS} ${FLUTE_INCLUDE_DIR})
+target_link_libraries(
+  ${TARGET_NAME} PRIVATE torch ${TORCH_PYTHON_LIBRARY} flute)
+target_compile_definitions(${TARGET_NAME} PRIVATE 
+      TORCH_EXTENSION_NAME=${TARGET_NAME}
+      TORCH_MAJOR_VERSION=${TORCH_MAJOR_VERSION}
+      TORCH_MINOR_VERSION=${TORCH_MINOR_VERSION}
+      ENABLE_CUDA=0)
+
+install(TARGETS 
+  ${TARGET_NAME}
+  DESTINATION ${XPLACE_LIB_DIR})

@@ -1,0 +1,15 @@
+*.png
+*.pdf
+.vscode/
+__pycache__/
+*.so
+build/
+*.log
+*.npy
+*.csv
+*.pt
+*.pkl
+*.json
+result*
+data/cad
+misc
