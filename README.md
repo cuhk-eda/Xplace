@@ -1,19 +1,12 @@
-# Xplace
+# Xplace-NN
 
-Xplace is a fast and extensible GPU accelerated global placement framework developed by the research team supervised by Prof. Evangeline F. Y. Young at The Chinese University of Hong Kong (CUHK). It achieves around 3x speedup per GP iteration compared to the state-of-the-art global placer DREAMPlace and shows high extensiblity.
-
-
-As shown in the following figure, Xplace framework is built on top of PyTorch and consists of serveral independent modules. One can easily extend Xplace by applying new scheduling techniques, new gradient functions, new placement metrics and so on.
-
-<div align="center">
-  <img src="assets/xplace_overview.png" width="300"/>
-</div>
+Xplace-NN is a neural-enhanced extension of Xplace developed by the research team supervised by Prof. Evangeline F. Y. Young at The Chinese University of Hong Kong (CUHK).
 
 More details are in the following paper:
 
 Lixin Liu, Bangqi Fu, Martin D. F. Wong, and Evangeline F. Y. Young. "[Xplace: an extremely fast and extensible global placement framework](https://doi.org/10.1145/3489517.3530485)". In Proceedings of the 59th ACM/IEEE Design Automation Conference (DAC '22). Association for Computing Machinery, New York, NY, USA, 1309–1314. 
 
-(For the Xplace-NN, please refer to branch [neural](https://github.com/cuhk-eda/Xplace/tree/neural))
+(For the Xplace, please refer to branch [main](https://github.com/cuhk-eda/Xplace/tree/main))
 
 ## Requirements
 - CMake >= 3.12
@@ -39,6 +32,7 @@ make -j40 && make install
 ```
 
 ## Get started
+The [pre-trained FNO model](https://github.com/cuhk-eda/Xplace/tree/neural/misc) is provided.
 
 - To run GP only flow for all the designs in ISPD2005 dataset:
 ```console
@@ -60,8 +54,14 @@ In ./result/exp_id
    - output  # global placement solution files
 ```
 
+- To train FNO (optional):
+```console
+python main_train_fno.py
+```
+We observed non-determinism of FNO training loss, and we guessed it might cause by the floating point atomic add when dynamically generating a density map. One possible way to mitigate the non-determinism is to pre-generate all used density maps, but it is memory-consuming.
+
 ## Parameters
-Please refer to `main.py`.
+Please refer to `main.py` and `main_train_fno.py`.
 
 
 ## Load design from preprocessed `pt` file (Optional)
@@ -81,15 +81,14 @@ python main.py --dataset ispd2005 --run_all True --load_from_raw False
 
 **Note**: Please remember to use the raw mode (set `--load_from_raw True`) when running detailed placement or measuring the total running time.
 
-## Xplace Placement Results
+## Xplace-NN Placement Results
 
 Benchmark | Placement Solutions
 |:---:|:---:|
-ISPD2005 | [Google Drive](https://drive.google.com/drive/folders/1fUzkT9ymV3n0XxfWXA0mR3WQX55hR1PB?usp=sharing)
-ISPD2015 (w/o fence) | [Google Drive](https://drive.google.com/drive/folders/1UsKQ1FQ4fFi4pdJ0VoCoCCjLakhoS20Q?usp=sharing)
+ISPD2005 | [Google Drive](https://drive.google.com/drive/folders/1oV9xlp2VcP0ShZLjdXQhyO9HP5eKNr8t?usp=sharing)
 
 ## Citation
-If you find **Xplace** useful in your research, please consider to cite:
+If you find **Xplace** or **Xplace-NN** useful in your research, please consider to cite:
 ```bibtex
 @inproceedings{liu2022xplace,
     author={Liu, Lixin and Fu, Bangqi and Wong, Martin D. F. and Young, Evangeline F. Y.},

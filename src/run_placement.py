@@ -10,6 +10,7 @@ def run_placement_single(args, logger):
     if args.use_eplace_nesterov:
         res = run_placement_main_nesterov(args, logger)
     else:
+        raise NotImplementedError("Xplace-NN cannot run with Adam currently.")
         res = run_placement_main_adam(args, logger)
     return res
 

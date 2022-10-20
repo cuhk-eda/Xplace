@@ -1,6 +1,7 @@
 from utils import *
 from src import *
 from functools import partial
+from FNO import FNO2d
 
 def run_placement_main_nesterov(args, logger):
     data, rawdb, gpdb = load_dataset(args, logger)
@@ -52,24 +53,60 @@ def run_placement_main_nesterov(args, logger):
         expand_ratio=expand_ratio,
     ).to(device)
 
-    # fix_lhs, fix_rhs = data.fixed_index
-    # info = (0, 0, data.design_name + "_fix")
-    # fix_node_pos = data.node_pos[fix_lhs:fix_rhs, ...]
-    # fix_node_size = data.node_size[fix_lhs:fix_rhs, ...]
-    # draw_fig_with_cairo(
-    #     None, None, fix_node_pos, fix_node_size, None, None, data, info, args
-    # )
+    # assert args.nn_size == 256
+    model_path = args.model_path
+    width, neck, modes = [int(i) for i in model_path.split("/")[-1].split("_")[1].split("x")]
+    
+    nn_bin = args.nn_bin
+    args_tmp = copy.deepcopy(args)
+    args_tmp.clamp_node = args.nn_expand   
+    args_tmp.num_bin_y = nn_bin
+    args_tmp.num_bin_x = nn_bin
+    data_nn, _, _ = load_dataset(args_tmp, logger)
+    data_nn = data_nn.to(device)
+    data_nn = data_nn.preprocess()
+    init_density_map_nn = get_init_density_map(data_nn, args_tmp, logger)
+    data_nn.init_filler()
+    if data.filler_size != None:
+        data_nn.filler_size = data.filler_size.clone()
+    else: data_nn.filler_size=None
+    data_nn.__num_fillers__ = data.__num_fillers__
+    _, mov_node_size_nn, expand_ratio_nn = data_nn.get_mov_node_info()
+    def overflow_fn_nn(mov_density_map):
+        overflow_sum = ((mov_density_map - args.target_density) * data_nn.bin_area).clamp_(min=0.0).sum()
+        return overflow_sum / data.total_mov_area_without_filler
+    overflow_helper_nn = (mov_lhs, mov_rhs, overflow_fn_nn)
+    density_map_layer_nn = ElectronicDensityLayer(
+        unit_len=data_nn.unit_len,
+        num_bin_x=nn_bin,
+        num_bin_y=nn_bin,
+        device=device,
+        overflow_helper=overflow_helper_nn,
+        sorted_maps=data.sorted_maps,   #FIXME: !!!
+        expand_ratio=expand_ratio_nn,
+        scale_w_k=False,
+    ).to(device)
+    with torch.no_grad():
+        model = FNO2d(modes, modes, width, neck).to(device)
+        model.load_state_dict(torch.load(model_path, map_location=device))
+        model.eval()
+
     obj_and_grad_fn = partial(
-        calc_obj_and_grad,
+        calc_obj_and_grad_nn,
         constraint_fn=trunc_node_pos_fn,
         mov_node_size=mov_node_size,
+        mov_node_size_nn=mov_node_size_nn,
         init_density_map=init_density_map,
+        init_density_map_nn=init_density_map_nn,
         density_map_layer=density_map_layer,
+        density_map_layer_nn=density_map_layer_nn,
         conn_fix_node_pos=conn_fix_node_pos,
         ps=ps,
         data=data,
         args=args,
+        model=model,
     )
+
     evaluator_fn = partial(
         fast_evaluator,
         constraint_fn=trunc_node_pos_fn,
@@ -95,6 +132,10 @@ def run_placement_main_nesterov(args, logger):
     init_lr = estimate_initial_learning_rate(obj_and_grad_fn, trunc_node_pos_fn, mov_node_pos, args.lr)
     for param_group in optimizer.param_groups:
         param_group["lr"] = init_lr.item()
+
+    enable_nns = []
+    nn_weights = []
+    force_ratios = []
 
     torch.cuda.synchronize()
     gp_start_time = time.time()
@@ -129,6 +170,10 @@ def run_placement_main_nesterov(args, logger):
         # optimizer.zero_grad() # zero grad inside obj_and_grad_fn
         obj = optimizer.step(obj_and_grad_fn)
         hpwl, overflow = evaluator_fn(mov_node_pos)
+        # for nn tuning
+        nn_weights.append(ps.nn_sigma.item() if type(ps.nn_sigma) == torch.Tensor else ps.nn_sigma)
+        enable_nns.append((ps.weighted_weight < args.ps_end).item() and ps.iter > args.ps_end_iter)
+        force_ratios.append(ps.force_ratio.item() if type(ps.force_ratio) == torch.Tensor else ps.force_ratio)
         # update parameters
         ps.step(hpwl, overflow, mov_node_pos, data)
         if ps.need_to_early_stop():
@@ -182,6 +227,15 @@ def run_placement_main_nesterov(args, logger):
     logger.info("GP Stop! #Iters %d masked_hpwl: %.4E overflow: %.4f GP Time: %.4fs perIterTime: %.6fs" % 
         (iteration, hpwl, overflow, gp_time, gp_time / (iteration + 1))
     )
+
+    plt.figure()
+    plt.plot(np.linspace(1, len(enable_nns), len(enable_nns)), enable_nns, label="use_nn")
+    plt.plot(np.linspace(1, len(nn_weights), len(nn_weights)), nn_weights, label="sigma")
+    plt.plot(np.linspace(1, len(ps.recorder.weighted_weight), len(ps.recorder.weighted_weight)), ps.recorder.weighted_weight, label="omega")
+    plt.plot(np.linspace(1, len(force_ratios), len(force_ratios)), force_ratios, label="force_ratio(r)")
+    plt.legend()
+    plt.savefig(os.path.join(args.result_dir, args.exp_id, "%s_nn_tuned.png"%(args.design_name)))
+    plt.close()
 
     # Eval
     hpwl, overflow = evaluate_placement(

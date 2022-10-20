@@ -107,6 +107,8 @@ class ParamScheduler:
         self.stop_overflow = args.stop_overflow
         self.skip_update = False if args.enable_skip_update else None
         self.enable_fence = data.enable_fence
+        # nn scheduler
+        self.nn_sigma = 0
         # skip density force
         self.enable_sample_force = True
         self.force_ratio = 0.0

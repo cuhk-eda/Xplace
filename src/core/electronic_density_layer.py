@@ -3,7 +3,12 @@ from cpp_to_py import density_map_cuda
 import numpy as np
 import math
 from .dct2_fft2 import dct2, idct2, idxst_idct, idct_idxst, dct2_fft2_cache
-from .torch_dct import torch_dct_idct
+
+
+class GMAT_cache:
+    def __init__(self) -> None:
+        self.grad_mat = None
+grad_mat_cache = GMAT_cache()
 
 
 class ElectronicDensityFunction(torch.autograd.Function):
@@ -57,19 +62,15 @@ class ElectronicDensityFunction(torch.autograd.Function):
                 num_bin_x, num_bin_y, num_nodes
             )
         # density_map -= density_map.mean() # we don't need this one anymore
-        
-        if True:
-            potential_scale, potential_coeff, force_x_scale, force_y_scale, force_x_coeff, force_y_coeff = fft_scale
-            fft_coeff = dct2(density_map)
-            force_x_map = idxst_idct(fft_coeff * force_x_scale)
-            force_y_map = idct_idxst(fft_coeff * force_y_scale)
-            potential_map = idct2(fft_coeff * potential_scale)
-            grad_mat = torch.vstack(
-                (force_x_map.unsqueeze(0), force_y_map.unsqueeze(0))
-            ).contiguous()  # 2 x M x N
-        else:
-            # NOTE: in some of cases, torch version is faster
-            grad_mat, potential_map = torch_dct_idct(density_map, fft_scale)
+
+        potential_scale, potential_coeff, force_x_scale, force_y_scale, force_x_coeff, force_y_coeff = fft_scale
+        fft_coeff = dct2(density_map)
+        force_x_map = idxst_idct(fft_coeff * force_x_scale)
+        force_y_map = idct_idxst(fft_coeff * force_y_scale)
+        potential_map = idct2(fft_coeff * potential_scale)
+        grad_mat = torch.vstack(
+            (force_x_map.unsqueeze(0), force_y_map.unsqueeze(0))
+        ).contiguous()  # 2 x M x N
 
         energy = (potential_map * density_map).sum()
         ctx.save_for_backward(normalize_node_info, mov_sorted_map, grad_mat)
@@ -103,7 +104,12 @@ def merged_density_loss_grad_main(
     overflow_helper: tuple,
     sorted_maps: tuple,
     calc_overflow: bool,
+    grad_fn,
+    model,
     cache_mov_density_map: bool = True,
+    cache_grad_4norm: bool = False,
+    norm_grad: bool = False,
+    
 ):
     mov_lhs, mov_rhs, overflow_fn = overflow_helper
     mov_sorted_map, mov_conn_sorted_map, filler_sorted_map = sorted_maps
@@ -134,17 +140,43 @@ def merged_density_loss_grad_main(
         overflow = overflow_fn(mov_density_map)
     else:
         overflow = None
+        
+    if (grad_fn == "nn"):
+        with torch.no_grad():
+            x1 = density_map.unsqueeze(0).unsqueeze(3)                      #batch_size, s, s, 1
+            x2 = x1.permute(0,2,1,3).contiguous()
+                
+            out1 = model(x1).squeeze(3)                                  #batch_size, s, s, 1
+            out2 = model(x2).squeeze(3).permute(0,2,1).contiguous()      #batch_size, s, s, 1
 
-    potential_scale, _, force_x_scale, force_y_scale, _, _ = fft_scale
-    fft_coeff = dct2(density_map)
-    force_x_map = idxst_idct(fft_coeff * force_x_scale)
-    force_y_map = idct_idxst(fft_coeff * force_y_scale)
-    potential_map = idct2(fft_coeff * potential_scale)
-    grad_mat = torch.vstack(
-        (force_x_map.unsqueeze(0), force_y_map.unsqueeze(0))
-    ).contiguous()  # 2 x M x N
+            # TODO:
+            Ey = out1
+            Ex = out2
+            grad_mat = torch.cat((Ey,Ex),0)
+            energy = grad_mat.new_empty(0)
 
-    energy = (potential_map * density_map).sum()
+            if norm_grad:
+                grad_mat_4norm = grad_mat_cache.grad_mat
+                scaler = grad_mat_cache.grad_mat.shape[2] / grad_mat.shape[2]
+                gnorm = grad_mat_4norm.norm(p=1)
+                gnorm_nn = grad_mat.norm(p=1)
+                tmp = gnorm / gnorm_nn
+                grad_mat = grad_mat * tmp
+            # print("---------")
+            # print(gnorm/gnorm_nn)
+        
+    else:
+        potential_scale, _, force_x_scale, force_y_scale, _, _ = fft_scale
+        fft_coeff = dct2(density_map)
+        potential_map = idct2(fft_coeff * potential_scale)
+        force_x_map = idxst_idct(fft_coeff * force_x_scale)
+        force_y_map = idct_idxst(fft_coeff * force_y_scale)
+        grad_mat = torch.vstack(
+            (force_x_map.unsqueeze(0), force_y_map.unsqueeze(0))
+        ).contiguous()  # 2 x M x N
+        energy = (potential_map * density_map).sum()
+        if cache_grad_4norm:
+            grad_mat_cache.grad_mat = grad_mat
 
     grad_weight = -1.0 # Gradient descent
     node_grad = normalize_node_info.new_zeros((num_nodes, 2))
@@ -341,7 +373,11 @@ class ElectronicDensityLayer(torch.nn.Module):
         node_size,
         init_density_map,
         node_weight=None,
-        calc_overflow=True
+        calc_overflow=True,
+        grad_fn = "ep",
+        model = None,
+        cache_grad_4norm = False,
+        norm_grad = False,
     ):
         node_weight = self.get_cache_var(
             node_pos, node_size, node_weight
@@ -351,8 +387,67 @@ class ElectronicDensityLayer(torch.nn.Module):
             node_pos, node_size, node_weight, self.expand_ratio, self.unit_len, 
             init_density_map, self.num_bin_x, self.num_bin_y, num_nodes, 
             self.fft_scale, self.overflow_helper, self.sorted_maps, calc_overflow,
+            grad_fn,
+            model,
             cache_mov_density_map=self.use_cache_mov_density_map,
+            cache_grad_4norm = cache_grad_4norm,
+            norm_grad = norm_grad,
         )
         if self.use_cache_mov_density_map:
             self.mov_density_map = mov_density_map
         return energy, overflow, node_grad 
+
+    def generator(self, node_pos, node_size, init_density_map, calc_node_grad=False):
+
+        num_nodes = node_size.shape[0]
+        mov_sorted_map, mov_conn_sorted_map, filler_sorted_map = self.sorted_maps
+
+        node_weight = node_size.new_ones((num_nodes))
+
+        normalize_node_info = node_size.new_zeros((num_nodes, 5)) # x_l, x_h, y_l, y_h, weight
+        normalize_node_info = density_map_cuda.pre_normalize_naive(
+            node_pos, node_size, node_weight, 
+            self.unit_len, normalize_node_info,
+            self.num_bin_x, self.num_bin_y, num_nodes, self.min_node_w, self.min_node_h, 
+            1e-4, True
+        )
+
+        aux_mat = init_density_map.clone()
+        density_map = density_map_cuda.forward(
+            normalize_node_info, mov_sorted_map, aux_mat, 
+            self.num_bin_x, self.num_bin_y, num_nodes
+        )
+        
+        # aux_mat = init_density_map.clone()
+        # density_map = density_map_cuda.forward_naive(
+        #     node_pos,
+        #     node_size,
+        #     node_weight,
+        #     self.unit_len, 
+        #     aux_mat,
+        #     self.num_bin_x,
+        #     self.num_bin_y,
+        #     node_pos.shape[0],
+        #     -1.0, -1.0, 1e-4, False,
+        # )
+        
+        potential_scale, _, force_x_scale, force_y_scale, _, _ = self.fft_scale
+        fft_coeff = dct2(density_map)
+        force_x_map = idxst_idct(fft_coeff * force_x_scale)
+        force_y_map = idct_idxst(fft_coeff * force_y_scale)
+        potential_map = idct2(fft_coeff * potential_scale)
+        grad_mat = torch.vstack(
+            (force_x_map.unsqueeze(0), force_y_map.unsqueeze(0))
+        ).contiguous()  # 2 x M x N
+
+        # energy = (potential_map * density_map).sum()
+        node_grad = None
+        if calc_node_grad:
+            grad_weight = -1.0 # Gradient descent
+            node_grad = normalize_node_info.new_zeros((num_nodes, 2))
+            node_grad = density_map_cuda.backward(
+                normalize_node_info, grad_mat, mov_sorted_map, node_grad,
+                grad_weight, self.num_bin_x, self.num_bin_y, num_nodes
+            )
+
+        return  potential_map, density_map, grad_mat, node_grad

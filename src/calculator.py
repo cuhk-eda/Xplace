@@ -1,4 +1,5 @@
 import torch
+import math
 from .param_scheduler import ParamScheduler
 from .core import merged_wl_loss_grad, WAWirelengthLoss, WAWirelengthLossAndHPWL
 
@@ -68,6 +69,119 @@ def calc_obj_and_grad(
                 mov_node_pos, mov_node_size, init_density_map, calc_overflow=False
             )
             mov_node_pos.grad += node_grad_by_density * ps.density_weight
+        grad = apply_precond(mov_node_pos, ps, args)
+        loss = wl_loss + ps.density_weight * density_loss
+    else:
+        if mov_node_pos.grad is not None:
+            mov_node_pos.grad.zero_()
+        else:
+            mov_node_pos.grad = torch.zeros_like(mov_node_pos).detach()
+        wl_loss = WAWirelengthLoss.apply(
+            conn_node_pos, data.pin_id2node_id, data.pin_rel_cpos, 
+            data.hyperedge_list, data.hyperedge_list_end, data.net_mask, ps.wa_coeff
+        )
+        density_loss, _ = density_map_layer(
+            mov_node_pos, mov_node_size, init_density_map, calc_overflow=False
+        )
+        loss = calc_loss(wl_loss, density_loss, ps, args)
+        loss.backward()
+        grad = apply_precond(mov_node_pos, ps, args)
+    return loss, grad
+
+# For Xplace-NN nesterov
+def calc_obj_and_grad_nn(
+    mov_node_pos,
+    constraint_fn=None,
+    mov_node_size=None,
+    mov_node_size_nn=None,
+    init_density_map=None,
+    init_density_map_nn=None,
+    density_map_layer=None,
+    density_map_layer_nn=None,
+    conn_fix_node_pos=None,
+    ps=None,
+    data=None,
+    args=None,
+    merged_forward_backward=True,
+    model=None,
+):
+    mov_lhs, mov_rhs = data.movable_index
+    mov_node_pos = constraint_fn(mov_node_pos)
+    conn_node_pos = mov_node_pos[mov_lhs:mov_rhs, ...]
+    conn_node_pos = torch.cat([conn_node_pos, conn_fix_node_pos], dim=0)
+    if merged_forward_backward:
+        if mov_node_pos.grad is not None:
+            mov_node_pos.grad.zero_()
+        else:
+            mov_node_pos.grad = torch.zeros_like(mov_node_pos).detach()
+        wl_loss, conn_node_grad_by_wl = merged_wl_loss_grad(
+            conn_node_pos, data.pin_id2node_id, data.pin_rel_cpos, 
+            data.hyperedge_list, data.hyperedge_list_end, data.net_mask, 
+            data.hpwl_scale, ps.wa_coeff
+        )
+        mov_node_pos.grad[mov_lhs:mov_rhs] = conn_node_grad_by_wl[mov_lhs:mov_rhs]
+        if ps.enable_sample_force:
+            if ps.iter > 3 and ps.iter % 20 == 0:
+                # ps.iter > 3 for warmup
+                density_loss, _, node_grad_by_density = density_map_layer.merged_density_loss_grad(
+                    mov_node_pos, mov_node_size, init_density_map, calc_overflow=False
+                )
+                ps.force_ratio = (
+                    ps.density_weight * node_grad_by_density[mov_lhs:mov_rhs].norm(p=1) / 
+                    conn_node_grad_by_wl[mov_lhs:mov_rhs].norm(p=1)
+                ).clamp_(max=10)
+                mov_node_pos.grad += node_grad_by_density * ps.density_weight
+            else:
+                density_loss = 0.0
+            if (ps.iter > 3 and ps.recorder.force_ratio[-1] > 1e-2) or ps.iter > 100:
+                # no longer enable sampling back
+                ps.enable_sample_force = False
+        elif ps.iter > 2 and ps.weighted_weight < args.ps_end and ps.iter > 200:
+            # density_map_layer_nn: use nn_size model to calc nn_bin level grad (can use "ep" or "nn")
+            # density_map_layer: use nn_size model to calc num_bin_x/y level grad (can use "ep" or "nn")
+
+            density_loss, _, node_grad_by_density = density_map_layer.merged_density_loss_grad(
+                mov_node_pos, mov_node_size, init_density_map, calc_overflow=False,
+                grad_fn="ep",
+                model=model,
+                cache_grad_4norm=True,
+                norm_grad=False,
+            )
+            _, _, node_grad_by_density_nn = density_map_layer_nn.merged_density_loss_grad(
+                mov_node_pos, mov_node_size_nn, init_density_map_nn, calc_overflow=False,
+                grad_fn="nn",
+                model=model,
+                cache_grad_4norm=False,
+                norm_grad=True,
+            )
+            s_func = lambda a,x: 1 - 1 / (1 + torch.exp(-a * (x / args.ps_end-0.5)))
+            t1_func = lambda a,b,x: 1 / (1 + math.exp(-a *(x - b)))
+            a = s_func(5, ps.weighted_weight)
+            # NOTE: best strategy should base one force ratio, however, it will cause non-deterministic
+            # b = t_func(300, 0.01, ps.force_ratio) # 0.01
+            b = t1_func(0.2, 200, ps.iter) # trick to smooth the Step function in iter == 100
+            sigma = max(a + b - 1, 0)
+
+            # update grad
+            ps.nn_sigma = sigma
+            node_grad_by_density = ((1 - sigma) * node_grad_by_density + sigma * node_grad_by_density_nn)
+            ps.force_ratio = (
+                ps.density_weight * node_grad_by_density[mov_lhs:mov_rhs].norm(p=1) / 
+                conn_node_grad_by_wl[mov_lhs:mov_rhs].norm(p=1)
+            ).clamp_(max=10)
+            mov_node_pos.grad += node_grad_by_density * ps.density_weight
+        else:
+            ps.nn_sigma = 0
+            density_loss, _, node_grad_by_density = density_map_layer.merged_density_loss_grad(
+                mov_node_pos, mov_node_size, init_density_map, calc_overflow=False,
+                grad_fn="ep",
+                model=model,
+            )
+            mov_node_pos.grad += node_grad_by_density * ps.density_weight
+            ps.force_ratio = (
+                ps.density_weight * node_grad_by_density[mov_lhs:mov_rhs].norm(p=1) / 
+                conn_node_grad_by_wl[mov_lhs:mov_rhs].norm(p=1)
+            ).clamp_(max=10)
         grad = apply_precond(mov_node_pos, ps, args)
         loss = wl_loss + ps.density_weight * density_loss
     else:
