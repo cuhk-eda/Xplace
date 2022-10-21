@@ -98,7 +98,7 @@ If you find **Xplace** or **Xplace-NN** useful in your research, please consider
 }
 ```
 
-Thanks the authors of [ePlace](https://dl.acm.org/doi/10.1145/2699873), [RePlAce](https://github.com/The-OpenROAD-Project/RePlAce), and [DREAMPlace](https://github.com/limbo018/DREAMPlace) for their great work.
+Thanks the authors of [ePlace](https://dl.acm.org/doi/10.1145/2699873), [RePlAce](https://github.com/The-OpenROAD-Project/RePlAce), [DREAMPlace](https://github.com/limbo018/DREAMPlace), and [FNO](https://github.com/zongyi-li/fourier_neural_operator) for their great work.
 ```bibtex
 @article{lu2015eplace,
     author={Lu, Jingwei and Chen, Pengwen and Chang,   Chin-Chih and Sha, Lu and Huang, Dennis Jen-Hsin and   Teng, Chin-Chi and Cheng, Chung-Kuan},
@@ -118,6 +118,13 @@ Thanks the authors of [ePlace](https://dl.acm.org/doi/10.1145/2699873), [RePlAce
     author={Lin, Yibo and Jiang, Zixuan and Gu, Jiaqi and Li, Wuxi and Dhar, Shounak and Ren, Haoxing and Khailany, Brucek and Pan, David Z.},
     journal={IEEE Transactions on Computer-Aided Design of Integrated Circuits and Systems}, 
     title={DREAMPlace: Deep Learning Toolkit-Enabled GPU Acceleration for Modern VLSI Placement}, 
+    year={2021},
+}
+
+@inproceedings{li2021fourier,
+    author={Zongyi Li and Nikola Borislavov Kovachki and Kamyar Azizzadenesheli and Burigede liu and Kaushik Bhattacharya and Andrew Stuart and Anima Anandkumar},
+    booktitle={International Conference on Learning Representations},
+    title={Fourier Neural Operator for Parametric Partial Differential Equations},
     year={2021},
 }
 ```
