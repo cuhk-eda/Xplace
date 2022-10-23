@@ -22,6 +22,7 @@ Lixin Liu, Bangqi Fu, Martin D. F. Wong, and Evangeline F. Y. Young. "[Xplace: a
 1. Clone the Xplace repository. We'll call the directory that you cloned Xplace as `$XPLACE_HOME`.
 ```console
 git clone --recursive https://github.com/cuhk-eda/Xplace
+git checkout neural
 ```
 2. Build the shared libraries used in Xplace.
 ```console
