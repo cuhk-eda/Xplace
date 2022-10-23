@@ -2,6 +2,7 @@
 #include <cuda_runtime.h>
 #include <torch/extension.h>
 
+#include <ATen/cuda/CUDAContext.h>
 #include <THC/THCAtomics.cuh>
 #include <vector>
 
