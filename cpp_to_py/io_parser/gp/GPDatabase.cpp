@@ -487,7 +487,7 @@ std::vector<torch::Tensor> GPDatabase::getHyperedgeInfoTensor() {
     }
     auto hyperedge_index = torch::cat({hyperedge_list.unsqueeze(0), hyperedge_index_helper.unsqueeze(0)}, 0);
 
-    auto new_order_idx = torch::argsort(hyperedge_index.index({0}), 0);
+    auto new_order_idx = torch::argsort(hyperedge_index.index({0}), 0, false);
     hyperedge_index = hyperedge_index.index({torch::indexing::Slice(), new_order_idx});
 
     return {hyperedge_index, hyperedge_list, hyperedge_list_end};
