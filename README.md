@@ -1,21 +1,21 @@
 # Xplace: An Extremely Fast and Extensible Global Placement Framework
 
 ## News 🚀
-We are happy to announce that Xplace 2.0 is now released. Comparing to [Xplace 1.0](https://dl.acm.org/doi/abs/10.1145/3489517.3530485), this version supports the following new features:
+We are happy to announce that Xplace 2.0 is now released. Compared to [Xplace 1.0](https://dl.acm.org/doi/abs/10.1145/3489517.3530485), this version supports the following new features:
 
 - Support deterministic mode with only 5~25% extra GP runtime overhead.
-- Implement an extremly fast GPU-accelerated detailed-routability-driven placement algorithm.
+- Implement an extremely fast GPU-accelerated detailed-routability-driven placement algorithm.
 - Integrate with a GPU-accelerated detailed placer and a GPU-accelerated global router.
-- Provide benchmark download and preprocess scripts, and three routability evalution scripts. 
+- Provide benchmark download and preprocess scripts, and three routability evaluation scripts. 
 - Code refactoring.
 
-😄 Detailed Experimental results of Xplace 2.0 are given in [BENCHMARK.md](BENCHMARK.md).
+😄 Detailed experimental results of Xplace 2.0 are given in [BENCHMARK.md](BENCHMARK.md).
 
 ## About
-Xplace is a fast and extensible GPU accelerated global placement framework developed by the research team supervised by Prof. Evangeline F. Y. Young at The Chinese University of Hong Kong (CUHK). It achieves around 3x speedup per GP iteration compared to DREAMPlace and shows high extensiblity.
+Xplace is a fast and extensible GPU-accelerated global placement framework developed by the research team supervised by Prof. Evangeline F. Y. Young at The Chinese University of Hong Kong (CUHK). It achieves around 3x speedup per GP iteration compared to DREAMPlace and shows high extensibility.
 
 
-As shown in the following figure, Xplace framework is built on top of PyTorch and consists of serveral independent modules. One can easily extend Xplace by applying new scheduling techniques, new gradient functions, new placement metrics and so on.
+As shown in the following figure, Xplace framework is built on top of PyTorch and consists of several independent modules. One can easily extend Xplace by applying scheduling techniques, gradient functions, new placement metrics, and so on.
 
 <div align="center">
   <img src="img/xplace_overview.png" width="300"/>
@@ -51,7 +51,7 @@ make -j40 && make install
 ```
 
 ## Prepare Data
-The following script will automatically download `ispd2005`, `ispd2015` and `iccad2019` in `./data/raw`. It also preprocesses `ispd2015` benchmark to fix some errors reported by Innovus.
+The following script will automatically download `ispd2005`, `ispd2015`, and `iccad2019` benchmarks in `./data/raw`. It also preprocesses `ispd2015` benchmark to fix some errors when routing them by Innovus®.
 ```bash
 cd $XPLACE_HOME/data
 ./download_data.sh
@@ -82,14 +82,14 @@ python main.py --dataset ispd2015_fix --run_all True --load_from_raw True --deta
 python main.py --dataset ispd2015_fix --run_all True --load_from_raw True --detail_placement True --use_cell_inflate True
 ```
 
-**NOTE**: we defaultly enable the deterministic mode. If you don't need determinism and want to run placement in an extremely fast mode, please try to set `--deterministic False` in the python arguments.
+**NOTE**: We default enable the deterministic mode. If you don't need determinism and want to run placement in an extremely fast mode, please try to set `--deterministic False` in the Python arguments.
 
-- Each run will generate serveral output files in `./result/exp_id`. These files can provide valuable information for parameter tuning.
+- Each run will generate several output files in `./result/exp_id`. These files can provide valuable information for parameter tuning.
 ```
 In ./result/exp_id
-   - eval    # parameter curves and the visualization of placement
+   - eval    # parameter curves and the visualization of placement solutions
    - log     # log and statistics
-   - output  # global placement solution files
+   - output  # placement solutions
 ```
 
 ## Parameters
@@ -107,7 +107,7 @@ python utils/convert_design_to_torch_data.py --dataset iccad2019
 ```
 Preprocessed data is saved in `./data/cad`.
 
-When developing a new global placement technique in Xplace, we highly suggest using the `pt` mode to save the parser time. (set `--load_from_raw False`)
+To develop a new global placement technique in Xplace, we highly suggest using the `pt` mode to save the parser time. (set `--load_from_raw False`)
 
 ```bash
 python main.py --dataset ispd2005 --run_all True --load_from_raw False
@@ -115,17 +115,17 @@ python main.py --dataset ispd2005 --run_all True --load_from_raw False
 
 **Note**: 
 1. Please remember to use the raw mode (set `--load_from_raw True`) when measuring the total running time.
-2. We currently not support `pt` mode in routability-driven mode.
+2. We currently not support `pt` mode in the routability-driven global placement.
 
 ## Evaluate the Routability of Xplace's Solution 
-We provide three ways to evaluate the routability:
+We provide three ways to evaluate the routability of a placement solution:
 
-1. Set `--final_route_eval True` in python arguments to invoke the internal global router [GGR](https://dl.acm.org/doi/10.1145/3508352.3549474) to evaluate the placement solution. The evaluation metrics are reported in the log and recorded in `./result/exp_id/log/route.csv`. Besies, the route guide file is written in `./result/exp_id/output/design_name.guide` and  
+1. Set `--final_route_eval True` in Python arguments to invoke the internal global router [GGR](https://dl.acm.org/doi/10.1145/3508352.3549474) to evaluate the placement solution. The evaluation metrics are reported in the log and recorded in `./result/exp_id/log/route.csv`. Besides, the route guide file is written in `./result/exp_id/output/design_name.guide`.  
 More details about using GGR in Xplace can be found in [cpp_to_py/gpugr](cpp_to_py/gpugr).
 
-2. Use [CU-GR](https://github.com/cuhk-eda/cu-gr) to global route the placement solution. refer to [tool/cugr_ispd2015_fix](tool/cugr_ispd2015_fix) for more instructions.
+2. Use [CU-GR](https://github.com/cuhk-eda/cu-gr) to evaluate the placement solution by global routing. Please refer to [tool/cugr_ispd2015_fix](tool/cugr_ispd2015_fix) for instructions.
 
-3. (Optional). If Innovus® has been properly installed in your OS, you may try to use Innovus® to detailedly route the placement solution. Please refer to [tool/innovus_ispd2015_fix](tool/innovus_ispd2015_fix) for more instructions.
+3. (Optional). If Innovus® has been properly installed in your OS, you may try to use Innovus® to detailedly route the placement solution. Please refer to [tool/innovus_ispd2015_fix](tool/innovus_ispd2015_fix) for instructions.
 
 
 ## Citation
