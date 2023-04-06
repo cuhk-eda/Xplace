@@ -113,9 +113,9 @@ To develop a new global placement technique in Xplace, we highly suggest using t
 python main.py --dataset ispd2005 --run_all True --load_from_raw False
 ```
 
-**Note**: 
+**NOTE**: 
 1. Please remember to use the raw mode (set `--load_from_raw True`) when measuring the total running time.
-2. We currently not support `pt` mode in the routability-driven global placement.
+2. We currently do not support `pt` mode in the routability-driven global placement.
 
 ## Evaluate the Routability of Xplace's Solution 
 We provide three ways to evaluate the routability of a placement solution:
