@@ -1,5 +1,5 @@
 # GGR: Superfast Full-Scale GPU-Accelerated Global Routing
-GGR is a superfast full-scale GPU-accelerated global router developed by the research team supervised by Prof. Evangeline F. Y. Young and Prof. Martin D.F. Wong at The Chinese University of Hong Kong (CUHK). It includes an an efficient and high quality Z-shape pattern routing and a GPU-accelerated maze router GAMER.
+GGR is a superfast full-scale GPU-accelerated global router developed by the research team supervised by Prof. Evangeline F. Y. Young and Prof. Martin D.F. Wong at The Chinese University of Hong Kong (CUHK). It includes an efficient and high-quality Z-shape pattern routing and a GPU-accelerated maze router GAMER.
 
 More details are in the following paper:
 
@@ -10,7 +10,7 @@ Shiju Lin and Martin D. F. Wong. "[Superfast Full-Scale CPU-Accelerated Global R
 **GGR is integrated in Xplace now!**
 
 ## Notes and Limitations
-- We defaultly use `N=0` (without CUDA graph optimization). When `N >= 1`, unknown error would occur during terminating the Python program. To enable CUDA graph optimization, please set `use_tf = true` in `cpp_to_py/gpugr/gr/MazeRoute.cu` and re-compile the project. 
+- We default use `N=0` (without CUDA graph optimization). When `N >= 1`, an unknown error would occur before terminating the Python process. To enable CUDA graph optimization, please set `use_tf = true` in `cpp_to_py/gpugr/gr/MazeRoute.cu` and re-compile the project. 
 - GGR is **deterministic** when `N=0` but not test in `N >= 1`.
 - We currently only support LEF/DEF format.
 - The runtime of this version is a little bit slower than the version described in the GGR paper because we use a stronger but slower parser and make the algorithm deterministic yet robust while sacrificing the runtime.
@@ -19,10 +19,10 @@ Shiju Lin and Martin D. F. Wong. "[Superfast Full-Scale CPU-Accelerated Global R
 Please refer to `cpp_to_py/gpugr/PyBindCppMain.cpp`.
 
 - `device_id`: GPU id.
-- `route_xSize` / `route_ySize`: given GR GridGraph size. If the GridGraph size is `0`, use the GridGraph definition in DEF file. If the GridGraph size is `0` and there is no definition in DEF, we defaultly set it as `512`.
-- `rrrIters`: the number of rip-up and re-route iterations (maze route). If `rrrIters = 0`, perform pattern route only.
-- `csrn_scale`: the size of coarsen grid in maze routing.
-- `route_guide`: the file name of output route guide.
+- `route_xSize` / `route_ySize`: Given GR GridGraph size. If the given size is `0`, use the `GRIDGRAPH` definition in DEF file. If the given size is `0` and there is no definition in DEF, we set it as `512`.
+- `rrrIters`: The number of rip-up and re-route iterations (maze route). If `rrrIters = 0`, perform the pattern route only.
+- `csrn_scale`: The size of coarsen grid in maze routing.
+- `route_guide`: The file name of output route guide.
 
 ## Citation
 If you find **GGR** useful in your research, please consider to cite:
