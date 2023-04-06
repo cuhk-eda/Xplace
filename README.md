@@ -1,12 +1,24 @@
-# Xplace
+# Xplace: An Extremely Fast and Extensible Global Placement Framework
 
-Xplace is a fast and extensible GPU accelerated global placement framework developed by the research team supervised by Prof. Evangeline F. Y. Young at The Chinese University of Hong Kong (CUHK). It achieves around 3x speedup per GP iteration compared to the state-of-the-art global placer DREAMPlace and shows high extensiblity.
+## News 🚀
+We are happy to announce that Xplace 2.0 is now released. Comparing to [Xplace 1.0](https://dl.acm.org/doi/abs/10.1145/3489517.3530485), this version supports the following new features:
+
+- Support deterministic mode with only 5~25% extra GP runtime overhead.
+- Implement an extremly fast GPU-accelerated detailed-routability-driven placement algorithm.
+- Integrate with a GPU-accelerated detailed placer and a GPU-accelerated global router.
+- Provide benchmark download and preprocess scripts, and three routability evalution scripts. 
+- Code refactoring.
+
+😄 Detailed Experimental results of Xplace 2.0 are given in [BENCHMARK.md](BENCHMARK.md).
+
+## About
+Xplace is a fast and extensible GPU accelerated global placement framework developed by the research team supervised by Prof. Evangeline F. Y. Young at The Chinese University of Hong Kong (CUHK). It achieves around 3x speedup per GP iteration compared to DREAMPlace and shows high extensiblity.
 
 
 As shown in the following figure, Xplace framework is built on top of PyTorch and consists of serveral independent modules. One can easily extend Xplace by applying new scheduling techniques, new gradient functions, new placement metrics and so on.
 
 <div align="center">
-  <img src="assets/xplace_overview.png" width="300"/>
+  <img src="img/xplace_overview.png" width="300"/>
 </div>
 
 More details are in the following paper:
@@ -16,41 +28,61 @@ Lixin Liu, Bangqi Fu, Martin D. F. Wong, and Evangeline F. Y. Young. "[Xplace: a
 (For the Xplace-NN, please refer to branch [neural](https://github.com/cuhk-eda/Xplace/tree/neural))
 
 ## Requirements
-- CMake >= 3.12
-- GCC >= 7.5.0
-- Boost >= 1.56.0
-- CUDA >= 11.0
-- Python >= 3.8
-- PyTorch >= 1.10.1
-- Cairo
-
+- [CMake](https://cmake.org/) >= 3.12
+- [GCC](https://gcc.gnu.org/) >= 7.5.0
+- [Boost](https://www.boost.org/) >= 1.56.0
+- [CUDA](https://developer.nvidia.com/cuda-toolkit) >= 11.3
+- [Python](https://www.python.org/) >= 3.8
+- [PyTorch](https://pytorch.org/) >= 1.12.0
+- [Cairo](https://www.cairographics.org/)
+- [Innovus®](https://www.cadence.com/content/cadence-www/global/en_US/home/tools/digital-design-and-signoff/soc-implementation-and-floorplanning/innovus-implementation-system.html) (version 20.14, optional, for detailed routing and design rule checking)
 
 ## Setup
 1. Clone the Xplace repository. We'll call the directory that you cloned Xplace as `$XPLACE_HOME`.
-```console
+```bash
 git clone --recursive https://github.com/cuhk-eda/Xplace
 ```
 2. Build the shared libraries used in Xplace.
-```console
+```bash
 cd $XPLACE_HOME
 mkdir build && cd build
 cmake -DPYTHON_EXECUTABLE=$(which python) ..
 make -j40 && make install
 ```
 
+## Prepare Data
+The following script will automatically download `ispd2005`, `ispd2015` and `iccad2019` in `./data/raw`. It also preprocesses `ispd2015` benchmark to fix some errors reported by Innovus.
+```bash
+cd $XPLACE_HOME/data
+./download_data.sh
+```
+
 ## Get started
+- To run GP + DP flow for ISPD2005 dataset:
+```bash
+# only run adaptec1
+python main.py --dataset ispd2005 --design_name adaptec1 --load_from_raw True --detail_placement True
 
-- To run GP only flow for all the designs in ISPD2005 dataset:
-```console
-python main.py --dataset_root your_path --dataset ispd2005 --run_all True --load_from_raw True --write_placement True
+# run all the designs in ispd2005
+python main.py --dataset ispd2005 --run_all True --load_from_raw True --detail_placement True
 ```
 
-- To run GP + DP flow for `adaptec1` in ISPD2005 dataset:
-```console
-python main.py --dataset_root your_path --dataset ispd2005 --design_name adaptec1 --load_from_raw True --write_placement True --detail_placement True
+- To run GP + DP flow for ISPD2015 dataset:
+```bash
+# only run mgc_fft_1
+python main.py --dataset ispd2015_fix --design_name mgc_fft_1 --load_from_raw True --detail_placement True
+
+# run all the designs in ispd2015
+python main.py --dataset ispd2015_fix --run_all True --load_from_raw True --detail_placement True
 ```
 
-**Note**: For ISPD2005 dataset, [NTUplace3](http://eda.ee.ntu.edu.tw/research.htm) is used as the detailed placement engine. For ISPD2015 dataset, please run GP only flow and launch [ABCDPlace](https://github.com/limbo018/DREAMPlace) to perform detailed placement.
+- To run Routability GP + DP flow for ISPD2015 dataset:
+```bash
+# run all the designs in ispd2015 with routability optimization
+python main.py --dataset ispd2015_fix --run_all True --load_from_raw True --detail_placement True --use_cell_inflate True
+```
+
+**NOTE**: we defaultly enable the deterministic mode. If you don't need determinism and want to run placement in an extremely fast mode, please try to set `--deterministic False` in the python arguments.
 
 - Each run will generate serveral output files in `./result/exp_id`. These files can provide valuable information for parameter tuning.
 ```
@@ -67,26 +99,34 @@ Please refer to `main.py`.
 ## Load design from preprocessed `pt` file (Optional)
 The following script will dump the parsed design into a single torch `pt` file so Xplace can load the design from the `pt` file instead of parsing the input file from scratch. 
 
-```console
-cd $XPLACE_HOME
-python utils/convert_design_to_torch_data.py --dataset_root your_path --dataset ispd2005
+```bash
+cd $XPLACE_HOME/data
+python utils/convert_design_to_torch_data.py --dataset ispd2005
+python utils/convert_design_to_torch_data.py --dataset ispd2015_fix
+python utils/convert_design_to_torch_data.py --dataset iccad2019
 ```
 Preprocessed data is saved in `./data/cad`.
 
 When developing a new global placement technique in Xplace, we highly suggest using the `pt` mode to save the parser time. (set `--load_from_raw False`)
 
-```console
+```bash
 python main.py --dataset ispd2005 --run_all True --load_from_raw False
 ```
 
-**Note**: Please remember to use the raw mode (set `--load_from_raw True`) when running detailed placement or measuring the total running time.
+**Note**: 
+1. Please remember to use the raw mode (set `--load_from_raw True`) when measuring the total running time.
+2. We currently not support `pt` mode in routability-driven mode.
 
-## Xplace Placement Results
+## Evaluate the Routability of Xplace's Solution 
+We provide three ways to evaluate the routability:
 
-Benchmark | Placement Solutions
-|:---:|:---:|
-ISPD2005 | [Google Drive](https://drive.google.com/drive/folders/1fUzkT9ymV3n0XxfWXA0mR3WQX55hR1PB?usp=sharing)
-ISPD2015 (w/o fence) | [Google Drive](https://drive.google.com/drive/folders/1UsKQ1FQ4fFi4pdJ0VoCoCCjLakhoS20Q?usp=sharing)
+1. Set `--final_route_eval True` in python arguments to invoke the internal global router [GGR](https://dl.acm.org/doi/10.1145/3508352.3549474) to evaluate the placement solution. The evaluation metrics are reported in the log and recorded in `./result/exp_id/log/route.csv`. Besies, the route guide file is written in `./result/exp_id/output/design_name.guide` and  
+More details about using GGR in Xplace can be found in [cpp_to_py/gpugr](cpp_to_py/gpugr).
+
+2. Use [CU-GR](https://github.com/cuhk-eda/cu-gr) to global route the placement solution. refer to [tool/cugr_ispd2015_fix](tool/cugr_ispd2015_fix) for more instructions.
+
+3. (Optional). If Innovus® has been properly installed in your OS, you may try to use Innovus® to detailedly route the placement solution. Please refer to [tool/innovus_ispd2015_fix](tool/innovus_ispd2015_fix) for more instructions.
+
 
 ## Citation
 If you find **Xplace** useful in your research, please consider to cite:

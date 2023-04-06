@@ -12,7 +12,10 @@ class CustomFormatter(logging.Formatter):
     bold_red = "\x1b[31;1m"
     reset = "\x1b[0m"
 
-    time_format = "[%(asctime)s.%(msecs)03d] "
+    # time_format = "[%(asctime)s.%(msecs)03d] "
+    # FIXME: An elapsed time gap exists between the C++ Timer and Python Timer,
+    #        but I don't know how to resolve it...
+    time_format = "[%(relativeCreatedSecond)4d.%(relativeCreatedMSecond)03d] "
     debug_msg = " (%(module)s.py Line%(lineno)d) %(msg)s"
     FORMATS = {
         logging.DEBUG: time_format + blue + "DEBUG" + reset + debug_msg,
@@ -26,11 +29,13 @@ class CustomFormatter(logging.Formatter):
         super().__init__(datefmt="%H:%M:%S")
 
     def format(self, record):
+        record.relativeCreatedSecond = record.relativeCreated / 1000
+        record.relativeCreatedMSecond = record.relativeCreated % 1000
         self._style._fmt = self.FORMATS.get(record.levelno)
         return logging.Formatter.format(self, record)
 
 
-def setup_logger(args, sys_argv):
+def setup_logger(args, sys_argv) -> logging.Logger:
     res_root = os.path.join(args.result_dir, args.exp_id)
     log_file_path = os.path.join(res_root, args.log_dir, args.log_name)
     if not os.path.exists(os.path.dirname(log_file_path)):

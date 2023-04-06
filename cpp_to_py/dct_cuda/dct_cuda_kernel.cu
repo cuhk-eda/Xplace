@@ -9,10 +9,10 @@
  *      except tiny modifications on preprocessing and postprocessing
  */
 
+#include <ATen/cuda/CUDAContext.h>
 #include <float.h>
 #include <math.h>
 #include <torch/extension.h>
-#include <ATen/cuda/CUDAContext.h>
 
 #include "cuda_runtime.h"
 
@@ -210,15 +210,15 @@ void dct2dPostprocessCudaLauncher(
     dim3 blockSize(TPB, TPB, 1);
     auto stream = at::cuda::getCurrentCUDAStream();
     dct2dPostprocess<T, ComplexType<T>><<<gridSize, blockSize, 0, stream>>>((ComplexType<T> *)x,
-                                                                 y,
-                                                                 M,
-                                                                 N,
-                                                                 M / 2,
-                                                                 N / 2,
-                                                                 (T)(2. / (M * N)),
-                                                                 (T)(4. / (M * N)),
-                                                                 (ComplexType<T> *)expkM,
-                                                                 (ComplexType<T> *)expkN);
+                                                                            y,
+                                                                            M,
+                                                                            N,
+                                                                            M / 2,
+                                                                            N / 2,
+                                                                            (T)(2. / (M * N)),
+                                                                            (T)(4. / (M * N)),
+                                                                            (ComplexType<T> *)expkM,
+                                                                            (ComplexType<T> *)expkN);
 }
 
 // idct2_fft2
@@ -712,18 +712,12 @@ void dct2_fft2_forward_cuda(at::Tensor x, at::Tensor expkM, at::Tensor expkN, at
     auto N = x.size(-1);
     auto M = x.numel() / N;
 
-    AT_DISPATCH_ALL_TYPES(x.scalar_type(), "dct2_fft2_forward_cuda", [&] {
-        dct2dPreprocessCudaLauncher<scalar_t>(x.data_ptr<scalar_t>(), out.data_ptr<scalar_t>(), M, N);
+    dct2dPreprocessCudaLauncher<float>(x.data_ptr<float>(), out.data_ptr<float>(), M, N);
 
-        buf = at::view_as_real(at::fft_rfft2(out, c10::nullopt, {-2, -1}, "backward")).contiguous();
+    buf = at::view_as_real(at::fft_rfft2(out, c10::nullopt, {-2, -1}, "backward")).contiguous();
 
-        dct2dPostprocessCudaLauncher<scalar_t>(buf.data_ptr<scalar_t>(),
-                                               out.data_ptr<scalar_t>(),
-                                               M,
-                                               N,
-                                               expkM.data_ptr<scalar_t>(),
-                                               expkN.data_ptr<scalar_t>());
-    });
+    dct2dPostprocessCudaLauncher<float>(
+        buf.data_ptr<float>(), out.data_ptr<float>(), M, N, expkM.data_ptr<float>(), expkN.data_ptr<float>());
 }
 
 void idct2_fft2_forward_cuda(at::Tensor x, at::Tensor expkM, at::Tensor expkN, at::Tensor out, at::Tensor buf) {
@@ -737,18 +731,12 @@ void idct2_fft2_forward_cuda(at::Tensor x, at::Tensor expkM, at::Tensor expkN, a
     auto N = x.size(-1);
     auto M = x.numel() / N;
 
-    AT_DISPATCH_ALL_TYPES(x.scalar_type(), "idct2_fft2_forward_cuda", [&] {
-        idct2_fft2PreprocessCudaLauncher<scalar_t>(x.data_ptr<scalar_t>(),
-                                                   buf.data_ptr<scalar_t>(),
-                                                   M,
-                                                   N,
-                                                   expkM.data_ptr<scalar_t>(),
-                                                   expkN.data_ptr<scalar_t>());
+    idct2_fft2PreprocessCudaLauncher<float>(
+        x.data_ptr<float>(), buf.data_ptr<float>(), M, N, expkM.data_ptr<float>(), expkN.data_ptr<float>());
 
-        auto y = at::fft_irfft2(at::view_as_complex(buf), {{M, N}}, {-2, -1}, "backward").contiguous();
+    auto y = at::fft_irfft2(at::view_as_complex(buf), {{M, N}}, {-2, -1}, "backward").contiguous();
 
-        idct2_fft2PostprocessCudaLauncher<scalar_t>(y.data_ptr<scalar_t>(), out.data_ptr<scalar_t>(), M, N);
-    });
+    idct2_fft2PostprocessCudaLauncher<float>(y.data_ptr<float>(), out.data_ptr<float>(), M, N);
 }
 
 void idct_idxst_forward_cuda(at::Tensor x, at::Tensor expkM, at::Tensor expkN, at::Tensor out, at::Tensor buf) {
@@ -762,18 +750,12 @@ void idct_idxst_forward_cuda(at::Tensor x, at::Tensor expkM, at::Tensor expkN, a
     auto N = x.size(-1);
     auto M = x.numel() / N;
 
-    AT_DISPATCH_ALL_TYPES(x.scalar_type(), "idct_idxst_forward_cuda", [&] {
-        idct_idxstPreprocessCudaLauncher<scalar_t>(x.data_ptr<scalar_t>(),
-                                                   buf.data_ptr<scalar_t>(),
-                                                   M,
-                                                   N,
-                                                   expkM.data_ptr<scalar_t>(),
-                                                   expkN.data_ptr<scalar_t>());
+    idct_idxstPreprocessCudaLauncher<float>(
+        x.data_ptr<float>(), buf.data_ptr<float>(), M, N, expkM.data_ptr<float>(), expkN.data_ptr<float>());
 
-        auto y = at::fft_irfft2(at::view_as_complex(buf), {{M, N}}, {-2, -1}, "backward").contiguous();
+    auto y = at::fft_irfft2(at::view_as_complex(buf), {{M, N}}, {-2, -1}, "backward").contiguous();
 
-        idct_idxstPostprocessCudaLauncher<scalar_t>(y.data_ptr<scalar_t>(), out.data_ptr<scalar_t>(), M, N);
-    });
+    idct_idxstPostprocessCudaLauncher<float>(y.data_ptr<float>(), out.data_ptr<float>(), M, N);
 }
 
 void idxst_idct_forward_cuda(at::Tensor x, at::Tensor expkM, at::Tensor expkN, at::Tensor out, at::Tensor buf) {
@@ -787,16 +769,10 @@ void idxst_idct_forward_cuda(at::Tensor x, at::Tensor expkM, at::Tensor expkN, a
     auto N = x.size(-1);
     auto M = x.numel() / N;
 
-    AT_DISPATCH_ALL_TYPES(x.scalar_type(), "idxst_idct_forward_cuda", [&] {
-        idxst_idctPreprocessCudaLauncher<scalar_t>(x.data_ptr<scalar_t>(),
-                                                   buf.data_ptr<scalar_t>(),
-                                                   M,
-                                                   N,
-                                                   expkM.data_ptr<scalar_t>(),
-                                                   expkN.data_ptr<scalar_t>());
+    idxst_idctPreprocessCudaLauncher<float>(
+        x.data_ptr<float>(), buf.data_ptr<float>(), M, N, expkM.data_ptr<float>(), expkN.data_ptr<float>());
 
-        auto y = at::fft_irfft2(at::view_as_complex(buf), {{M, N}}, {-2, -1}, "backward").contiguous();
+    auto y = at::fft_irfft2(at::view_as_complex(buf), {{M, N}}, {-2, -1}, "backward").contiguous();
 
-        idxst_idctPostprocessCudaLauncher<scalar_t>(y.data_ptr<scalar_t>(), out.data_ptr<scalar_t>(), M, N);
-    });
+    idxst_idctPostprocessCudaLauncher<float>(y.data_ptr<float>(), out.data_ptr<float>(), M, N);
 }

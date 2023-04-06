@@ -215,8 +215,11 @@ public:
     torch::Tensor getPinId2NodeIdTensor();
     torch::Tensor getPinId2NetIdTensor();
     std::vector<torch::Tensor> getHyperedgeInfoTensor();  // hyperedge_index, hyperedge_list, hyperedge_list_end
+    std::vector<torch::Tensor> getNode2PinInfoTensor();   // node2pin_index, node2pin_list, node2pin_list_end
     std::vector<torch::Tensor> getRegionInfoTensor();     // node_id2region_id, region_boxes, region_boxes_end
-    void applyNodePos(torch::Tensor node_cpos);
+    void applyOneNodeOrient(int node_id);
+    void applyNodeCPos(torch::Tensor node_cpos);
+    void applyNodeLPos(torch::Tensor node_lpos);
 
     // Write Placement
     void writePlacement(const std::string& given_prefix = "");

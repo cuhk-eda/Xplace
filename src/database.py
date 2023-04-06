@@ -17,12 +17,12 @@ def get_dataset(args, logger):
 
 def load_dataset(args, logger, placement=None):
     rawdb, gpdb = None, None
+    params = get_single_design_params(
+        args.dataset_root, args.dataset, args.design_name, placement
+    )
+    parser = IOParser()
     if args.load_from_raw:
         logger.info("loading from original benchmark...")
-        params = get_single_design_params(
-            args.dataset_root, args.dataset, args.design_name, placement
-        )
-        parser = IOParser()
         rawdb, gpdb = parser.read(
             params, verbose_log=False, lite_mode=True, random_place=False, num_threads=args.num_threads
         )
@@ -30,6 +30,9 @@ def load_dataset(args, logger, placement=None):
     else:
         logger.info("loading from pt benchmark...")
         design_pt_path = "./data/cad/%s/%s.pt" % (args.dataset, args.design_name)
+        parser.load_params(
+            params, verbose_log=False, lite_mode=True, random_place=False, num_threads=args.num_threads
+        )
         design_info = torch.load(design_pt_path)
         gpdb = None
     data = PlaceData(args, logger, **design_info)
@@ -61,13 +64,18 @@ class PlaceData(object):
         args,
         logger,
         node_pos=None,
+        node_lpos=None,
         node_size=None,
         pin_rel_cpos=None,
+        pin_rel_lpos=None,
         pin_size=None,
         pin_id2node_id=None,
         hyperedge_index=None,
         hyperedge_list=None,
         hyperedge_list_end=None,
+        node2pin_index=None,
+        node2pin_list=None,
+        node2pin_list_end=None,
         node_id2region_id=None,
         region_boxes=None,
         region_boxes_end=None,
@@ -87,9 +95,11 @@ class PlaceData(object):
         self.die_ll = None
 
         self.node_pos = node_pos
+        self.node_lpos = node_lpos
         self.node_size = node_size
 
         self.pin_rel_cpos = pin_rel_cpos
+        self.pin_rel_lpos = pin_rel_lpos
         self.pin_size = pin_size
 
         self.pin_id2node_id = pin_id2node_id
@@ -98,6 +108,10 @@ class PlaceData(object):
         self.hyperedge_list = hyperedge_list
         self.hyperedge_list_end = hyperedge_list_end
         self.pin_id2net_id = hyperedge_index[1]
+
+        self.node2pin_index = node2pin_index
+        self.node2pin_list = node2pin_list
+        self.node2pin_list_end = node2pin_list_end
 
         self.node_id2region_id = node_id2region_id
         self.region_boxes = region_boxes
@@ -131,6 +145,7 @@ class PlaceData(object):
 
         self.__site_width__ = site_info[0]
         self.__site_height__ = site_info[1]
+        self.__row_height__ = site_info[1]  # the same as site height
 
         self.__ori_die_lx__ = die_info[0].item()
         self.__ori_die_hx__ = die_info[1].item()
@@ -154,6 +169,7 @@ class PlaceData(object):
         self.fix_node_in_bd_mask = None
         self.dummy_macro_pos = None
         self.dummy_macro_size = None
+        self.mov_node_size_real = None
 
         # filler
         self.filler_size = None
@@ -228,6 +244,11 @@ class PlaceData(object):
     def site_height(self):
         if hasattr(self, "__site_height__"):
             return self.__site_height__
+
+    @property
+    def row_height(self):
+        if hasattr(self, "__row_height__"):
+            return self.__row_height__
 
     @property
     def ori_die_lx(self):
@@ -462,8 +483,10 @@ class PlaceData(object):
         # backup original position and size
         self.__ori_die_info__ = self.die_info.clone().cpu().numpy()
         self.__ori_node_pos__ = self.node_pos.clone().cpu().numpy()
+        self.__ori_node_lpos__ = self.node_lpos.clone().cpu().numpy()
         self.__ori_node_size__ = self.node_size.clone().cpu().numpy()
         self.__ori_pin_rel_cpos__ = self.pin_rel_cpos.clone().cpu().numpy()
+        self.__ori_pin_rel_lpos__ = self.pin_rel_lpos.clone().cpu().numpy()
         self.__ori_pin_size__ = self.pin_size.clone().cpu().numpy()
         self.__ori_region_boxes__ = self.region_boxes.clone().cpu().numpy()
         dtype, device = self.die_info.dtype, self.die_info.device
@@ -484,6 +507,7 @@ class PlaceData(object):
             .reshape(-1, 4)
         )
         self.node_pos -= die_shift
+        self.node_lpos -= die_shift
         self.__die_shift__ += die_shift
         return self
 
@@ -492,8 +516,10 @@ class PlaceData(object):
         self.die_info /= self.site_width
         self.region_boxes /= self.site_width
         self.node_pos /= self.site_width
+        self.node_lpos /= self.site_width
         self.node_size /= self.site_width
         self.pin_rel_cpos /= self.site_width
+        self.pin_rel_lpos /= self.site_width
         self.pin_size /= self.site_width
         self.__die_scale__ *= self.site_width
         return self
@@ -507,8 +533,10 @@ class PlaceData(object):
             device=self.die_info.device,
         )
         self.node_pos /= die_scale
+        self.node_lpos /= die_scale
         self.node_size /= die_scale
         self.pin_rel_cpos /= die_scale
+        self.pin_rel_lpos /= die_scale
         self.pin_size /= die_scale
         self.die_info = (self.die_info.reshape(2, 2).t() / die_scale).t().reshape(-1)
         self.region_boxes = (
@@ -534,7 +562,7 @@ class PlaceData(object):
         self.node_area = torch.prod(self.node_size, 1).unsqueeze(1)
         self.node_to_num_pins = torch.zeros(self.num_nodes, device=device)
         v = torch.ones(self.pin_id2node_id.shape[0], device=device)
-        self.node_to_num_pins.scatter_add_(0, self.pin_id2node_id, v)
+        self.node_to_num_pins.scatter_add_(0, self.pin_id2node_id, v).round_()
         self.node_to_num_pins.unsqueeze_(1)
         # net related
         start_idx = self.hyperedge_list_end.roll(1)
@@ -609,7 +637,6 @@ class PlaceData(object):
                     torch.round(total_filler_area / (filler_size_x * filler_size_y))
                 )
             else:
-                # Original implementation
                 mov_cell_area = torch.prod(mov_node_size, 1)
                 total_filler_area = max(
                     args.target_density * placeable_area
@@ -640,6 +667,20 @@ class PlaceData(object):
                     )
                 )
                 args.use_filler = False
+
+            die_area, placeable_area = die_area.item(), placeable_area.item()
+            fixed_node_area, mov_cell_area = fixed_node_area.item(), torch.sum(mov_cell_area).item()
+            total_filler_area = float(total_filler_area)
+            logger.info(
+                "DieArea: %.3E FixArea: %.3E (%.1f%%) PlaceableArea: %.3E (%.1f%%) MovArea: %.3E (%.1f%%) FillerArea: %.3E (%.1f%%)"
+                % (
+                    die_area,
+                    fixed_node_area, fixed_node_area / die_area * 100,
+                    placeable_area, placeable_area / die_area * 100,
+                    mov_cell_area, mov_cell_area / die_area * 100,
+                    total_filler_area, total_filler_area / die_area * 100,
+                )
+            )
 
         return self
 
@@ -745,8 +786,8 @@ class PlaceData(object):
     def get_mov_node_info(self, init_method="randn_center"):
         args = self.__args__
         mov_lhs, mov_rhs = self.movable_index
-        mov_node_pos = self.node_pos[mov_lhs:mov_rhs, ...]
-        mov_node_size = self.node_size[mov_lhs:mov_rhs, ...]
+        mov_node_pos = self.node_pos[mov_lhs:mov_rhs, ...].clone()
+        mov_node_size = self.node_size[mov_lhs:mov_rhs, ...].clone()
 
         if init_method == "randn_center":
             scale = (self.die_ur - self.die_ll) * 0.001
@@ -775,6 +816,7 @@ class PlaceData(object):
 
         expand_ratio = mov_node_pos.new_ones((mov_node_pos.shape[0]))
         if self.clamp_node:
+            self.mov_node_size_real = mov_node_size.clone() # before expanding
             mov_node_area = torch.prod(mov_node_size, 1)
             clamp_mov_node_size = mov_node_size.clamp(min=self.unit_len * math.sqrt(2))
             clamp_mov_node_area = torch.prod(clamp_mov_node_size, 1)

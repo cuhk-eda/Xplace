@@ -6,7 +6,7 @@ bool Database::readConstraints(const std::string& file) {
     string buffer;
     ifstream ifs(file.c_str());
     if (!ifs.good()) {
-        printlog(LOG_ERROR, "cannot open constraint file: %s", file.c_str());
+        logger.error("cannot open constraint file: %s", file.c_str());
         return false;
     }
     while (ifs >> buffer) {
@@ -18,7 +18,7 @@ bool Database::readConstraints(const std::string& file) {
                 string value = buffer.substr(equal + 1, unit - equal - 1);
                 maxDensity = atof(value.c_str()) / 100.0;
             } else {
-                printlog(LOG_WARN, "use input max util %f", maxDensity);
+                logger.warning("use input max util %f", maxDensity);
             }
         } else if (key == "maximum_movement") {
             if (!maxDisp) {
@@ -26,7 +26,7 @@ bool Database::readConstraints(const std::string& file) {
                 string value = buffer.substr(equal + 1, unit - equal - 1);
                 maxDisp = atof(value.c_str());
             } else {
-                printlog(LOG_WARN, "use input max disp %f", maxDisp);
+                logger.warning("use input max disp %f", maxDisp);
             }
         }
     }
@@ -37,7 +37,7 @@ bool Database::readConstraints(const std::string& file) {
 bool Database::readSize(const std::string& file) {
     ifstream fs(file.c_str());
     if (!fs.good()) {
-        printlog(LOG_ERROR, "cannot open size file: %s", file.c_str());
+        logger.error("cannot open size file: %s", file.c_str());
         return false;
     }
 
@@ -54,12 +54,12 @@ bool Database::readSize(const std::string& file) {
         }
     }
     if (siteW == 0 || siteH == 0) {
-        printlog(LOG_INFO, "not enough information to retrieve placement site size");
+        logger.info("not enough information to retrieve placement site size");
         return false;
     }
 
 #ifndef NDEBUG
-    printlog(LOG_INFO, "reading %s", file.c_str());
+    logger.info("reading %s", file.c_str());
 #endif
 
     std::set<CellType*> sized;
@@ -70,7 +70,7 @@ bool Database::readSize(const std::string& file) {
         if (name != "") {
             Cell* cell = getCell(name);
             if (cell == NULL) {
-                printlog(LOG_ERROR, "cell not found : %s", name.c_str());
+                logger.error("cell not found : %s", name.c_str());
                 break;
             } else {
                 CellType* celltype = cell->ctype();

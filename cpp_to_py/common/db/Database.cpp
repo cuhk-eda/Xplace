@@ -14,7 +14,7 @@ Database::~Database() {
     clear();
     // for regions.push_back(new Region("default"));
     CLEAR_POINTER_LIST(regions);
-    printlog(LOG_INFO, "destruct rawdb");
+    logger.info("destruct rawdb");
 }
 
 void Database::load() {
@@ -52,7 +52,7 @@ void Database::load() {
     // if (setting.Verilog != "") {
     //     readVerilog(setting.Verilog);
     // }
-    printlog(LOG_INFO, "Finish loading rawdb");
+    logger.info("Finish loading rawdb");
 }
 
 void Database::reset() {
@@ -244,19 +244,23 @@ void Database::SetupFloorplan() {
     for (Site& site : sites) {
         if (site.siteClassName() == "CORE") {
             if (siteW != (unsigned)site.width()) {
-                printlog(LOG_WARN,
-                         "siteW %d in DEF is inconsistent with siteW %d in LEF.",
-                         static_cast<int>(siteW),
-                         static_cast<int>(site.width()));
+                logger.warning("siteW %d in DEF is inconsistent with siteW %d in LEF.",
+                               static_cast<int>(siteW),
+                               static_cast<int>(site.width()));
             }
             if (siteH != site.height()) {
-                printlog(LOG_WARN,
-                         "siteH %d in DEF is inconsistent with siteH %d in LEF.",
-                         static_cast<int>(siteH),
-                         static_cast<int>(site.height()));
+                logger.warning("siteH %d in DEF is inconsistent with siteH %d in LEF.",
+                               static_cast<int>(siteH),
+                               static_cast<int>(site.height()));
             }
             break;
         }
+    }
+
+    nSitesX = (coreHX - coreLX) / siteW;
+    nSitesY = (coreHY - coreLY) / siteH;
+    if (!maxDisp) {
+        maxDisp = nSitesX;
     }
 }
 
@@ -294,8 +298,7 @@ void Database::SetupRegions() {
                 // member group name is a particular cell name
                 Cell* cell = getCell(member);
                 if (!cell) {
-                    printlog(
-                        LOG_ERROR, "cell name (%s) not found for group (%s)", member.c_str(), region->name().c_str());
+                    logger.error("cell name (%s) not found for group (%s)", member.c_str(), region->name().c_str());
                 }
                 cell->region = region;
             }
@@ -311,8 +314,6 @@ void Database::SetupRegions() {
 
 void Database::SetupSiteMap() {
     // set up site map
-    nSitesX = (coreHX - coreLX) / siteW;
-    nSitesY = (coreHY - coreLY) / siteH;
     siteMap.siteL = coreLX;
     siteMap.siteR = coreHX;
     siteMap.siteB = coreLY;
@@ -323,17 +324,13 @@ void Database::SetupSiteMap() {
     siteMap.siteNY = nSitesY;
     siteMap.initSiteMap(nSitesX, nSitesY);
 
-    if (!maxDisp) {
-        maxDisp = nSitesX;
-    }
-
     // mark site partially overlapped by fence
     int nRegions = regions.size();
     for (int i = 1; i < nRegions; i++) {
         // skipped the default region
         Region* region = regions[i];
 
-        printlog(LOG_VERBOSE, "region : %s", region->name().c_str());
+        logger.verbose("region : %s", region->name().c_str());
         // partially overlap at left/right
         vector<Rectangle> hSlices = region->rects;
         Rectangle::sliceH(hSlices);
@@ -478,17 +475,14 @@ void Database::SetupSiteMap() {
         }
     }
 
-    printlog(LOG_VERBOSE, "core area: %ld", siteMap.nSites);
-    printlog(LOG_VERBOSE,
-             "placeable: %ld (%lf%%)",
-             siteMap.nPlaceable,
-             (double)siteMap.nPlaceable / (double)siteMap.nSites * 100.0);
+    logger.verbose("core area: %ld", siteMap.nSites);
+    logger.verbose(
+        "placeable: %ld (%lf%%)", siteMap.nPlaceable, (double)siteMap.nPlaceable / (double)siteMap.nSites * 100.0);
     for (int i = 0; i < (int)regions.size(); i++) {
-        printlog(LOG_VERBOSE,
-                 "region %d : %ld (%lf%%)",
-                 i,
-                 siteMap.nRegionSites[i],
-                 (double)siteMap.nRegionSites[i] / (double)siteMap.nPlaceable);
+        logger.verbose("region %d : %ld (%lf%%)",
+                       i,
+                       siteMap.nRegionSites[i],
+                       (double)siteMap.nRegionSites[i] / (double)siteMap.nPlaceable);
     }
 }
 
@@ -502,17 +496,17 @@ void Database::SetupRows() {
         if (flip[y] == 0) {
             flip[y] = isFlip;
         } else if (flip[y] != isFlip) {
-            printlog(LOG_ERROR, "row flip conflict %d : %d", y, isFlip);
+            logger.error("row flip conflict %d : %d", y, isFlip);
             flipCheckPass = false;
         }
     }
 
     if (!flipCheckPass) {
-        printlog(LOG_ERROR, "row flip checking fail");
+        logger.error("row flip checking fail");
     }
 
     if (rows.size() != nSitesY) {
-        printlog(LOG_ERROR, "resize rows %d->%d", (int)rows.size(), nSitesY);
+        logger.error("resize rows %d->%d", (int)rows.size(), nSitesY);
         for (Row*& row : rows) {
             delete row;
             row = nullptr;
@@ -544,27 +538,24 @@ void Database::SetupRows() {
         if (!powerNet.getRowPower(ly, hy, row->_topPower, row->_botPower)) {
             if (topNormal && row->topPower() == 'x') {
                 if (y + 1 == nSitesY) {
-                    printlog(LOG_WARN, "Top power rail of the row at y=%d is not connected to power rail", row->y());
+                    logger.warning("Top power rail of the row at y=%d is not connected to power rail", row->y());
                 } else {
-                    printlog(LOG_ERROR, "Top power rail of the row at y=%d is not connected to power rail", row->y());
+                    logger.error("Top power rail of the row at y=%d is not connected to power rail", row->y());
                     topNormal = false;
                 }
             }
             if (botNormal && row->botPower() == 'x') {
                 if (y) {
-                    printlog(
-                        LOG_ERROR, "Bottom power rail of the row at y=%d is not connected to power rail", row->y());
+                    logger.error("Bottom power rail of the row at y=%d is not connected to power rail", row->y());
                     botNormal = false;
                 } else {
-                    printlog(LOG_WARN, "Bottom power rail of the row at y=%d is not connected to power rail", row->y());
+                    logger.warning("Bottom power rail of the row at y=%d is not connected to power rail", row->y());
                 }
             }
         }
         if (shrNormal && row->topPower() == row->botPower()) {
-            printlog(LOG_ERROR,
-                     "Top and Bottom power rail of the row at y=%d share the same power %c",
-                     row->y(),
-                     row->topPower());
+            logger.error(
+                "Top and Bottom power rail of the row at y=%d share the same power %c", row->y(), row->topPower());
             shrNormal = false;
         }
     }
@@ -628,7 +619,7 @@ void Database::setup() {
         SetupRows();
         SetupRowSegments();
     }
-    printlog(LOG_INFO, "Finish setting up rawdb");
+    logger.info("Finish setting up rawdb");
 }
 
 Layer& Database::addLayer(const string& name, const char type) {
@@ -654,7 +645,7 @@ Layer& Database::addLayer(const string& name, const char type) {
 Site& Database::addSite(const string& name, const string& siteClassName, const int w, const int h) {
     for (unsigned i = 0; i < sites.size(); i++) {
         if (name == sites[i].name()) {
-            printlog(LOG_WARN, "site re-defined: %s", name.c_str());
+            logger.warning("site re-defined: %s", name.c_str());
             return sites[i];
         }
     }
@@ -665,7 +656,7 @@ Site& Database::addSite(const string& name, const string& siteClassName, const i
 ViaType* Database::addViaType(const string& name, bool isDef) {
     ViaType* viatype = getViaType(name);
     if (viatype) {
-        printlog(LOG_WARN, "via type re-defined: %s", name.c_str());
+        logger.warning("via type re-defined: %s", name.c_str());
         return viatype;
     }
     viatype = new ViaType(name, isDef);
@@ -677,7 +668,7 @@ ViaType* Database::addViaType(const string& name, bool isDef) {
 CellType* Database::addCellType(const string& name, unsigned libcell) {
     CellType* celltype = getCellType(name);
     if (celltype) {
-        printlog(LOG_WARN, "cell type re-defined: %s", name.c_str());
+        logger.warning("cell type re-defined: %s", name.c_str());
         return celltype;
     }
     celltype = new CellType(name, libcell);
@@ -689,7 +680,7 @@ CellType* Database::addCellType(const string& name, unsigned libcell) {
 Cell* Database::addCell(const string& name, CellType* type) {
     Cell* cell = getCell(name);
     if (cell) {
-        printlog(LOG_WARN, "cell re-defined: %s", name.c_str());
+        logger.warning("cell re-defined: %s", name.c_str());
         if (!cell->ctype()) {
             cell->ctype(type);
         }
@@ -704,7 +695,7 @@ Cell* Database::addCell(const string& name, CellType* type) {
 IOPin* Database::addIOPin(const string& name, const string& netName, const char direction) {
     IOPin* iopin = getIOPin(name);
     if (iopin) {
-        printlog(LOG_WARN, "IO pin re-defined: %s", name.c_str());
+        logger.warning("IO pin re-defined: %s", name.c_str());
         return iopin;
     }
     iopin = new IOPin(name, netName, direction);
@@ -716,7 +707,7 @@ IOPin* Database::addIOPin(const string& name, const string& netName, const char 
 Net* Database::addNet(const string& name, const NDR* ndr) {
     Net* net = getNet(name);
     if (net) {
-        printlog(LOG_WARN, "Net re-defined: %s", name.c_str());
+        logger.warning("Net re-defined: %s", name.c_str());
         return net;
     }
     net = new Net(name, ndr);
@@ -748,7 +739,7 @@ Track* Database::addTrack(char direction, double start, double num, double step)
 Region* Database::addRegion(const string& name, const char type) {
     Region* region = getRegion(name);
     if (region) {
-        printlog(LOG_WARN, "Region re-defined: %s", name.c_str());
+        logger.warning("Region re-defined: %s", name.c_str());
         return region;
     }
     region = new Region(name, type);
@@ -759,7 +750,7 @@ Region* Database::addRegion(const string& name, const char type) {
 NDR* Database::addNDR(const string& name, const bool hardSpacing) {
     NDR* ndr = getNDR(name);
     if (ndr) {
-        printlog(LOG_WARN, "NDR re-defined: %s", name.c_str());
+        logger.warning("NDR re-defined: %s", name.c_str());
         return ndr;
     }
     ndr = new NDR(name, hardSpacing);
@@ -856,7 +847,7 @@ const Layer* Database::getCLayer(const unsigned index) const {
 
 /* get cell type by name */
 CellType* Database::getCellType(const string& name) {
-    unordered_map<string, CellType*>::iterator mi = name_celltypes.find(name);
+    robin_hood::unordered_map<string, CellType*>::iterator mi = name_celltypes.find(name);
     if (mi == name_celltypes.end()) {
         return nullptr;
     }
@@ -864,7 +855,7 @@ CellType* Database::getCellType(const string& name) {
 }
 
 Cell* Database::getCell(const string& name) {
-    unordered_map<string, Cell*>::iterator mi = name_cells.find(name);
+    robin_hood::unordered_map<string, Cell*>::iterator mi = name_cells.find(name);
     if (mi == name_cells.end()) {
         return nullptr;
     }
@@ -872,7 +863,7 @@ Cell* Database::getCell(const string& name) {
 }
 
 Net* Database::getNet(const string& name) {
-    unordered_map<string, Net*>::iterator mi = name_nets.find(name);
+    robin_hood::unordered_map<string, Net*>::iterator mi = name_nets.find(name);
     if (mi == name_nets.end()) {
         return nullptr;
     }
@@ -904,7 +895,7 @@ NDR* Database::getNDR(const string& name) const {
 }
 
 IOPin* Database::getIOPin(const string& name) const {
-    unordered_map<string, IOPin*>::const_iterator mi = name_iopins.find(name);
+    robin_hood::unordered_map<string, IOPin*>::const_iterator mi = name_iopins.find(name);
     if (mi == name_iopins.end()) {
         return nullptr;
     }
@@ -912,7 +903,7 @@ IOPin* Database::getIOPin(const string& name) const {
 }
 
 ViaType* Database::getViaType(const string& name) const {
-    unordered_map<string, ViaType*>::const_iterator mi = name_viatypes.find(name);
+    robin_hood::unordered_map<string, ViaType*>::const_iterator mi = name_viatypes.find(name);
     if (mi == name_viatypes.end()) {
         return nullptr;
     }
@@ -1031,19 +1022,19 @@ void Database::errorCheck(bool autoFix) {
     for (int i = 0; i < (int)dbIssues.size(); i++) {
         switch (dbIssues[i]) {
             case E_ROW_EXCEED_DIE:
-                printlog(LOG_WARN, "row is placed out of die area");
+                logger.warning("row is placed out of die area");
                 break;
             case W_NON_UNIFORM_SITE_WIDTH:
-                printlog(LOG_WARN, "non uniform site width detected");
+                logger.warning("non uniform site width detected");
                 break;
             case W_NON_HORIZONTAL_ROW:
-                printlog(LOG_WARN, "non horizontal row detected");
+                logger.warning("non horizontal row detected");
                 break;
             case E_NO_NET_DRIVING_PIN:
-                printlog(LOG_WARN, "missing net driving pin");
+                logger.warning("missing net driving pin");
                 break;
             case E_MULTIPLE_NET_DRIVING_PIN:
-                printlog(LOG_WARN, "multiple net driving pin");
+                logger.warning("multiple net driving pin");
                 break;
             default:
                 break;
@@ -1052,7 +1043,7 @@ void Database::errorCheck(bool autoFix) {
 }
 
 void Database::checkPlaceError() {
-    printlog(LOG_INFO, "starting checking...");
+    logger.info("starting checking...");
     int nError = 0;
     vector<Cell*> cells = this->cells;
     sort(cells.begin(), cells.end(), [](const Cell* a, const Cell* b) { return a->lx() < b->lx(); });
@@ -1075,11 +1066,11 @@ void Database::checkPlaceError() {
         }
     }
 
-    printlog(LOG_INFO, "#overlap=%d", nError);
+    logger.info("#overlap=%d", nError);
 }
 
 void Database::checkDRCError() {
-    printlog(LOG_INFO, "starting checking...");
+    logger.info("starting checking...");
     vector<int> nOverlapErrors(3);
     vector<int> nSpacingErrors(3);
 
@@ -1154,7 +1145,7 @@ void Database::checkDRCError() {
     }
 
     for (unsigned i = 0; i != 3; ++i) {
-        printlog(LOG_INFO, "m%d = %u", i + 1, metals[i].size());
+        logger.info("m%d = %u", i + 1, metals[i].size());
         sort(metals[i].begin(), metals[i].end(), [](const Metal& a, const Metal& b) {
             return (a.rect.lx == b.rect.lx) ? (a.rect.ly < b.rect.ly) : (a.rect.lx < b.rect.lx);
         });
@@ -1217,7 +1208,7 @@ void Database::checkDRCError() {
     */
 
     for (unsigned i = 0; i != 3; ++i) {
-        printlog(LOG_INFO, "#M%u overlaps = %d", i + 1, nOverlapErrors[i]);
-        printlog(LOG_INFO, "#M%u spacings = %d", i + 1, nSpacingErrors[i]);
+        logger.info("#M%u overlaps = %d", i + 1, nOverlapErrors[i]);
+        logger.info("#M%u spacings = %d", i + 1, nSpacingErrors[i]);
     }
 }

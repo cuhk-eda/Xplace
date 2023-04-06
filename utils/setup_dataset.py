@@ -41,33 +41,31 @@ def setup_dataset_args(args):
     elif args.design_name in ["mgc_superblue19"]:
         args.num_bin_x, args.num_bin_y = 512, 512
         args.target_density = 0.53
-    # w/o fence region in ispd2015
-    elif args.dataset == "ispd2015_without_fence":
-        if args.design_name in ["mgc_des_perf_a"]:
-            args.num_bin_x, args.num_bin_y = 512, 512
-            args.target_density = 0.429
-        elif args.design_name in ["mgc_des_perf_b"]:
-            args.num_bin_x, args.num_bin_y = 512, 512
-            args.target_density = 0.497
-        elif args.design_name in ["mgc_edit_dist_a"]:
-            args.num_bin_x, args.num_bin_y = 512, 512
-            args.target_density = 0.455
-        elif args.design_name in ["mgc_matrix_mult_b"]:
-            args.num_bin_x, args.num_bin_y = 512, 512
-            args.target_density = 0.60
-        elif args.design_name in ["mgc_matrix_mult_c"]:
-            args.num_bin_x, args.num_bin_y = 512, 512
-            args.target_density = 0.60
-        elif args.design_name in ["mgc_pci_bridge32_a"]:
-            args.num_bin_x, args.num_bin_y = 512, 512
-            args.target_density = 0.384
-        elif args.design_name in ["mgc_pci_bridge32_b"]:
-            args.num_bin_x, args.num_bin_y = 512, 512
-            args.target_density = 0.143
-        elif args.design_name in ["mgc_superblue11_a"]:
-            args.num_bin_x, args.num_bin_y = 512, 512
-            args.target_density = 0.65
-        elif args.design_name in ["mgc_superblue16_a"]:
-            args.num_bin_x, args.num_bin_y = 512, 512
-            args.target_density = 0.55
+    elif args.design_name in ["mgc_des_perf_a"]:
+        args.num_bin_x, args.num_bin_y = 512, 512
+        args.target_density = 0.429
+    elif args.design_name in ["mgc_des_perf_b"]:
+        args.num_bin_x, args.num_bin_y = 512, 512
+        args.target_density = 0.497
+    elif args.design_name in ["mgc_edit_dist_a"]:
+        args.num_bin_x, args.num_bin_y = 512, 512
+        args.target_density = 0.455
+    elif args.design_name in ["mgc_matrix_mult_b"]:
+        args.num_bin_x, args.num_bin_y = 512, 512
+        args.target_density = 0.60
+    elif args.design_name in ["mgc_matrix_mult_c"]:
+        args.num_bin_x, args.num_bin_y = 512, 512
+        args.target_density = 0.60
+    elif args.design_name in ["mgc_pci_bridge32_a"]:
+        args.num_bin_x, args.num_bin_y = 512, 512
+        args.target_density = 0.384
+    elif args.design_name in ["mgc_pci_bridge32_b"]:
+        args.num_bin_x, args.num_bin_y = 512, 512
+        args.target_density = 0.143
+    elif args.design_name in ["mgc_superblue11_a"]:
+        args.num_bin_x, args.num_bin_y = 512, 512
+        args.target_density = 0.65
+    elif args.design_name in ["mgc_superblue16_a"]:
+        args.num_bin_x, args.num_bin_y = 512, 512
+        args.target_density = 0.55
     return args

@@ -28,7 +28,6 @@ extern bool verbose_parser_log;
 
 // 1. Timer
 
-
 class timer {
     using clock = std::chrono::high_resolution_clock;
 
@@ -54,18 +53,6 @@ public:
 
 // 3. Easy print
 
-// print(a, b, c)
-inline void print() { std::cout << std::endl; }
-template <typename T, typename... TAIL>
-void print(const T& t, TAIL... tail) {
-    std::cout << t << ' ';
-    print(tail...);
-}
-
-// "printlog(LOG_LEVEL, a, b, c...)" puts a time stamp in beginning
-// try to make code compatible with old printlog(int level, const char *format, ...)
-void printlog(int level, const char* format, ...);
-
 void assert_msg(bool condition, const char* format, ...);
 
 std::string log_level_ANSI_color(int& log_level);
@@ -75,11 +62,26 @@ std::string log_level_ANSI_color(int& log_level);
 class PrintfLogger {
     static constexpr bool write_log = false;
     FILE* f;
+    bool tmp_verbose_parser_log = false;
 
 public:
     // void setup_logger(argparse::ArgumentParser parser);
     ~PrintfLogger() {
         if (f != NULL) fclose(f);
+    }
+
+    void enable_logger() {
+        tmp_verbose_parser_log = verbose_parser_log;
+        verbose_parser_log = true;
+    }
+
+    void disable_logger() {
+        tmp_verbose_parser_log = verbose_parser_log;
+        verbose_parser_log = false;
+    }
+
+    void reset_logger() {
+        verbose_parser_log = tmp_verbose_parser_log;
     }
 
     template <typename... Args>
@@ -105,37 +107,89 @@ public:
         }
     }
 
+    void log(int log_level, const char* format) {
+        if (!verbose_parser_log) {
+            return;
+        }
+        if (log_level >= GLOBAL_LOG_LEVEL) {
+            std::string curr_log = tstamp.get_time_stamp();
+            if (log_level > LOG_INFO) {
+                curr_log += log_level_ANSI_color(log_level);
+            }
+            std::cout << curr_log;
+            puts(format);
+            fflush(stdout);
+            if (write_log) {
+                fprintf(f, "%s", curr_log.c_str());
+                fputs(format, f);
+                fflush(f);
+            }
+        }
+    }
+
     template <typename... Args>
     void debug(const char* format, Args&&... args) {
-        log(LOG_DEBUG, format, args...);
+        if (sizeof...(args) != 0) {
+            log(LOG_DEBUG, format, args...);
+        } else {
+            log(LOG_DEBUG, format);
+        }
     };
     template <typename... Args>
     void verbose(const char* format, Args&&... args) {
-        log(LOG_VERBOSE, format, args...);
+        if (sizeof...(args) != 0) {
+            log(LOG_VERBOSE, format, args...);
+        } else {
+            log(LOG_VERBOSE, format);
+        }
     };
     template <typename... Args>
     void info(const char* format, Args&&... args) {
-        log(LOG_INFO, format, args...);
+        if (sizeof...(args) != 0) {
+            log(LOG_INFO, format, args...);
+        } else {
+            log(LOG_INFO, format);
+        }
     };
     template <typename... Args>
     void notice(const char* format, Args&&... args) {
-        log(LOG_NOTICE, format, args...);
+        if (sizeof...(args) != 0) {
+            log(LOG_NOTICE, format, args...);
+        } else {
+            log(LOG_NOTICE, format);
+        }
     };
     template <typename... Args>
     void warning(const char* format, Args&&... args) {
-        log(LOG_WARN, format, args...);
+        if (sizeof...(args) != 0) {
+            log(LOG_WARN, format, args...);
+        } else {
+            log(LOG_WARN, format);
+        }
     };
     template <typename... Args>
     void error(const char* format, Args&&... args) {
-        log(LOG_ERROR, format, args...);
+        if (sizeof...(args) != 0) {
+            log(LOG_ERROR, format, args...);
+        } else {
+            log(LOG_ERROR, format);
+        }
     };
     template <typename... Args>
     void fatal(const char* format, Args&&... args) {
-        log(LOG_FATAL, format, args...);
+        if (sizeof...(args) != 0) {
+            log(LOG_FATAL, format, args...);
+        } else {
+            log(LOG_FATAL, format);
+        }
     };
     template <typename... Args>
     void ok(const char* format, Args&&... args) {
-        log(LOG_OK, format, args...);
+        if (sizeof...(args) != 0) {
+            log(LOG_OK, format, args...);
+        } else {
+            log(LOG_OK, format);
+        }
     };
 };
 

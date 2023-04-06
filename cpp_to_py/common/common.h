@@ -45,5 +45,4 @@
 using namespace std;
 
 using utils::assert_msg;
-using utils::print;
-using utils::printlog;
+using utils::logger;

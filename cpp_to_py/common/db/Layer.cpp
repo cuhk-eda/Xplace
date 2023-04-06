@@ -10,7 +10,7 @@ char Track::macro() const {
         case 'v':
             return 'X';
         default:
-            printlog(LOG_ERROR, "track direction not recognized: %c", direction);
+            logger.error("track direction not recognized: %c", direction);
             return '\0';
     }
 }

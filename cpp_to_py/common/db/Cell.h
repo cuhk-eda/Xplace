@@ -118,6 +118,7 @@ public:
     void fixed(bool fix) { _fixed = fix; }
     bool placed() const;
     void place(int x, int y);
+    void place(int x, int y, int orient);
     void place(int x, int y, bool flipX, bool flipY);
     void unplace();
     unsigned numPins() const { return _pins.size(); }

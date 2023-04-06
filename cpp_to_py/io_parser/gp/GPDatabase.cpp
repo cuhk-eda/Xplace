@@ -2,7 +2,7 @@
 
 namespace gp {
 
-GPDatabase::~GPDatabase() { printlog(LOG_INFO, "destruct gpdb"); }
+GPDatabase::~GPDatabase() { logger.info("destruct gpdb"); }
 
 void GPDatabase::addCellNode(index_type cell_id, std::string& node_type) {
     auto cell = database.cells[cell_id];
@@ -17,10 +17,10 @@ void GPDatabase::addCellNode(index_type cell_id, std::string& node_type) {
     node.setOrient(cell->orient());
     node.setNodeType(node_type);
     node.setOriDBId(cell_id);
-    if (node_type == "Mov" || node_type == "FloatMov") {
-        node.setRegionId(static_cast<index_type>(cell->region->id));
-        regions[node.getRegionId()].addNode(node.getId());
-    }
+
+    node.setRegionId(static_cast<index_type>(cell->region->id));
+    regions[node.getRegionId()].addNode(node.getId());
+
     if (cell->fixed() && cell->ctype()->nonRegularRects().size() > 0) {
         node.setIsPolygonShape(true);
     }
@@ -146,7 +146,6 @@ void GPDatabase::setupNum() {
 
     pin_id2node_id.reserve(num_pins);
     pin_id2net_id.reserve(num_pins);
-
 }
 
 void GPDatabase::setupNodes() {
@@ -269,17 +268,16 @@ void GPDatabase::setupIndexMap() {
         pin_id2node_id.emplace_back(node.getId());
         pin_id2net_id.emplace_back(net.getId());
     }
-    for (auto& node: nodes) {
+    for (auto& node : nodes) {
         node_id2node_name.emplace_back(node.getName());
     }
 }
-
 
 void GPDatabase::setupCheckVar() {
     assert_msg(nodes.size() == num_nodes, "Nodes size is (%d), it should be (%d)", nodes.size(), num_nodes);
     assert_msg(nets.size() == num_nets, "Nets size is (%d), it should be (%d)", nets.size(), num_nets);
     assert_msg(pins.size() == num_pins, "Pins size is (%d), it should be (%d)", pins.size(), num_pins);
-    printlog(LOG_VERBOSE, "Finish checking");
+    logger.verbose("Finish checking");
 
     // check whether nodes and pins are placed out of boundary or not
     // TODO change log_debug to log_warn
@@ -310,7 +308,7 @@ void GPDatabase::setupCheckVar() {
 bool GPDatabase::setup() {
     if (db::setting.random_place) {
         setup_random_place();
-        printlog(LOG_INFO, "random place db done");
+        logger.info("random place db done");
     }
     setupNum();
     setupRegions();
@@ -318,7 +316,7 @@ bool GPDatabase::setup() {
     setupNets();
     setupIndexMap();
     setupCheckVar();
-    printlog(LOG_INFO, "Finish initializing global placement database");
+    logger.info("Finish initializing global placement database");
     return true;
 }
 
@@ -411,8 +409,8 @@ torch::Tensor GPDatabase::getNodeSizeTensor() {
             node_size_a[node.getId()][0] = node.getWidth();
             node_size_a[node.getId()][1] = node.getHeight();
         } else {
-            // ICCAD/DAC 2012 contain fixed polygon-shape nodes. We consider them as placement 
-            // blockages instead of fixed nodes. So we set their width and height as zeros to 
+            // ICCAD/DAC 2012 contain fixed polygon-shape nodes. We consider them as placement
+            // blockages instead of fixed nodes. So we set their width and height as zeros to
             // avoid duplicated density calculation.
         }
     }
@@ -493,6 +491,37 @@ std::vector<torch::Tensor> GPDatabase::getHyperedgeInfoTensor() {
     return {hyperedge_index, hyperedge_list, hyperedge_list_end};
 }
 
+std::vector<torch::Tensor> GPDatabase::getNode2PinInfoTensor() {
+    auto options = torch::TensorOptions().dtype(torch::kInt64);
+
+    torch::Tensor node2pin_index_helper = torch::zeros({num_pins}, options);
+    torch::Tensor node2pin_list = torch::zeros({num_pins}, options);
+    torch::Tensor node2pin_list_end = torch::zeros({num_nodes}, options);
+
+    auto node2pin_index_helper_a = node2pin_index_helper.accessor<index_type, 1>();
+    auto node2pin_list_a = node2pin_list.accessor<index_type, 1>();
+    auto node2pin_list_end_a = node2pin_list_end.accessor<index_type, 1>();
+
+    index_type ptr = 0;
+    index_type last_idx = 0;
+    for (auto& node : nodes) {
+        index_type node_id = node.getId();
+        for (auto pin_id : node.pins()) {
+            node2pin_list_a[ptr] = pin_id;
+            node2pin_index_helper_a[ptr] = node_id;
+            ptr += 1;
+        }
+        last_idx += node.pins().size();
+        node2pin_list_end_a[node_id] = last_idx;
+    }
+    auto node2pin_index = torch::cat({node2pin_list.unsqueeze(0), node2pin_index_helper.unsqueeze(0)}, 0);
+
+    auto new_order_idx = torch::argsort(node2pin_index.index({0}), 0, false);
+    node2pin_index = node2pin_index.index({torch::indexing::Slice(), new_order_idx});
+
+    return {node2pin_index, node2pin_list, node2pin_list_end};
+}
+
 std::vector<torch::Tensor> GPDatabase::getRegionInfoTensor() {
     auto options_int = torch::TensorOptions().dtype(torch::kInt64);
 
@@ -533,15 +562,51 @@ std::vector<torch::Tensor> GPDatabase::getRegionInfoTensor() {
     return {node_id2region_id, region_boxes, region_boxes_end};
 }
 
-void GPDatabase::applyNodePos(torch::Tensor node_cpos) {
+void GPDatabase::applyOneNodeOrient(int node_id) {
+    auto& node = nodes[node_id];
+    int rowId;
+    int numRows = database.rows.size();
+    if (node.getLy() <= database.coreLY) {
+        rowId = 0;
+    } else if (node.getLy() >= database.coreHY) {
+        rowId = numRows - 1;
+    } else {
+        rowId = std::lround((node.getLy() - database.coreLY) / (float)siteH);
+        rowId = std::max(std::min(rowId, numRows - 1), 0);
+    }
+    auto row = database.rows[rowId];
+    if (row->flip()) {
+        node.setOrient(6);  // FS
+    } else {
+        node.setOrient(0);  // N
+    }
+}
+
+void GPDatabase::applyNodeCPos(torch::Tensor node_cpos) {
+    const float* node_cpos_ptr = node_cpos.data_ptr<float>();
     for (auto& node : nodes) {
-        if (node.getNodeType() != "Mov") {
+        if (node.getNodeType() != "Mov" && node.getNodeType() != "FloatMov") {
             continue;
         }
-        node.setLx(node_cpos[node.getId()][0].item<coord_type>() - node.getWidth() / 2);
-        node.setLy(node_cpos[node.getId()][1].item<coord_type>() - node.getHeight() / 2);
+        node.setLx(node_cpos_ptr[node.getId() * 2 + 0] - node.getWidth() / 2);
+        node.setLy(node_cpos_ptr[node.getId() * 2 + 1] - node.getHeight() / 2);
+        applyOneNodeOrient(node.getId());
         auto cell = database.cells[node.getOriDBId()];
-        cell->place(static_cast<int>(node.getLx()), static_cast<int>(node.getLy()));
+        cell->place(std::lround(node.getLx()), std::lround(node.getLy()), node.getOrient());
+    }
+}
+
+void GPDatabase::applyNodeLPos(torch::Tensor node_lpos) {
+    const float* node_lpos_ptr = node_lpos.data_ptr<float>();
+    for (auto& node : nodes) {
+        if (node.getNodeType() != "Mov" && node.getNodeType() != "FloatMov") {
+            continue;
+        }
+        node.setLx(node_lpos_ptr[node.getId() * 2 + 0]);
+        node.setLy(node_lpos_ptr[node.getId() * 2 + 1]);
+        applyOneNodeOrient(node.getId());
+        auto cell = database.cells[node.getOriDBId()];
+        cell->place(std::lround(node.getLx()), std::lround(node.getLy()), node.getOrient());
     }
 }
 

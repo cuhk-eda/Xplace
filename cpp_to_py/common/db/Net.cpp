@@ -111,7 +111,7 @@ void Net::addPin(Pin* pin) {
 void PowerNet::addRail(SNet* snet, int lx, int hx, int y) {
     map<int, SNet*>::iterator rail = rails.find(y);
     if (rail != rails.end() && rail->second != snet) {
-        printlog(LOG_ERROR, "rail %s already exists at y=%d , new rail %s is from %d to %d", rail->second->name.c_str(),
+        logger.error("rail %s already exists at y=%d , new rail %s is from %d to %d", rail->second->name.c_str(),
                  y, snet->name.c_str(),
                  lx,
                  hx);

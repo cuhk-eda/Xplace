@@ -6,8 +6,10 @@ __all__ = [
     "io_parser",
     "density_map_cuda",
     "draw_placement",
-    "node_pos_to_pin_pos_cuda",
     "wa_wirelength_hpwl_cuda",
+    "gpugr",
+    "gpudp",
+    "routedp",
 ]
 from .cpybin import (
     dct_cuda,
@@ -16,7 +18,9 @@ from .cpybin import (
     io_parser,
     density_map_cuda,
     draw_placement,
-    node_pos_to_pin_pos_cuda,
     wa_wirelength_hpwl_cuda,
+    gpugr,
+    gpudp,
+    routedp,
 )
 
