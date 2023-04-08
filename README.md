@@ -137,7 +137,7 @@ python main.py --dataset ispd2015_fix --run_all True --load_from_raw True --deta
 
 More details about using GGR in Xplace can be found in [cpp_to_py/gpugr/README.md](cpp_to_py/gpugr/README.md).
 
-## Evaluate theroutability of Xplace's solution 
+## Evaluate the routability of Xplace's solution 
 We provide three ways to evaluate the routability of a placement solution:
 
 1. Set `--final_route_eval True` to invoke [GGR](https://dl.acm.org/doi/10.1145/3508352.3549474) to evaluate the placement solution.
