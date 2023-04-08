@@ -6,6 +6,7 @@ We are happy to announce that Xplace 2.0 is now released. Compared to [Xplace 1.
 - Support deterministic mode with only 5~25% extra GP runtime overhead.
 - Implement an extremely fast GPU-accelerated detailed-routability-driven placement algorithm.
 - Integrate with a GPU-accelerated detailed placer and a GPU-accelerated global router.
+- Support a superfast **GPU-accelerated place and global route flow** ([Xplace](https://dl.acm.org/doi/abs/10.1145/3489517.3530485) + [GGR](https://dl.acm.org/doi/10.1145/3508352.3549474))! Input your LEF/DEF, the flow will output the **placement DEF** and the **global routing guide**! 
 - Provide benchmark download and preprocess scripts, and three routability evaluation scripts. 
 - Code refactoring.
 
@@ -50,7 +51,7 @@ cmake -DPYTHON_EXECUTABLE=$(which python) ..
 make -j40 && make install
 ```
 
-## Prepare Data
+## Prepare data
 The following script will automatically download `ispd2005`, `ispd2015`, and `iccad2019` benchmarks in `./data/raw`. It also preprocesses `ispd2015` benchmark to fix some errors when routing them by Innovus®.
 ```bash
 cd $XPLACE_HOME/data
@@ -95,15 +96,23 @@ In ./result/exp_id
 ## Parameters
 Please refer to `main.py`.
 
+## Run custom dataset
+You can use the argument `--custom_path` to run your custom LEF/DEF or bookshelf benchmark.
+
+Suppose there is a LEF/DEF benchmark named `toy` in `data/raw`, you can use the following command line to run the GP + DP flow:
+```bash
+python main.py --custom_path lef:data/raw/toy_input.lef,def:data/raw/toy_input.def,design_name:toy,benchmark:test --load_from_raw True --detail_placement True
+```
+
 
 ## Load design from preprocessed `pt` file (Optional)
 The following script will dump the parsed design into a single torch `pt` file so Xplace can load the design from the `pt` file instead of parsing the input file from scratch. 
 
 ```bash
 cd $XPLACE_HOME/data
-python utils/convert_design_to_torch_data.py --dataset ispd2005
-python utils/convert_design_to_torch_data.py --dataset ispd2015_fix
-python utils/convert_design_to_torch_data.py --dataset iccad2019
+python convert_design_to_torch_data.py --dataset ispd2005
+python convert_design_to_torch_data.py --dataset ispd2015_fix
+python convert_design_to_torch_data.py --dataset iccad2019
 ```
 Preprocessed data is saved in `./data/cad`.
 
@@ -116,16 +125,26 @@ python main.py --dataset ispd2005 --run_all True --load_from_raw False
 **NOTE**: 
 1. Please remember to use the raw mode (set `--load_from_raw True`) when measuring the total running time.
 2. We currently do not support `pt` mode in the routability-driven global placement.
+3. If you want to run `pt` mode for the custom dataset, you need to add the custom dataset path in `utils/get_design_params.py`.
 
-## Evaluate the Routability of Xplace's Solution 
+## GPU-accelerated place and global route flow (Xplace + GGR)
+Set `--final_route_eval True` in Python arguments to invoke the internal global router [GGR](https://dl.acm.org/doi/10.1145/3508352.3549474) to run GPU-accelerated PnR flow. The flow will output the **placement DEF** and the **global routing guide** in `./result/exp_id/output`. Besides, GR metrics are reported in the log and recorded in `./result/exp_id/log/route.csv`. 
+
+- To run Place and Global Route flow for ISPD2015 dataset:
+```bash
+python main.py --dataset ispd2015_fix --run_all True --load_from_raw True --detail_placement True --use_cell_inflate True --final_route_eval True
+```
+
+More details about using GGR in Xplace can be found in [cpp_to_py/gpugr/README.md](cpp_to_py/gpugr/README.md).
+
+## Evaluate theroutability of Xplace's solution 
 We provide three ways to evaluate the routability of a placement solution:
 
-1. Set `--final_route_eval True` in Python arguments to invoke the internal global router [GGR](https://dl.acm.org/doi/10.1145/3508352.3549474) to evaluate the placement solution. The evaluation metrics are reported in the log and recorded in `./result/exp_id/log/route.csv`. Besides, the route guide file is written in `./result/exp_id/output/design_name.guide`.  
-More details about using GGR in Xplace can be found in [cpp_to_py/gpugr](cpp_to_py/gpugr).
+1. Set `--final_route_eval True` to invoke [GGR](https://dl.acm.org/doi/10.1145/3508352.3549474) to evaluate the placement solution.
 
-2. Use [CU-GR](https://github.com/cuhk-eda/cu-gr) to evaluate the placement solution by global routing. Please refer to [tool/cugr_ispd2015_fix](tool/cugr_ispd2015_fix) for instructions.
+2. Use [CU-GR](https://github.com/cuhk-eda/cu-gr) to evaluate the placement solution by global routing. Please refer to [tool/cugr_ispd2015_fix/README.md](tool/cugr_ispd2015_fix/README.md) for instructions.
 
-3. (Optional). If Innovus® has been properly installed in your OS, you may try to use Innovus® to detailedly route the placement solution. Please refer to [tool/innovus_ispd2015_fix](tool/innovus_ispd2015_fix) for instructions.
+3. (Optional). If Innovus® has been properly installed in your OS, you may try to use Innovus® to detailedly route the placement solution. Please refer to [tool/innovus_ispd2015_fix/README.md](tool/innovus_ispd2015_fix/README.md) for instructions.
 
 
 ## Citation

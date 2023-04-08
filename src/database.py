@@ -1,25 +1,18 @@
-"""
-Adapted from torch_geometric/data/data.py
-"""
 import torch
 import collections
 import copy
 import math
 from utils import *
 
-def get_dataset(args, logger):
-    with open("./data/cad/%s/datalist.csv" % (args.dataset), "r") as f:
-        all_files = f.readlines()
-        all_files = [line[:-1] for line in all_files]
-    for cur_file in all_files:
-        yield cur_file
-
 
 def load_dataset(args, logger, placement=None):
     rawdb, gpdb = None, None
-    params = get_single_design_params(
-        args.dataset_root, args.dataset, args.design_name, placement
-    )
+    if args.custom_path != "":
+        params = get_custom_design_params(args)
+    else:
+        params = get_single_design_params(
+            args.dataset_root, args.dataset, args.design_name, placement
+        )
     parser = IOParser()
     if args.load_from_raw:
         logger.info("loading from original benchmark...")

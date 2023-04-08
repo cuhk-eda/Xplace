@@ -7,6 +7,7 @@ def get_option():
     parser.add_argument('--dataset_root', type=str, default='data/raw', help='the parent folder of dataset')
     parser.add_argument('--dataset', type=str, default='ispd2015_fix', help='dataset name')
     parser.add_argument('--design_name', type=str, default='mgc_superblue12', help='design name')
+    parser.add_argument('--custom_path', type=str, default='', help='custom design path, set it as token1:path1,token2:path2 e.g. lef:data/test.lef,def:data/test.def,design_name:mydesign,benchmark:mybenchmark')
     parser.add_argument('--load_from_raw', type=str2bool, default=True, help='If True, parse and load from benchmark files. If False, load from pt')
     parser.add_argument('--run_all', type=str2bool, default=False, help='If True, run all designs in the given dataset. If False, run the given design_name only.')
     parser.add_argument('--seed', type=int, default=0, help='seed to initialize all the random modules')
@@ -74,6 +75,9 @@ def get_option():
     if args.dataset == "ispd2015":
         print("We haven't yet support fence region in ispd2015, use ispd2015_fix instead")
         args.dataset = "ispd2015_fix"
+
+    if args.custom_path != "":
+        get_custom_design_params(args)
 
     return args
 

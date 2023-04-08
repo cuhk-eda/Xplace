@@ -525,7 +525,7 @@ class ParamScheduler:
 
 
     def visualize(self, args, logger):
-        file_prefix = "%s/%s_ms_" % (args.dataset, args.design_name)
+        file_prefix = "%s_" % args.design_name
         res_root = os.path.join(args.result_dir, args.exp_id)
         prefix = os.path.join(res_root, args.eval_dir, file_prefix)
         if not os.path.exists(os.path.dirname(prefix)):
