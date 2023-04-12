@@ -60,19 +60,9 @@ python main.py --dataset ispd2005 --design_name adaptec1 --load_from_raw True --
 python main.py --dataset ispd2005 --run_all True --load_from_raw True --detail_placement True
 ```
 
-- To run GP + DP flow for ISPD2015 dataset:
-```bash
-# only run mgc_fft_1
-python main.py --dataset ispd2015_fix --design_name mgc_fft_1 --load_from_raw True --detail_placement True
-
-# run all the designs in ispd2015
-python main.py --dataset ispd2015_fix --run_all True --load_from_raw True --detail_placement True
-```
-
-- To run Routability GP + DP flow for ISPD2015 dataset:
-```bash
-# run all the designs in ispd2015 with routability optimization
-python main.py --dataset ispd2015_fix --run_all True --load_from_raw True --detail_placement True --use_cell_inflate True
+- To train FNO (optional):
+```console
+python main_train_fno.py
 ```
 
 **NOTE**: We default enable the deterministic mode. If you don't need determinism and want to run placement in an extremely fast mode, please try to set `--deterministic False` in the Python arguments.
@@ -85,21 +75,8 @@ In ./result/exp_id
    - output  # placement solutions
 ```
 
-- To train FNO (optional):
-```console
-python main_train_fno.py
-```
-
 ## Parameters
 Please refer to `main.py` and `main_train_fno.py`.
-
-## Run custom dataset
-You can use the argument `--custom_path` to run your custom LEF/DEF or bookshelf benchmark.
-
-Suppose there is a LEF/DEF benchmark named `toy` in `data/raw`, you can use the following command line to run the GP + DP flow:
-```bash
-python main.py --custom_path lef:data/raw/toy_input.lef,def:data/raw/toy_input.def,design_name:toy,benchmark:test --load_from_raw True --detail_placement True
-```
 
 
 ## Load design from preprocessed `pt` file (Optional)
@@ -108,8 +85,6 @@ The following script will dump the parsed design into a single torch `pt` file s
 ```bash
 cd $XPLACE_HOME/data
 python convert_design_to_torch_data.py --dataset ispd2005
-python convert_design_to_torch_data.py --dataset ispd2015_fix
-python convert_design_to_torch_data.py --dataset iccad2019
 ```
 Preprocessed data is saved in `./data/cad`.
 
@@ -121,27 +96,7 @@ python main.py --dataset ispd2005 --run_all True --load_from_raw False
 
 **NOTE**: 
 1. Please remember to use the raw mode (set `--load_from_raw True`) when measuring the total running time.
-2. We currently do not support `pt` mode in the routability-driven global placement.
-3. If you want to run `pt` mode for the custom dataset, you need to add the custom dataset path in `utils/get_design_params.py`.
-
-## GPU-accelerated place and global route flow (Xplace + GGR)
-Set `--final_route_eval True` in Python arguments to invoke the internal global router [GGR](https://dl.acm.org/doi/10.1145/3508352.3549474) to run GPU-accelerated PnR flow. The flow will output the **placement DEF** and the **global routing guide** in `./result/exp_id/output`. Besides, GR metrics are reported in the log and recorded in `./result/exp_id/log/route.csv`. 
-
-- To run Place and Global Route flow for ISPD2015 dataset:
-```bash
-python main.py --dataset ispd2015_fix --run_all True --load_from_raw True --detail_placement True --use_cell_inflate True --final_route_eval True
-```
-
-More details about using GGR in Xplace can be found in [cpp_to_py/gpugr/README.md](cpp_to_py/gpugr/README.md).
-
-## Evaluate the routability of Xplace's solution 
-We provide three ways to evaluate the routability of a placement solution:
-
-1. Set `--final_route_eval True` to invoke [GGR](https://dl.acm.org/doi/10.1145/3508352.3549474) to evaluate the placement solution.
-
-2. Use [CU-GR](https://github.com/cuhk-eda/cu-gr) to evaluate the placement solution by global routing. Please refer to [tool/cugr_ispd2015_fix/README.md](tool/cugr_ispd2015_fix/README.md) for instructions.
-
-3. (Optional). If Innovus® has been properly installed in your OS, you may try to use Innovus® to detailedly route the placement solution. Please refer to [tool/innovus_ispd2015_fix/README.md](tool/innovus_ispd2015_fix/README.md) for instructions.
+2. If you want to run `pt` mode for the custom dataset, you need to add the custom dataset path in `utils/get_design_params.py`.
 
 
 ## Citation
