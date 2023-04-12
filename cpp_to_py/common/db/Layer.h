@@ -24,10 +24,10 @@ public:
     void addLayer(const string& layer) { layers_.push_back(layer); }
 
     const vector<string>& getLayer() const { return layers_; }
-    const int getFirstTrackLoc() const { return start; }
-    const int getLastTrackLoc() const { return start + (num - 1) * step; }
-    const int getTrackLoc(unsigned trackIndex) const { return start + trackIndex * step; }
-    const int getPitch() const { return step; }
+    int getFirstTrackLoc() const { return start; }
+    int getLastTrackLoc() const { return start + (num - 1) * step; }
+    int getTrackLoc(unsigned trackIndex) const { return start + trackIndex * step; }
+    int getPitch() const { return step; }
 
     char macro() const;
     unsigned numLayers() const { return layers_.size(); }

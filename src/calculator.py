@@ -24,7 +24,9 @@ def apply_precond(mov_node_pos: torch.Tensor, ps: ParamScheduler, args):
 def calc_obj_and_grad(
     mov_node_pos,
     constraint_fn=None,
+    route_fn=None,
     mov_node_size=None,
+    expand_ratio=None,
     init_density_map=None,
     density_map_layer=None,
     conn_fix_node_pos=None,
@@ -42,10 +44,20 @@ def calc_obj_and_grad(
             mov_node_pos.grad.zero_()
         else:
             mov_node_pos.grad = torch.zeros_like(mov_node_pos).detach()
+
+        if ps.use_route_force and ps.start_route_opt:
+            mov_route_grad, mov_congest_grad, mov_pseudo_grad = route_fn(
+                mov_node_pos, mov_node_size, expand_ratio, constraint_fn
+            )
+            mov_node_pos.grad += mov_route_grad * ps.route_weight
+            mov_node_pos.grad += mov_congest_grad * ps.congest_weight
+            mov_node_pos.grad += mov_pseudo_grad * ps.pseudo_weight
+
         wl_loss, conn_node_grad_by_wl = merged_wl_loss_grad(
-            conn_node_pos, data.pin_id2node_id, data.pin_rel_cpos, 
+            conn_node_pos, data.pin_id2node_id, data.pin_rel_cpos,
+            data.node2pin_list, data.node2pin_list_end,
             data.hyperedge_list, data.hyperedge_list_end, data.net_mask, 
-            data.hpwl_scale, ps.wa_coeff
+            data.hpwl_scale, ps.wa_coeff, args.deterministic
         )
         mov_node_pos.grad[mov_lhs:mov_rhs] = conn_node_grad_by_wl[mov_lhs:mov_rhs]
         if ps.enable_sample_force:
@@ -69,6 +81,8 @@ def calc_obj_and_grad(
                 mov_node_pos, mov_node_size, init_density_map, calc_overflow=False
             )
             mov_node_pos.grad += node_grad_by_density * ps.density_weight
+
+
         grad = apply_precond(mov_node_pos, ps, args)
         loss = wl_loss + ps.density_weight * density_loss
     else:
@@ -77,8 +91,10 @@ def calc_obj_and_grad(
         else:
             mov_node_pos.grad = torch.zeros_like(mov_node_pos).detach()
         wl_loss = WAWirelengthLoss.apply(
-            conn_node_pos, data.pin_id2node_id, data.pin_rel_cpos, 
-            data.hyperedge_list, data.hyperedge_list_end, data.net_mask, ps.wa_coeff
+            conn_node_pos, data.pin_id2node_id, data.pin_rel_cpos,
+            data.node2pin_list, data.node2pin_list_end,
+            data.hyperedge_list, data.hyperedge_list_end, data.net_mask,
+            ps.wa_coeff, args.deterministic
         )
         density_loss, _ = density_map_layer(
             mov_node_pos, mov_node_size, init_density_map, calc_overflow=False
@@ -115,9 +131,10 @@ def calc_obj_and_grad_nn(
         else:
             mov_node_pos.grad = torch.zeros_like(mov_node_pos).detach()
         wl_loss, conn_node_grad_by_wl = merged_wl_loss_grad(
-            conn_node_pos, data.pin_id2node_id, data.pin_rel_cpos, 
+            conn_node_pos, data.pin_id2node_id, data.pin_rel_cpos,
+            data.node2pin_list, data.node2pin_list_end,
             data.hyperedge_list, data.hyperedge_list_end, data.net_mask, 
-            data.hpwl_scale, ps.wa_coeff
+            data.hpwl_scale, ps.wa_coeff, args.deterministic
         )
         mov_node_pos.grad[mov_lhs:mov_rhs] = conn_node_grad_by_wl[mov_lhs:mov_rhs]
         if ps.enable_sample_force:
@@ -190,8 +207,10 @@ def calc_obj_and_grad_nn(
         else:
             mov_node_pos.grad = torch.zeros_like(mov_node_pos).detach()
         wl_loss = WAWirelengthLoss.apply(
-            conn_node_pos, data.pin_id2node_id, data.pin_rel_cpos, 
-            data.hyperedge_list, data.hyperedge_list_end, data.net_mask, ps.wa_coeff
+            conn_node_pos, data.pin_id2node_id, data.pin_rel_cpos,
+            data.node2pin_list, data.node2pin_list_end,
+            data.hyperedge_list, data.hyperedge_list_end, data.net_mask,
+            ps.wa_coeff, args.deterministic
         )
         density_loss, _ = density_map_layer(
             mov_node_pos, mov_node_size, init_density_map, calc_overflow=False
@@ -226,9 +245,10 @@ def fast_optimization(
         [conn_node_pos, conn_fix_node_pos], dim=0
     )
     wl_loss, hpwl = WAWirelengthLossAndHPWL.apply(
-        conn_node_pos, data.pin_id2node_id, data.pin_rel_cpos, 
+        conn_node_pos, data.pin_id2node_id, data.pin_rel_cpos,
+        data.node2pin_list, data.node2pin_list_end,
         data.hyperedge_list, data.hyperedge_list_end, data.net_mask, 
-        ps.wa_coeff, data.hpwl_scale
+        ps.wa_coeff, data.hpwl_scale, args.deterministic
     )
     density_loss, overflow = density_map_layer(
         mov_node_pos, mov_node_size, init_density_map

@@ -64,8 +64,10 @@ void bindGPDatabase(pybind11::module& m) {
         .def("pin_id2node_id_tensor", &gp::GPDatabase::getPinId2NodeIdTensor, py::return_value_policy::move)
         .def("pin_id2net_id_tensor", &gp::GPDatabase::getPinId2NetIdTensor, py::return_value_policy::move)
         .def("hyperedge_info_tensor", &gp::GPDatabase::getHyperedgeInfoTensor, py::return_value_policy::move)
+        .def("node2pin_info_tensor", &gp::GPDatabase::getNode2PinInfoTensor, py::return_value_policy::move)
         .def("region_info_tensor", &gp::GPDatabase::getRegionInfoTensor, py::return_value_policy::move)
-        .def("apply_node_pos", &gp::GPDatabase::applyNodePos)
+        .def("apply_node_cpos", &gp::GPDatabase::applyNodeCPos)
+        .def("apply_node_lpos", &gp::GPDatabase::applyNodeLPos)
         .def("write_placement", &gp::GPDatabase::writePlacement);
 }
 

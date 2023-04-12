@@ -28,8 +28,9 @@ class ElectronicDensityFunction(torch.autograd.Function):
         overflow_helper: tuple,
         sorted_maps: tuple,
         calc_overflow: bool,
+        deterministic: bool,
     ):
-        ctx.constant_var = (num_bin_x, num_bin_y, num_nodes)
+        ctx.constant_var = (num_bin_x, num_bin_y, num_nodes, deterministic)
         mov_lhs, mov_rhs, overflow_fn = overflow_helper
         mov_sorted_map, mov_conn_sorted_map, filler_sorted_map = sorted_maps
         # 1) Compute Density Map
@@ -42,14 +43,14 @@ class ElectronicDensityFunction(torch.autograd.Function):
             aux_mat = init_density_map.clone()
             mov_density_map = density_map_cuda.forward(
                 normalize_node_info[mov_lhs:mov_rhs], mov_conn_sorted_map, aux_mat, 
-                num_bin_x, num_bin_y, mov_rhs - mov_lhs
+                num_bin_x, num_bin_y, mov_rhs - mov_lhs, deterministic
             )
             overflow = overflow_fn(mov_density_map)
             aux_mat2 = torch.zeros_like(init_density_map)
             if filler_sorted_map is not None:
                 filler_density_map = density_map_cuda.forward(
                     normalize_node_info[mov_rhs:], filler_sorted_map, aux_mat2, 
-                    num_bin_x, num_bin_y, num_nodes - (mov_rhs - mov_lhs)
+                    num_bin_x, num_bin_y, num_nodes - (mov_rhs - mov_lhs), deterministic
                 )
                 density_map = mov_density_map + filler_density_map
             else:
@@ -59,7 +60,7 @@ class ElectronicDensityFunction(torch.autograd.Function):
             aux_mat = init_density_map.clone()
             density_map = density_map_cuda.forward(
                 normalize_node_info, mov_sorted_map, aux_mat, 
-                num_bin_x, num_bin_y, num_nodes
+                num_bin_x, num_bin_y, num_nodes, deterministic
             )
         # density_map -= density_map.mean() # we don't need this one anymore
 
@@ -80,15 +81,15 @@ class ElectronicDensityFunction(torch.autograd.Function):
     @staticmethod
     def backward(ctx, energy_grad_out, overflow_grad_out):
         normalize_node_info, mov_sorted_map, grad_mat = ctx.saved_tensors
-        num_bin_x, num_bin_y, num_nodes = ctx.constant_var
+        num_bin_x, num_bin_y, num_nodes, deterministic = ctx.constant_var
         grad_mat = grad_mat * energy_grad_out
         grad_weight = -1.0 # Gradient descent
         node_grad = normalize_node_info.new_zeros((num_nodes, 2))
         node_grad = density_map_cuda.backward(
             normalize_node_info, grad_mat, mov_sorted_map, node_grad,
-            grad_weight, num_bin_x, num_bin_y, num_nodes
+            grad_weight, num_bin_x, num_bin_y, num_nodes, deterministic
         )
-        return (node_grad,) + (None,) * 12
+        return (node_grad,) + (None,) * 13
     
 def merged_density_loss_grad_main(
     node_pos: torch.Tensor,
@@ -106,6 +107,7 @@ def merged_density_loss_grad_main(
     calc_overflow: bool,
     grad_fn,
     model,
+    deterministic: bool,
     cache_mov_density_map: bool = True,
     cache_grad_4norm: bool = False,
     norm_grad: bool = False,
@@ -114,8 +116,8 @@ def merged_density_loss_grad_main(
     mov_lhs, mov_rhs, overflow_fn = overflow_helper
     mov_sorted_map, mov_conn_sorted_map, filler_sorted_map = sorted_maps
     # 1) Compute Density Map
-    # TODO: Due to atomic add, density map calculation is non-deterministic
-    # FIXME: replace original floating point based density map calculation to integer based
+    # Due to atomic add, density map calculation is non-deterministic
+    #   please use deterministic mode
     normalize_node_info = node_size.new_empty((num_nodes, 5)) # x_l, x_h, y_l, y_h, weight
     normalize_node_info = density_map_cuda.pre_normalize(
         node_pos, node_size, node_weight, expand_ratio, unit_len, normalize_node_info,
@@ -124,13 +126,13 @@ def merged_density_loss_grad_main(
     mov_density_map = init_density_map.clone()
     mov_density_map = density_map_cuda.forward(
         normalize_node_info[mov_lhs:mov_rhs], mov_conn_sorted_map, mov_density_map, 
-        num_bin_x, num_bin_y, mov_rhs - mov_lhs
+        num_bin_x, num_bin_y, mov_rhs - mov_lhs, deterministic
     )
     if filler_sorted_map is not None:
         filler_density_map = torch.zeros_like(init_density_map)
         filler_density_map = density_map_cuda.forward(
             normalize_node_info[mov_rhs:], filler_sorted_map, filler_density_map, 
-            num_bin_x, num_bin_y, num_nodes - (mov_rhs - mov_lhs)
+            num_bin_x, num_bin_y, num_nodes - (mov_rhs - mov_lhs), deterministic
         )
         density_map = filler_density_map
         density_map.add_(mov_density_map)
@@ -182,7 +184,7 @@ def merged_density_loss_grad_main(
     node_grad = normalize_node_info.new_zeros((num_nodes, 2))
     node_grad = density_map_cuda.backward(
         normalize_node_info, grad_mat, mov_sorted_map, node_grad,
-        grad_weight, num_bin_x, num_bin_y, num_nodes
+        grad_weight, num_bin_x, num_bin_y, num_nodes, deterministic
     )
     if not cache_mov_density_map:
         mov_density_map = None
@@ -201,10 +203,12 @@ class ElectronicDensityLayer(torch.nn.Module):
         expand_ratio=None,
         sorted_maps=None,
         scale_w_k=True,
+        deterministic=False,
     ):
         super(ElectronicDensityLayer, self).__init__()
         self.num_bin_x = num_bin_x
         self.num_bin_y = num_bin_y
+        self.deterministic = deterministic
 
         assert overflow_helper is not None
         self.overflow_helper = overflow_helper
@@ -314,6 +318,7 @@ class ElectronicDensityLayer(torch.nn.Module):
             -1.0,
             1e-4,
             False,
+            self.deterministic,
         )
 
         return density_map
@@ -343,7 +348,7 @@ class ElectronicDensityLayer(torch.nn.Module):
             aux_mat = init_density_map.clone()
             mov_density_map = density_map_cuda.forward(
                 normalize_node_info, mov_conn_sorted_map, aux_mat, 
-                self.num_bin_x, self.num_bin_y, num_mov_nodes
+                self.num_bin_x, self.num_bin_y, num_mov_nodes, self.deterministic,
             )
         overflow = overflow_fn(mov_density_map)
         return overflow
@@ -363,7 +368,8 @@ class ElectronicDensityLayer(torch.nn.Module):
         energy, overflow = ElectronicDensityFunction.apply(
             node_pos, node_size, node_weight, self.expand_ratio, self.unit_len, 
             init_density_map, self.num_bin_x, self.num_bin_y, num_nodes, 
-            self.fft_scale, self.overflow_helper, self.sorted_maps, calc_overflow
+            self.fft_scale, self.overflow_helper, self.sorted_maps, calc_overflow,
+            self.deterministic
         )
         return energy, overflow
 
@@ -389,9 +395,10 @@ class ElectronicDensityLayer(torch.nn.Module):
             self.fft_scale, self.overflow_helper, self.sorted_maps, calc_overflow,
             grad_fn,
             model,
-            cache_mov_density_map=self.use_cache_mov_density_map,
+            self.deterministic,
             cache_grad_4norm = cache_grad_4norm,
             norm_grad = norm_grad,
+            cache_mov_density_map=self.use_cache_mov_density_map,
         )
         if self.use_cache_mov_density_map:
             self.mov_density_map = mov_density_map

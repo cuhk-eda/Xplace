@@ -24,7 +24,7 @@ void Cell::ctype(CellType* t) {
         return;
     }
     if (_type) {
-        printlog(LOG_ERROR, "type of cell %s already set", _name.c_str());
+        logger.error("type of cell %s already set", _name.c_str());
         return;
     }
     _type = t;
@@ -58,15 +58,45 @@ bool Cell::placed() const { return (lx() != INT_MIN) && (ly() != INT_MIN); }
 
 void Cell::place(int x, int y) {
     if (_fixed) {
-        printlog(LOG_WARN, "moving fixed cell %s to (%d,%d)", _name.c_str(), x, y);
+        logger.warning("moving fixed cell %s to (%d,%d)", _name.c_str(), x, y);
     }
     _lx = x;
     _ly = y;
 }
 
+void Cell::place(int x, int y, int orient) {
+    if (_fixed) {
+        logger.warning("moving fixed cell %s to (%d,%d)", _name.c_str(), x, y);
+    }
+    _lx = x;
+    _ly = y;
+    switch (orient) {
+        case 0:
+            _flipX = false;
+            _flipY = false;
+            break;
+        case 2:
+            _flipX = true;
+            _flipY = true;
+            break;
+        case 4:
+            _flipX = true;
+            _flipY = false;
+            break;
+        case 6:
+            _flipX = false;
+            _flipY = true;
+            break;
+        default:
+            _flipX = false;
+            _flipY = false;
+            break;
+    }
+}
+
 void Cell::place(int x, int y, bool flipX, bool flipY) {
     if (_fixed) {
-        printlog(LOG_WARN, "moving fixed cell %s to (%d,%d)", _name.c_str(), x, y);
+        logger.warning("moving fixed cell %s to (%d,%d)", _name.c_str(), x, y);
     }
     _lx = x;
     _ly = y;
@@ -76,7 +106,7 @@ void Cell::place(int x, int y, bool flipX, bool flipY) {
 
 void Cell::unplace() {
     if (_fixed) {
-        printlog(LOG_WARN, "unplace fixed cell %s", _name.c_str());
+        logger.warning("unplace fixed cell %s", _name.c_str());
     }
     _lx = _ly = INT_MIN;
     _flipX = _flipY = false;

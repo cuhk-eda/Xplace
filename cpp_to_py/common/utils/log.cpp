@@ -65,24 +65,6 @@ double mem_use::get_peak() {
 #endif
 }
 
-void printlog(int log_level, const char* format, ...) {
-    if (!verbose_parser_log) {
-        return;
-    }
-    if (log_level >= GLOBAL_LOG_LEVEL) {
-        std::string curr_log = tstamp.get_time_stamp();
-        if (log_level > LOG_INFO) {
-            curr_log += log_level_ANSI_color(log_level);
-        }
-        std::cout << curr_log;
-        va_list ap;
-        va_start(ap, format);
-        vfprintf(stdout, format, ap);
-        printf("\n");
-        fflush(stdout);
-    }
-}
-
 void assert_msg(bool condition, const char* format, ...) {
     if (!condition) {
         std::cerr << "Assertion failure: ";
@@ -120,6 +102,7 @@ std::string log_level_ANSI_color(int& log_level) {
 }
 
 
+// C++ 20 only
 // void PrintfLogger::setup_logger(argparse::ArgumentParser parser) {
 //     std::filesystem::path current_dir(std::filesystem::current_path());
 //     // std::filesystem::path result_dir(parser.get<std::string>("result_dir"));
@@ -139,7 +122,6 @@ std::string log_level_ANSI_color(int& log_level) {
 
 //     if (write_log) {
 //         f = fopen(log_file_path.c_str(), "w");
-//         this->warning("Logging into file would affect the elapsed time. Disable it before submission.");
 //         if (f == NULL) {
 //             this->error("Cannot open logfile {}", log_file_path);
 //             exit(1);

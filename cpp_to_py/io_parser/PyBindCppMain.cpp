@@ -38,7 +38,7 @@ bool loadParams(const py::dict& kwargs) {
     }
 
     if (db::setting.BookshelfAux == "" && db::setting.DefFile == "") {
-        printlog(LOG_ERROR, "design is not found");
+        logger.error("design is not found");
         return false;
     }
 

@@ -3,7 +3,16 @@ from src import *
 from functools import partial
 from FNO import FNO2d
 
+def get_trunc_node_pos_fn(mov_node_size, data):
+    node_pos_lb = mov_node_size / 2 + data.die_ll + 1e-4 
+    node_pos_ub = data.die_ur - mov_node_size / 2 + data.die_ll - 1e-4
+    def trunc_node_pos_fn(x):
+        x.data.clamp_(min=node_pos_lb, max=node_pos_ub)
+        return x
+    return trunc_node_pos_fn
+
 def run_placement_main_nesterov(args, logger):
+    total_start = time.time()
     data, rawdb, gpdb = load_dataset(args, logger)
     device = torch.device(
         "cuda:{}".format(args.gpu) if torch.cuda.is_available() else "cpu"
@@ -23,13 +32,9 @@ def run_placement_main_nesterov(args, logger):
     data.init_filler()
     mov_lhs, mov_rhs = data.movable_index
     mov_node_pos, mov_node_size, expand_ratio = data.get_mov_node_info()
-
     mov_node_pos = mov_node_pos.requires_grad_(True)
-    node_pos_lb = mov_node_size / 2 + data.die_ll + 1e-4 
-    node_pos_ub = data.die_ur - mov_node_size / 2 + data.die_ll - 1e-4
-    def trunc_node_pos_fn(x):
-        x.data.clamp_(min=node_pos_lb, max=node_pos_ub)
-        return x
+
+    trunc_node_pos_fn = get_trunc_node_pos_fn(mov_node_size, data)
 
     conn_fix_node_pos = data.node_pos.new_empty(0, 2)
     if data.fixed_connected_index[0] < data.fixed_connected_index[1]:
@@ -51,6 +56,7 @@ def run_placement_main_nesterov(args, logger):
         overflow_helper=overflow_helper,
         sorted_maps=data.sorted_maps,
         expand_ratio=expand_ratio,
+        deterministic=args.deterministic,
     ).to(device)
 
     # assert args.nn_size == 256
@@ -84,12 +90,22 @@ def run_placement_main_nesterov(args, logger):
         overflow_helper=overflow_helper_nn,
         sorted_maps=data.sorted_maps,   #FIXME: !!!
         expand_ratio=expand_ratio_nn,
+        deterministic=args.deterministic,
         scale_w_k=False,
     ).to(device)
     with torch.no_grad():
         model = FNO2d(modes, modes, width, neck).to(device)
         model.load_state_dict(torch.load(model_path, map_location=device))
         model.eval()
+        torch.cuda.synchronize()
+        model(torch.randn((1, nn_bin, nn_bin, 1), device=device)) # warmup
+    # fix_lhs, fix_rhs = data.fixed_index
+    # info = (0, 0, data.design_name + "_fix")
+    # fix_node_pos = data.node_pos[fix_lhs:fix_rhs, ...]
+    # fix_node_size = data.node_size[fix_lhs:fix_rhs, ...]
+    # draw_fig_with_cairo(
+    #     None, None, fix_node_pos, fix_node_size, None, None, data, info, args
+    # )
 
     obj_and_grad_fn = partial(
         calc_obj_and_grad_nn,
@@ -118,15 +134,13 @@ def run_placement_main_nesterov(args, logger):
         data=data,
         args=args,
     )
-    optimizer = NesterovOptimizer(
-        [mov_node_pos],
-        lr=0,
-    )
+    optimizer = NesterovOptimizer([mov_node_pos], lr=0)
 
     # initialization
     init_params(
         mov_node_pos, trunc_node_pos_fn, mov_lhs, mov_rhs, conn_fix_node_pos, 
-        density_map_layer, mov_node_size, init_density_map, optimizer, ps, data, args
+        density_map_layer, mov_node_size, expand_ratio, init_density_map, optimizer, 
+        ps, data, args
     )
     # init learnig rate
     init_lr = estimate_initial_learning_rate(obj_and_grad_fn, trunc_node_pos_fn, mov_node_pos, args.lr)
@@ -137,35 +151,11 @@ def run_placement_main_nesterov(args, logger):
     nn_weights = []
     force_ratios = []
 
-    torch.cuda.synchronize()
+    torch.cuda.synchronize(device)
     gp_start_time = time.time()
     logger.info("start gp")
 
-    # def trace_handler(prof):
-    #     print(prof.key_averages().table(
-    #         sort_by="self_cuda_time_total", row_limit=-1))
-    #     prof.export_chrome_trace("test_trace_" + str(prof.step_num) + ".json")
-    # with torch.profiler.profile(
-    #     activities=[
-    #         torch.profiler.ProfilerActivity.CPU,
-    #         torch.profiler.ProfilerActivity.CUDA,
-    #     ], schedule=torch.profiler.schedule(
-    #         wait=2,
-    #         warmup=2,
-    #         active=2),
-    #     on_trace_ready=trace_handler
-    #     ) as p:
-    #         for iter in range(6):
-    #             # optimizer.zero_grad()
-    #             obj = optimizer.step(obj_and_grad_fn)
-    #             hpwl, overflow = evaluator_fn(mov_node_pos)
-    #             # update parameters
-    #             ps.step(hpwl, overflow, mov_node_pos, data)
-    #             if ps.need_to_early_stop():
-    #                 break
-    #             p.step()
-    # exit(0)
-
+    terminate_signal = False
     for iteration in range(args.inner_iter):
         # optimizer.zero_grad() # zero grad inside obj_and_grad_fn
         obj = optimizer.step(obj_and_grad_fn)
@@ -177,8 +167,9 @@ def run_placement_main_nesterov(args, logger):
         # update parameters
         ps.step(hpwl, overflow, mov_node_pos, data)
         if ps.need_to_early_stop():
-            break
-        if iteration % args.log_freq == 0 or iteration == args.inner_iter - 1:
+            terminate_signal = True
+
+        if iteration % args.log_freq == 0 or iteration == args.inner_iter - 1 or ps.rerun_route:
             log_str = (
                 "iter: %d | masked_hpwl: %.2E overflow: %.4f obj: %.4E "
                 "density_weight: %.4E wa_coeff: %.4E"
@@ -195,7 +186,7 @@ def run_placement_main_nesterov(args, logger):
             if args.draw_placement:
                 info = (iteration, hpwl, data.design_name)
                 node_pos_to_draw = mov_node_pos[mov_lhs:mov_rhs, ...].clone()
-                node_size_to_draw = mov_node_size[mov_lhs:mov_rhs, ...].clone()
+                node_size_to_draw = data.node_size[mov_lhs:mov_rhs, ...].clone()
                 node_pos_to_draw = torch.cat(
                     [node_pos_to_draw, data.node_pos[mov_rhs:, ...].clone()], dim=0
                 )
@@ -206,21 +197,38 @@ def run_placement_main_nesterov(args, logger):
                     node_pos_to_draw = torch.cat(
                         [node_pos_to_draw, mov_node_pos[mov_rhs:, ...].clone()], dim=0
                     )
+                    node_size_filler_to_draw = data.filler_size[:(mov_node_pos.shape[0] - mov_rhs), ...]
                     node_size_to_draw = torch.cat(
-                        [node_size_to_draw, mov_node_size[mov_rhs:, ...].clone()], dim=0
+                        [node_size_to_draw, node_size_filler_to_draw], dim=0
                     )
                 draw_fig_with_cairo_cpp(
                     node_pos_to_draw, node_size_to_draw, data, info, args
                 )
 
+        if terminate_signal:
+            break
+
     # Save best solution
     best_res = ps.get_best_solution()
     if best_res[0] is not None:
         best_sol, hpwl, overflow = best_res
-        mov_node_pos.data.copy_(best_sol)
+        # fillers are unused from now, we don't copy there data
+        mov_node_pos[mov_lhs:mov_rhs].data.copy_(best_sol[mov_lhs:mov_rhs])
+    if ps.enable_route:
+        route_inflation_roll_back(args, logger, data, mov_node_size)
+        ps.rerun_route = True
+        gr_metrics = run_gr_and_fft_main(
+            args, logger, data, rawdb, gpdb, ps, mov_node_pos, constraint_fn=trunc_node_pos_fn, 
+            skip_m1_route=True, report_gr_metrics_only=True
+        )
+        ps.rerun_route = False
+        ps.push_gr_sol(gr_metrics, hpwl, overflow, mov_node_pos)
+        best_sol_gr = ps.get_best_gr_sol()
+        mov_node_pos[mov_lhs:mov_rhs].data.copy_(best_sol_gr[mov_lhs:mov_rhs])
+
     node_pos = mov_node_pos[mov_lhs:mov_rhs]
     node_pos = torch.cat([node_pos, data.node_pos[mov_rhs:]], dim=0)
-    torch.cuda.synchronize()
+    torch.cuda.synchronize(device)
     gp_end_time = time.time()
     gp_time = gp_end_time - gp_start_time
     gp_per_iter = gp_time / (iteration + 1)
@@ -248,115 +256,33 @@ def run_placement_main_nesterov(args, logger):
     logger.info("After GP, best solution eval, exact HPWL: %.4E exact Overflow: %.4f" % (hpwl, overflow))
     ps.visualize(args, logger)
     gp_hpwl = hpwl
+    gp_time = gp_end_time - gp_start_time
     iteration += 1 # increase 1 For DP drawing
 
-    # Write placement
-    if args.write_placement and args.load_from_raw:
-        res_root = os.path.join(args.result_dir, args.exp_id)
-        gp_prefix = os.path.join(res_root, args.output_dir, "%s_%s_gp" %(args.output_prefix, args.design_name))
-        if not os.path.exists(os.path.dirname(gp_prefix)):
-            os.makedirs(os.path.dirname(gp_prefix))
-        start_write_time = time.time()
-        if data.dataset_format == "lefdef":
-            exact_node_pos = torch.round(node_pos * data.die_scale + data.die_shift).cpu()
-            gpdb.apply_node_pos(exact_node_pos)
-            gpdb.write_placement(gp_prefix)
-        elif data.dataset_format == "bookshelf":
-            logger.info("Use python to generate .pl file")
-            data.write_pl(node_pos, gp_prefix)
-        else:
-            raise NotImplementedError("Dataset format %s unsupported" % data.dataset_format)
-        logger.info("Write global placement in %s. Time: %.4f" % (gp_prefix, time.time() - start_write_time))
+    # detail placement
+    node_pos, dp_hpwl, top5overflow, lg_time, dp_time = detail_placement_main(
+        node_pos, gpdb, rawdb, ps, data, args, logger
+    )
+    iteration += 1
 
-    dp_start_time = None
-    dp_end_time = None
-    dp_hpwl = -1
-    top5overflow = -1
-    if args.detail_placement and args.load_from_raw:
-        # TODO: too ugly...
-        post_fix = None
-        if data.dataset_format == "lefdef":
-            post_fix = ".def"
-        elif data.dataset_format == "bookshelf":
-            post_fix = ".pl"
-        gp_out_file = gp_prefix + post_fix
-        if args.dp_engine == "ntuplace3":
-            dp_out_file = gp_out_file.replace("_gp%s" % post_fix, "")
+    route_metrics = None
+    if ps.enable_route and args.final_route_eval:
+        logger.info("Final routing evalution by GGR...")
+        route_metrics = run_gr_and_fft(
+            args, logger, data, rawdb, gpdb, ps, 
+            report_gr_metrics_only=True,
+            skip_m1_route=True, given_gr_params={
+                "rrrIters": 1,
+                "route_guide": os.path.join(args.result_dir, args.exp_id, args.output_dir, "%s_%s.guide" %(args.output_prefix, args.design_name)),
+            }
+        )
 
-            dp_engine = "./thirdparty/placers/ntuplace3/ntuplace3"
-            aux_input = data.dataset_path["aux"]
-            target_density_cmd = ""
-            if args.target_density < 1.0:
-                target_density_cmd = " -util %f" % (args.target_density)
-            cmd = "%s -aux %s -loadpl %s %s -out %s -noglobal" % (
-                dp_engine, aux_input, gp_out_file, target_density_cmd, dp_out_file)
-            logger.info(cmd)
-            # os.system(cmd)
-            dp_start_time = time.time()
-            output = os.popen(cmd).read()
-            dp_end_time = time.time()
-            dp_hpwl = float(output.split("========\n         HPWL=")[1].split("Time")[0].strip())
-            dp_out_file = dp_out_file + ".ntup%s" % post_fix
-        elif args.dp_engine == "rippledp":
-            dp_out_file = gp_out_file.replace("_gp", "")
-
-            dp_engine = "./thirdparty/placers/ripple/bin/placer"
-            aux_input = data.dataset_path["aux"]
-            MLLMaxDensity = int(round(args.target_density * 1000.0))
-            cmd = "%s -flow dac2016 -bookshelf ispd2005 -aux %s -pl %s -MLLMaxDensity %s -cpu %s -output %s" % (
-                dp_engine, aux_input, gp_out_file, MLLMaxDensity, args.num_threads, dp_out_file)
-            dp_start_time = time.time()
-            os.system(cmd)
-            dp_end_time = time.time()
-        elif args.dp_engine == 'ntuplace_4dr':
-            dp_out_file = gp_out_file.replace(".gp.def", "")
-            dp_engine = "./thirdparty/placers/ntuplace4dr/ntuplace4dr_binary/placer"
-            cmd = dp_engine
-            tech_lef = data.dataset_path["tech_lef"]
-            cell_lef = data.dataset_path["cell_lef"]
-            cmd += " -tech_lef %s" % tech_lef
-            cmd += " -cell_lef %s" % cell_lef
-            benchmark_dir = os.path.dirname(tech_lef)
-            cmd += " -floorplan_def %s" % (gp_out_file)
-            cmd += " -out ntuplace_4dr_out"
-            cmd += " -placement_constraints %s/placement.constraints" % (benchmark_dir)
-            cmd += " -noglobal; "
-            cmd += "mv ntuplace_4dr_out.fence.plt %s.fence.plt ; " % (dp_out_file)
-            cmd += "mv ntuplace_4dr_out.init.plt %s.init.plt ; " % (dp_out_file)
-            cmd += "mv ntuplace_4dr_out %s.ntup.def ; " % (dp_out_file)
-            cmd += "mv ntuplace_4dr_out.ntup.overflow.plt %s.ntup.overflow.plt ; " % (dp_out_file)
-            cmd += "mv ntuplace_4dr_out.ntup.plt %s.ntup.plt ; " % (dp_out_file)
-            if os.path.exists("%s/dat" % (os.path.dirname(dp_out_file))):
-                cmd += "rm -r %s/dat ; " % (os.path.dirname(dp_out_file))
-            cmd += "mv dat %s/ ; " % (os.path.dirname(dp_out_file))
-            logger.info("%s" % (cmd))
-            dp_start_time = time.time()
-            output = os.popen(cmd).read()
-            dp_end_time = time.time()
-            # consider site_width
-            dp_hpwl = float(output.split("=======\n         HPWL=")[1].split("Time")[0].strip())
-            top5overflow = float(output.split("[CONG] Top 5 Overflow")[1].split("\n")[0].strip())
-        else:
-            raise NotImplementedError("DP Engine %s unsupported" % args.dp_engine)
-        logger.info("External detailed placement takes %.2f seconds" %
-                        (dp_end_time - dp_start_time))
-        logger.info("After DP, HPWL: %.4E" % dp_hpwl)
-        logger.info("Write detail placement in %s" % dp_out_file)
-
+    if args.load_from_raw:
         del gpdb, rawdb
-        # logger.info("Evaluating detail placement result...")
-        # data, rawdb, gpdb = load_dataset(args, logger, dp_out_file)
-        # data = data.to(device).preprocess()
-        # hpwl, overflow = evaluate_placement(
-        #     data.node_pos, density_map_layer, init_density_map, data, args
-        # )
-        # hpwl, overflow = hpwl.item(), overflow.item()
-        # info = (iteration + 1, hpwl, data.design_name)
-        # draw_fig_with_cairo_cpp(data.node_pos, data.node_size, data, info, args)
-        # logger.info("After DP, HPWL: %.4E Overflow: %.4f" % (hpwl, overflow))
 
-    gp_time = gp_end_time - gp_start_time
-    dp_time = dp_end_time - dp_start_time if dp_end_time is not None else 0.0
-    logger.info("GP Time: %.4f DP Time: %.4f" % (gp_time, dp_time))
+    place_time = time.time() - total_start
+    logger.info("GP Time: %.4f LG Time: %.4f DP Time: %.4f Total Place Time: %.4f" % (
+        gp_time, lg_time, dp_time, place_time))
+    place_metrics = (dp_hpwl, gp_hpwl, top5overflow, overflow, gp_time, dp_time + lg_time, gp_per_iter, place_time)
 
-    return dp_hpwl, gp_hpwl, top5overflow, overflow, gp_time, dp_time, gp_per_iter
+    return place_metrics, route_metrics

@@ -60,14 +60,14 @@ public:
     ~IOPin();
 
     const string& netName() const { return _netName; }
-    const int width() const { return this->type->getW(); }
-    const int height() const { return this->type->getH(); }
-    const int lx() const { return x; }
-    const int ly() const { return y; }
-    const int hx() const { return x + width(); }
-    const int hy() const { return y + height(); }
-    const int cx() const { return x + width() / 2; }
-    const int cy() const { return y + height() / 2; }
+    int width() const { return this->type->getW(); }
+    int height() const { return this->type->getH(); }
+    int lx() const { return x; }
+    int ly() const { return y; }
+    int hx() const { return x + width(); }
+    int hy() const { return y + height(); }
+    int cx() const { return x + width() / 2; }
+    int cy() const { return y + height() / 2; }
     void getBounds(int& lx, int& ly, int& hx, int& hy, int& rIndex) const;
     int orient() { return _orient; }
 };

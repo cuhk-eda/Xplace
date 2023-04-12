@@ -75,11 +75,11 @@ public:
         E_NO_NET_DRIVING_PIN
     };
 
-    unordered_map<string, CellType*> name_celltypes;
-    unordered_map<string, Cell*> name_cells;
-    unordered_map<string, Net*> name_nets;
-    unordered_map<string, IOPin*> name_iopins;
-    unordered_map<string, ViaType*> name_viatypes;
+    robin_hood::unordered_map<string, CellType*> name_celltypes;
+    robin_hood::unordered_map<string, Cell*> name_cells;
+    robin_hood::unordered_map<string, Net*> name_nets;
+    robin_hood::unordered_map<string, IOPin*> name_iopins;
+    robin_hood::unordered_map<string, ViaType*> name_viatypes;
 
     vector<Layer> layers;
     vector<Site> sites;

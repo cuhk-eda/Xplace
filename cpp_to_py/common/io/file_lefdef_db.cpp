@@ -146,12 +146,12 @@ inline void fastCopy(char* t, const char* s, size_t n);
 bool Database::readLEF(const std::string& file) {
     FILE* fp;
     if (!(fp = fopen(file.c_str(), "r"))) {
-        printlog(LOG_ERROR, "Unable to open LEF file: %s", file.c_str());
+        logger.error("Unable to open LEF file: %s", file.c_str());
         return false;
     }
 
 #ifndef NDEBUG
-    printlog(LOG_INFO, "reading %s", file.c_str());
+    logger.info("reading %s", file.c_str());
 #endif
 
     lefrSetUnitsCbk(readLefUnits);
@@ -168,7 +168,7 @@ bool Database::readLEF(const std::string& file) {
     lefrReset();
     int res = lefrRead(fp, file.c_str(), (void*)this);
     if (res) {
-        printlog(LOG_ERROR, "Error in reading LEF");
+        logger.error("Error in reading LEF");
         return false;
     }
     lefrReleaseNResetMemory();
@@ -183,12 +183,12 @@ bool Database::readLEF(const std::string& file) {
 bool Database::readDEF(const std::string& file) {
     FILE* fp;
     if (!(fp = fopen(file.c_str(), "r"))) {
-        printlog(LOG_ERROR, "Unable to open DEF file: %s", file.c_str());
+        logger.error("Unable to open DEF file: %s", file.c_str());
         return false;
     }
 
 #ifndef NDEBUG
-    printlog(LOG_INFO, "reading %s", file.c_str());
+    logger.info("reading %s", file.c_str());
 #endif
 
     defrSetDesignCbk(readDefDesign);
@@ -222,7 +222,7 @@ bool Database::readDEF(const std::string& file) {
     defrReset();
     int res = defrRead(fp, file.c_str(), (void*)this, 1);
     if (res) {
-        printlog(LOG_ERROR, "Error in reading DEF");
+        logger.error("Error in reading DEF");
         return false;
     }
     defrReleaseNResetMemory();
@@ -236,12 +236,12 @@ bool Database::readDEFPG(const std::string& file) {
     string buffer;
     ifstream ifs(file.c_str());
     if (!ifs.good()) {
-        printlog(LOG_ERROR, "Unable to open DEF PG file: %s", file.c_str());
+        logger.error("Unable to open DEF PG file: %s", file.c_str());
         return false;
     }
 
 #ifndef NDEBUG
-    printlog(LOG_INFO, "reading %s", file.c_str());
+    logger.info("reading %s", file.c_str());
 #endif
 
     Database* db = this;
@@ -280,7 +280,7 @@ bool Database::readDEFPG(const std::string& file) {
                     ifs >> buffer >> buffer >> shape >> buffer >> fx >> fy >> buffer >> vianame;
                     ViaType* viatype = db->getViaType(vianame);
                     if (!viatype) {
-                        printlog(LOG_ERROR, "Via type is not defined: %s", vianame.c_str());
+                        logger.error("Via type is not defined: %s", vianame.c_str());
                         return false;
                     }
                     //  snet->addVia(viatype, fx, fy);
@@ -305,7 +305,7 @@ bool Database::readDEFPG(const std::string& file) {
                     //  }
                     Layer* layer = db->getLayer(layername);
                     if (!layer) {
-                        printlog(LOG_ERROR, "Layer is not defined: %s", layername.c_str());
+                        logger.error("Layer is not defined: %s", layername.c_str());
                         return false;
                     }
                     //  int lx, ly, hx, hy;
@@ -334,7 +334,7 @@ bool Database::readDEFPG(const std::string& file) {
                 } else if (type == "GROUND") {
                     //  snet->type = 'g';
                 } else {
-                    printlog(LOG_ERROR, "unknown use: %s", type.c_str());
+                    logger.error("unknown use: %s", type.c_str());
                 }
             }
             if (buffer == ";") {
@@ -390,20 +390,20 @@ bool Database::writeComponents(ofstream& ofs) {
 bool Database::writeICCAD2017(const string& inputDef, const string& outputDef) {
     ifstream ifs(inputDef.c_str());
     if (!ifs.good()) {
-        printlog(LOG_ERROR, "Unable to create/open DEF: %s", inputDef.c_str());
+        logger.error("Unable to create/open DEF: %s", inputDef.c_str());
         return false;
     }
 
 #ifndef NDEBUG
-    printlog(LOG_INFO, "reading %s", inputDef.c_str());
+    logger.info("reading %s", inputDef.c_str());
 #endif
 
     ofstream ofs(outputDef.c_str());
     if (!ofs.good()) {
-        printlog(LOG_ERROR, "Unable to create/open DEF: %s", outputDef.c_str());
+        logger.error("Unable to create/open DEF: %s", outputDef.c_str());
         return false;
     }
-    printlog(LOG_INFO, "writing %s", outputDef.c_str());
+    logger.info("writing %s", outputDef.c_str());
 
     string line;
     while (getline(ifs, line)) {
@@ -431,10 +431,10 @@ bool Database::writeICCAD2017(const string& inputDef, const string& outputDef) {
 bool Database::writeICCAD2017(const string& outputDef) {
     ofstream ofs(outputDef.c_str(), ios::app);
     if (!ofs.good()) {
-        printlog(LOG_ERROR, "Unable to create/open DEF: %s", outputDef.c_str());
+        logger.error("Unable to create/open DEF: %s", outputDef.c_str());
         return false;
     }
-    printlog(LOG_INFO, "writing %s", outputDef.c_str());
+    logger.info("writing %s", outputDef.c_str());
 
     writeComponents(ofs);  // just replace the information of components, while others keep remain.
 
@@ -447,10 +447,10 @@ bool Database::writeICCAD2017(const string& outputDef) {
 bool Database::writeDEF(const string& file) {
     ofstream ofs(file.c_str());
     if (!ofs.good()) {
-        printlog(LOG_ERROR, "Unable to create/open DEF: %s", file.c_str());
+        logger.error("Unable to create/open DEF: %s", file.c_str());
         return false;
     }
-    printlog(LOG_INFO, "writing %s", file.c_str());
+    logger.info("writing %s", file.c_str());
 
     ofs << "VERSION 5.8 ;" << endl;
     ofs << "DIVIDERCHAR \"/\" ;" << endl;
@@ -534,7 +534,7 @@ bool Database::writeDEF(const string& file) {
                 ossr << "\t+ TYPE GUIDE ;\n";
                 break;
             default:
-                printlog(LOG_ERROR, "region type not recognized: %c", region->type());
+                logger.error("region type not recognized: %c", region->type());
                 ossr << " ;\n";
                 break;
         }
@@ -562,7 +562,7 @@ bool Database::writeDEF(const string& file) {
                 ofs << "\n\t\t+ DIRECTION INOUT";
                 break;
             default:
-                printlog(LOG_ERROR, "iopin direction not recognized: %c", iopin->type->direction());
+                logger.error("iopin direction not recognized: %c", iopin->type->direction());
                 break;
         }
         if (iopin->x != INT_MIN || iopin->y != INT_MIN) {
@@ -662,7 +662,7 @@ int readLefProp(lefrCallbackType_e c, lefiProp* prop, lefiUserData ud) {
                 double microndist;
                 sstable >> type1 >> type2 >> type3;
                 if (type3 == "EXCEPTABUTTED") {
-                    printlog(LOG_WARN, "ignore EXCEPTABUTTED between %s and %s", type1.c_str(), type2.c_str());
+                    logger.warning("ignore EXCEPTABUTTED between %s and %s", type1.c_str(), type2.c_str());
                     sstable >> microndist;
                 } else {
                     microndist = stod(type3);
@@ -717,7 +717,7 @@ int readLefLayer(lefrCallbackType_e c, lefiLayer* leflayer, lefiUserData ud) {
         type = 'r';
     } else if (!strcmp(leflayer->type(), "CUT")) {
         if (db->layers.empty()) {
-            printlog(LOG_WARN, "remove cut layer %s below the first metal layer", name.c_str());
+            logger.warning("remove cut layer %s below the first metal layer", name.c_str());
             return 0;
         }
         type = 'c';
@@ -849,14 +849,14 @@ int readLefLayer(lefrCallbackType_e c, lefiLayer* leflayer, lefiUserData ud) {
             if (leflayer->hasSpacingNumber()) {
                 switch (leflayer->numSpacing()) {
                     case 0:
-                        printlog(LOG_WARN, "layer has no spacing: %s", name.c_str());
+                        logger.warning("layer has no spacing: %s", name.c_str());
                         return 0;
                     case 1:
                         layer.spacing = leflayer->spacing(0);
                         return 0;
                     default:
                         layer.spacing = leflayer->spacing(0);
-                        printlog(LOG_WARN, "layer has multiple spacing: %s", name.c_str());
+                        logger.warning("layer has multiple spacing: %s", name.c_str());
                         return 0;
                 }
             }
@@ -877,7 +877,7 @@ int readLefVia(lefrCallbackType_e c, lefiVia* lvia, lefiUserData ud) {
         string layername(lvia->lefiVia::layerName(i));
         Layer* layer = db->getLayer(layername);
         if (!layer) {
-            printlog(LOG_ERROR, "layer not found: %s", layername.c_str());
+            logger.error("layer not found: %s", layername.c_str());
         }
         for (int j = 0; j < lvia->lefiVia::numRects(i); ++j) {
             via->addRect(*layer,
@@ -954,7 +954,7 @@ int readLefPin(lefrCallbackType_e c, lefiPin* pin, lefiUserData ud) {
         } else if (use == "SIGNAL") {
             //  Pin is used for regular net connectivity.
         } else {
-            printlog(LOG_ERROR, "unknown use: %s.%s", celltype->name.c_str(), use.c_str());
+            logger.error("unknown use: %s.%s", celltype->name.c_str(), use.c_str());
         }
     }
 
@@ -964,17 +964,16 @@ int readLefPin(lefrCallbackType_e c, lefiPin* pin, lefiUserData ud) {
             direction = 'o';
         } else if (sDir == "OUTPUT TRISTATE") {
             direction = 'o';
-            printlog(
-                LOG_WARN, "treat pin %s.%s direction %s as OUTPUT", celltype->name.c_str(), name.c_str(), sDir.c_str());
+            logger.warning(
+                "treat pin %s.%s direction %s as OUTPUT", celltype->name.c_str(), name.c_str(), sDir.c_str());
         } else if (sDir == "INPUT") {
             direction = 'i';
         } else if (sDir == "INOUT") {
             if (name != "VDD" && name != "vdd" && name != "VSS" && name != "vss") {
-                printlog(
-                    LOG_WARN, "unknown pin %s.%s direction: %s", celltype->name.c_str(), name.c_str(), sDir.c_str());
+                logger.warning("unknown pin %s.%s direction: %s", celltype->name.c_str(), name.c_str(), sDir.c_str());
             }
         } else {
-            printlog(LOG_ERROR, "unknown pin %s.%s direction: %s", celltype->name.c_str(), name.c_str(), sDir.c_str());
+            logger.error("unknown pin %s.%s direction: %s", celltype->name.c_str(), name.c_str(), sDir.c_str());
         }
     }
 
@@ -990,7 +989,7 @@ int readLefPin(lefrCallbackType_e c, lefiPin* pin, lefiUserData ud) {
     // }
 
     if (pin->hasTaperRule()) {
-        printlog(LOG_WARN, "pin %s has taper rule %s", name.c_str(), pin->taperRule());
+        logger.warning("pin %s has taper rule %s", name.c_str(), pin->taperRule());
     }
 
     PinType* pintype = celltype->addPin(name, direction, type);
@@ -1006,7 +1005,7 @@ int readLefPin(lefrCallbackType_e c, lefiPin* pin, lefiUserData ud) {
     for (unsigned i = 0; i != (unsigned)geom->numItems(); ++i) {
         switch (geom->itemType(i)) {
             case lefiGeomUnknown:
-                printlog(LOG_WARN, "lefiGeomUnknown: %s.%s", celltype->name.c_str(), name.c_str());
+                logger.warning("lefiGeomUnknown: %s.%s", celltype->name.c_str(), name.c_str());
                 break;
             case lefiGeomLayerE:
                 layer = db->getLayer(string(geom->getLayer(i)));
@@ -1132,11 +1131,8 @@ int readLefPin(lefrCallbackType_e c, lefiPin* pin, lefiUserData ud) {
                 }
                 break;
             default:
-                printlog(LOG_WARN,
-                         "unknown lefiGeomEnum %u: %s.%s",
-                         geom->itemType(i),
-                         celltype->name.c_str(),
-                         name.c_str());
+                logger.warning(
+                    "unknown lefiGeomEnum %u: %s.%s", geom->itemType(i), celltype->name.c_str(), name.c_str());
                 break;
         }
     }
@@ -1148,7 +1144,7 @@ int readLefSite(lefrCallbackType_e c, lefiSite* site, lefiUserData ud) {
     int convertFactor = db->LefConvertFactor;
     int width = lround(site->sizeX() * convertFactor);
     int height = lround(site->sizeY() * convertFactor);
-    printlog(LOG_INFO, "site name: %s class: %s siteW: %d siteH: %d", site->name(), site->siteClass(), width, height);
+    logger.info("site name: %s class: %s siteW: %d siteH: %d", site->name(), site->siteClass(), width, height);
     db->addSite(site->name(), site->siteClass(), width, height);
     return 0;
 }
@@ -1171,7 +1167,7 @@ int readLefMacro(lefrCallbackType_e c, lefiMacro* macro, lefiUserData ud) {
             celltype->cls = 'b';
         } else {
             celltype->cls = clsname[0];
-            printlog(LOG_WARN, "Class type is not defined: %s", clsname);
+            logger.warning("Class type is not defined: %s", clsname);
         }
     } else {
         celltype->cls = 'c';
@@ -1212,17 +1208,17 @@ int readLefMacro(lefrCallbackType_e c, lefiMacro* macro, lefiUserData ud) {
                     } else if (edgeside == "BOTTOM") {
                         static bool missBot = true;
                         if (missBot) {
-                            printlog(LOG_WARN, "unknown edge side: %s", edgeside.c_str());
+                            logger.warning("unknown edge side: %s", edgeside.c_str());
                             missBot = false;
                         }
                     } else if (edgeside == "TOP") {
                         static bool missTop = true;
                         if (missTop) {
-                            printlog(LOG_WARN, "unknown edge side: %s", edgeside.c_str());
+                            logger.warning("unknown edge side: %s", edgeside.c_str());
                             missTop = false;
                         }
                     } else {
-                        printlog(LOG_WARN, "unknown edge side: %s", edgeside.c_str());
+                        logger.warning("unknown edge side: %s", edgeside.c_str());
                     }
                 }
             }
@@ -1308,10 +1304,10 @@ int readDefTrack(defrCallbackType_e c, defiTrack* dtrack, defiUserData ud) {
             } else if (layer->direction != track->direction) {
                 layer->nonPreferDirTrack = *track;
             } else {
-                printlog(LOG_ERROR, "wrong definition of tracks for layer %s", layername.c_str());
+                logger.error("wrong definition of tracks for layer %s", layername.c_str());
             }
         } else {
-            printlog(LOG_ERROR, "layer name not found: %s", layername.c_str());
+            logger.error("layer name not found: %s", layername.c_str());
         }
     }
     return 0;
@@ -1356,7 +1352,7 @@ int readDefVia(defrCallbackType_e c, defiVia* dvia, defiUserData ud) {
         if (layer) {
             via->addRect(*layer, lx, ly, hx, hy);
         } else {
-            printlog(LOG_INFO, "layer name not found: %s", dvialayer);
+            logger.info("layer name not found: %s", dvialayer);
         }
     }
 
@@ -1431,7 +1427,7 @@ int readDefNdr(defrCallbackType_e c, defiNonDefault* nd, defiUserData ud) {
         string vianame(nd->viaName(i));
         ViaType* viatype = db->getViaType(vianame);
         if (!viatype) {
-            printlog(LOG_WARN, "NDR via type not found: %s", vianame.c_str());
+            logger.warning("NDR via type not found: %s", vianame.c_str());
         }
         ndr->vias.push_back(viatype);
     }
@@ -1457,20 +1453,16 @@ int readDefComponent(defrCallbackType_e c, defiComponent* co, defiUserData ud) {
         cell->fixed(false);
         if (co->placementOrient() % 2 == 1) {
             // 0:N, 1:W, 2:S, 3:E, 4:FN, 5:FW, 6:FS, 7:FE
-            printlog(LOG_WARN,
-                     "Cell [%s]'s placementOrient [%d] is not supported.",
-                     cell->name().c_str(),
-                     co->placementOrient());
+            logger.warning(
+                "Cell [%s]'s placementOrient [%d] is not supported.", cell->name().c_str(), co->placementOrient());
         }
     } else if (co->isFixed()) {
         cell->place(co->placementX(), co->placementY(), isFlipX(co->placementOrient()), isFlipY(co->placementOrient()));
         cell->fixed(true);
         if (co->placementOrient() % 2 == 1) {
             // 0:N, 1:W, 2:S, 3:E, 4:FN, 5:FW, 6:FS, 7:FE
-            printlog(LOG_WARN,
-                     "Cell [%s]'s placementOrient [%d] is not supported.",
-                     cell->name().c_str(),
-                     co->placementOrient());
+            logger.warning(
+                "Cell [%s]'s placementOrient [%d] is not supported.", cell->name().c_str(), co->placementOrient());
         }
     }
     return 0;
@@ -1489,11 +1481,11 @@ int readDefPin(defrCallbackType_e c, defiPin* dpin, defiUserData ud) {
             // OUTPUT to the chip, input to external
             direction = 'i';
         } else {
-            printlog(LOG_WARN, "unknown pin signal direction: %s", dpin->direction());
+            logger.warning("unknown pin signal direction: %s", dpin->direction());
         }
     } else {
         string pinName(dpin->pinName());
-        printlog(LOG_WARN, "Pin %s has no pin signal direction", pinName.c_str());
+        logger.warning("Pin %s has no pin signal direction", pinName.c_str());
     }
 
     IOPin* iopin = db->addIOPin(string(dpin->pinName()), string(dpin->netName()), direction);
@@ -1524,7 +1516,7 @@ int readDefBlockage(defrCallbackType_e c, defiBlockage* dblk, defiUserData ud) {
         string layername(dblk->layerName());
         Layer* layer = db->getLayer(layername);
         if (!layer) {
-            printlog(LOG_ERROR, "layer not found: %s", layername.c_str());
+            logger.error("layer not found: %s", layername.c_str());
             return 1;
         }
         for (int i = 0; i < dblk->numRectangles(); ++i) {
@@ -1556,7 +1548,7 @@ int readDefSNet(defrCallbackType_e c, defiNet* dnet, defiUserData ud) {
         } else if (use == "GROUND") {
             snet->type = 'g';
         } else {
-            printlog(LOG_ERROR, "unknown use: %s", use.c_str());
+            logger.error("unknown use: %s", use.c_str());
         }
     }
 
@@ -1590,7 +1582,7 @@ int readDefSNet(defrCallbackType_e c, defiNet* dnet, defiUserData ud) {
                         layername = dpath->getLayer();
                         layer = db->getLayer(layername);
                         if (!layer) {
-                            printlog(LOG_ERROR, "Layer is not defined: %s", layername.c_str());
+                            logger.error("Layer is not defined: %s", layername.c_str());
                             return false;
                         }
                         break;
@@ -1598,7 +1590,7 @@ int readDefSNet(defrCallbackType_e c, defiNet* dnet, defiUserData ud) {
                         vianame = dpath->getVia();
                         viatype = db->getViaType(vianame);
                         if (!viatype) {
-                            printlog(LOG_ERROR, "Via type is not defined: %s", vianame.c_str());
+                            logger.error("Via type is not defined: %s", vianame.c_str());
                             return false;
                         }
                         snet->addVia(viatype, fx, fy);
@@ -1689,12 +1681,12 @@ int readDefNet(defrCallbackType_e c, defiNet* dnet, defiUserData ud) {
         string designrulename(dnet->nonDefaultRule());
         ndr = db->getNDR(designrulename);
         if (!ndr) {
-            printlog(LOG_WARN, "NDR rule is not defined: %s", designrulename.c_str());
+            logger.warning("NDR rule is not defined: %s", designrulename.c_str());
         }
     }
     if ((unsigned)dnet->numConnections() == 0) {
         string netName(dnet->name());
-        printlog(LOG_WARN, "Net %s is 0-Pin net. Ignore.", netName.c_str());
+        logger.warning("Net %s is 0-Pin net. Ignore.", netName.c_str());
         return 0;
     }
 
@@ -1706,12 +1698,12 @@ int readDefNet(defrCallbackType_e c, defiNet* dnet, defiUserData ud) {
             string iopinname(dnet->pin(i));
             IOPin* iopin = db->getIOPin(iopinname);
             if (!iopin) {
-                printlog(LOG_WARN, "IO pin is not defined: %s", iopinname.c_str());
+                logger.warning("IO pin is not defined: %s", iopinname.c_str());
             }
             pin = iopin->pin;
             if (pin->is_connected) {
                 string netName(dnet->name());
-                printlog(LOG_WARN, "IO Pin is re-connected: %s %s", netName.c_str(), iopinname.c_str());
+                logger.warning("IO Pin is re-connected: %s %s", netName.c_str(), iopinname.c_str());
             }
             iopin->is_connected = true;
         } else {
@@ -1719,16 +1711,16 @@ int readDefNet(defrCallbackType_e c, defiNet* dnet, defiUserData ud) {
             string pinname(dnet->pin(i));
             Cell* cell = db->getCell(cellname);
             if (!cell) {
-                printlog(LOG_WARN, "Cell is not defined: %s", cellname.c_str());
+                logger.warning("Cell is not defined: %s", cellname.c_str());
             }
             pin = cell->pin(pinname);
             if (!pin) {
                 string netName(dnet->name());
-                printlog(LOG_WARN, "Pin is not defined: %s %s %s", netName.c_str(), cellname.c_str(), pinname.c_str());
+                logger.warning("Pin is not defined: %s %s %s", netName.c_str(), cellname.c_str(), pinname.c_str());
             }
             if (pin->is_connected) {
                 string netName(dnet->name());
-                printlog(LOG_WARN, "Pin is re-connected: %s %s %s", netName.c_str(), cellname.c_str(), pinname.c_str());
+                logger.warning("Pin is re-connected: %s %s %s", netName.c_str(), cellname.c_str(), pinname.c_str());
             }
             cell->is_connected = true;
         }
@@ -1818,10 +1810,10 @@ int readDefRegion(defrCallbackType_e c, defiRegion* dreg, defiUserData ud) {
         } else if (!strcmp(dreg->type(), "GUIDE")) {
             type = 'g';
         } else {
-            printlog(LOG_WARN, "Unknown region type: %s", dreg->type());
+            logger.warning("Unknown region type: %s", dreg->type());
         }
     } else {
-        printlog(LOG_WARN, "Region is defined without type, use default region type = FENCE");
+        logger.warning("Region is defined without type, use default region type = FENCE");
     }
 
     Region* region = db->addRegion(string(dreg->name()), type);
@@ -1833,7 +1825,7 @@ int readDefRegion(defrCallbackType_e c, defiRegion* dreg, defiUserData ud) {
 }
 
 //-----Group-----
-//#define GROUP_MARKER 9999999 //first mark all group member cell with this marker, then replace the value in one scan
+// #define GROUP_MARKER 9999999 //first mark all group member cell with this marker, then replace the value in one scan
 int readDefGroupName(defrCallbackType_e c, const char* cl, defiUserData ud) { return 0; }
 
 int readDefGroupMember(defrCallbackType_e c, const char* cl, defiUserData ud) {
@@ -1847,7 +1839,7 @@ int readDefGroup(defrCallbackType_e c, defiGroup* dgp, defiUserData ud) {
         string regionname(dgp->regionName());
         Region* region = db->getRegion(regionname);
         if (!region) {
-            printlog(LOG_WARN, "Region is not defined: %s", regionname.c_str());
+            logger.warning("Region is not defined: %s", regionname.c_str());
             return 1;
         }
         region->members = db->regions[0]->members;

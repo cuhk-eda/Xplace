@@ -48,7 +48,7 @@ void Pin::getPinCenter(int& x, int& y) {
         x = iopin->x + (lx + hx) / 2;
         y = iopin->y + (ly + hy) / 2;
     } else {
-        printlog(LOG_ERROR, "invalid pin %s:%d", __FILE__, __LINE__);
+        logger.error("invalid pin %s:%d", __FILE__, __LINE__);
         x = INT_MIN;
         y = INT_MIN;
     }

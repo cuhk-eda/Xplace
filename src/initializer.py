@@ -17,18 +17,11 @@ def get_init_density_map(data: PlaceData, args, logger):
     # get fix nodes which are located inside die
     node_pos = data.node_pos[lhs:rhs]
     node_size = data.node_size[lhs:rhs]
-    # if data.fix_node_in_bd_mask is not None:
-    #     node_pos = node_pos[data.fix_node_in_bd_mask]
-    #     node_size = node_size[data.fix_node_in_bd_mask]
-    # if data.dummy_macro_pos is not None and data.dummy_macro_size is not None:
-    #     node_pos = torch.cat([node_pos, data.dummy_macro_pos], dim=0)
-    #     node_size = torch.cat([node_size, data.dummy_macro_size], dim=0)
-    # if node_size.shape[0] == 0:
-    #     return zeros_density_map
     node_weight = node_size.new_ones(node_size.shape[0])
     init_density_map = density_map_cuda.forward_naive(
         node_pos, node_size, node_weight, data.unit_len, zeros_density_map,
-        data.num_bin_x, data.num_bin_y, node_pos.shape[0], -1.0, -1.0, 1e-4, False
+        data.num_bin_x, data.num_bin_y, node_pos.shape[0], -1.0, -1.0, 1e-4, False,
+        args.deterministic
     )
     init_density_map = init_density_map.contiguous()
     if (init_density_map > 1).sum() > 0:
@@ -36,13 +29,33 @@ def get_init_density_map(data: PlaceData, args, logger):
     if (init_density_map < 0).sum() > 0:
         logger.error("init_density_map has negative value. Please check.")
     init_density_map.clamp_(min=0.0, max=1.0).mul_(args.target_density)
+    if args.use_route_force or args.use_cell_inflate:
+        # enable route, inflate connected IOPins
+        _, fix_rhs, _ = data.node_type_indices[2]
+        _, iopin_rhs, _ = data.node_type_indices[3]
+        if fix_rhs != iopin_rhs:
+            zeros_density_map = torch.zeros(
+                (data.num_bin_x, data.num_bin_y), device=device, dtype=dtype,
+            )
+            iopin_pos = data.node_pos[fix_rhs:iopin_rhs]
+            iopin_size = data.node_size[fix_rhs:iopin_rhs]
+            iopin_weight = iopin_size.new_ones(iopin_size.shape[0])
+            row_height = data.row_height / data.site_width
+            iopin_density_map = density_map_cuda.forward_naive(
+                iopin_pos, iopin_size, iopin_weight, data.unit_len, zeros_density_map,
+                data.num_bin_x, data.num_bin_y, iopin_pos.shape[0], -1.0, -1.0, 1e-4, False,
+                args.deterministic
+            )
+            iopin_density_map = iopin_density_map.contiguous() * max(4 - 1, 0)
+            init_density_map += iopin_density_map
     data.init_density_map = init_density_map
     return data.init_density_map
 
 
 def init_params(
     mov_node_pos, trunc_node_pos_fn, mov_lhs, mov_rhs, conn_fix_node_pos, 
-    density_map_layer, mov_node_size, init_density_map, optimizer, ps, data, args
+    density_map_layer, mov_node_size, expand_ratio, init_density_map, optimizer, 
+    ps, data, args, route_fn=None
 ):  
     mov_node_pos = trunc_node_pos_fn(mov_node_pos)
     conn_node_pos = mov_node_pos[mov_lhs:mov_rhs, ...]
@@ -50,9 +63,10 @@ def init_params(
         [conn_node_pos, conn_fix_node_pos], dim=0
     )
     wl_loss, hpwl = WAWirelengthLossAndHPWL.apply(
-        conn_node_pos, data.pin_id2node_id, data.pin_rel_cpos, 
+        conn_node_pos, data.pin_id2node_id, data.pin_rel_cpos,
+        data.node2pin_list, data.node2pin_list_end,
         data.hyperedge_list, data.hyperedge_list_end, data.net_mask, 
-        ps.wa_coeff, data.hpwl_scale
+        ps.wa_coeff, data.hpwl_scale, args.deterministic
     )
     density_loss, overflow = density_map_layer(
         mov_node_pos, mov_node_size, init_density_map
@@ -60,9 +74,27 @@ def init_params(
     wl_grad, density_grad = calc_grad(
         optimizer, mov_node_pos, wl_loss, density_loss
     )
-    init_density_weight = (wl_grad.norm(p=1) / density_grad.norm(p=1)).detach()
-    # init_density_weight = (wl_grad.norm(p=1) / grad_mat.norm(p=1)).detach()
-    ps.set_init_param(init_density_weight, data, density_loss)
+    if not ps.rerun_route or route_fn is None:
+        init_density_weight = (wl_grad.norm(p=1) / density_grad.norm(p=1)).detach()
+        # init_density_weight = (wl_grad.norm(p=1) / grad_mat.norm(p=1)).detach()
+        ps.set_init_param(init_density_weight, data, density_loss)
+    else:
+        _, filler_lhs = data.movable_connected_index
+        filler_rhs = mov_node_pos.shape[0]
+
+        mov_route_grad, mov_congest_grad, mov_pseudo_grad = route_fn(
+            mov_node_pos, mov_node_size, expand_ratio, trunc_node_pos_fn
+        )
+        if mov_pseudo_grad is not None:
+            wl_grad.add_(mov_pseudo_grad * args.pseudo_weight)
+        init_density_weight = (wl_grad.norm(p=1) / density_grad.norm(p=1)).detach()
+        init_route_weight = (density_grad.abs().max() / mov_route_grad.abs().max()).detach()
+        # init_route_weight = (wl_grad[:filler_lhs].norm(p=1) / mov_route_grad[:filler_lhs].norm(p=1)).detach()
+        init_congest_weight = (density_grad.abs().max() / mov_congest_grad.abs().max()).detach()
+        # print("Weight den: %.4f route: %.4f congest: %.4f" % (init_density_weight, init_route_weight, init_congest_weight))
+        ps.set_route_init_param(
+            init_density_weight, init_route_weight, init_congest_weight, data, args
+        )
 
 
 # Nesterove learning rate initialization

@@ -74,7 +74,7 @@ bool readVerilogLine(istream &is, vector<string> &tokens) {
 bool Database::readVerilog(const std::string &file) {
     ifstream fs(file.c_str());
     if (!fs.good()) {
-        printlog(LOG_ERROR, "cannot open verilog file: %s", file.c_str());
+        logger.error("cannot open verilog file: %s", file.c_str());
         return false;
     }
 
@@ -132,7 +132,7 @@ bool Database::readVerilog(const std::string &file) {
                 string pinName(tokens[i]);
                 IOPin *iopin = getIOPin(pinName);
                 if (!iopin) {
-                    printlog(LOG_ERROR, "io pin not found: %s", pinName.c_str());
+                    logger.error("io pin not found: %s", pinName.c_str());
                 }
                 Net *net = addNet(pinName);
                 net->addPin(iopin->pin);

@@ -14,11 +14,14 @@ class WAWirelengthLossAndHPWL(torch.autograd.Function):
         node_pos,
         pin_id2node_id,
         pin_rel_cpos,
+        node2pin_list,
+        node2pin_list_end,
         hyperedge_list,
         hyperedge_list_end,
         net_mask,
         gamma,
         hpwl_scale,
+        deterministic,
     ):
 
         (
@@ -29,10 +32,13 @@ class WAWirelengthLossAndHPWL(torch.autograd.Function):
             node_pos,
             pin_id2node_id,
             pin_rel_cpos,
+            node2pin_list,
+            node2pin_list_end,
             hyperedge_list,
             hyperedge_list_end,
             net_mask,
             gamma,
+            deterministic,
         )
         sum_hpwl = torch.round(partial_hpwl * hpwl_scale).sum()
         ctx.save_for_backward(node_grad)
@@ -41,7 +47,7 @@ class WAWirelengthLossAndHPWL(torch.autograd.Function):
     @staticmethod
     def backward(ctx, wa_grad_out, hpwl_grad_out):
         node_grad = ctx.saved_tensors[0]
-        return (node_grad * wa_grad_out,) + (None,) * 7
+        return (node_grad * wa_grad_out,) + (None,) * 10
 
 
 class WAWirelengthLoss(torch.autograd.Function):
@@ -51,19 +57,25 @@ class WAWirelengthLoss(torch.autograd.Function):
         node_pos,
         pin_id2node_id,
         pin_rel_cpos,
+        node2pin_list,
+        node2pin_list_end,
         hyperedge_list,
         hyperedge_list_end,
         net_mask,
         gamma,
+        deterministic,
     ):
         partial_wa_wl, node_grad = wa_wirelength_hpwl_cuda.merged_forward_backward(
             node_pos,
             pin_id2node_id,
             pin_rel_cpos,
+            node2pin_list,
+            node2pin_list_end,
             hyperedge_list,
             hyperedge_list_end,
             net_mask,
             gamma,
+            deterministic,
         )
         ctx.save_for_backward(node_grad)
         return torch.sum(partial_wa_wl)
@@ -71,18 +83,21 @@ class WAWirelengthLoss(torch.autograd.Function):
     @staticmethod
     def backward(ctx, wa_grad_out):
         node_grad = ctx.saved_tensors[0]
-        return (node_grad * wa_grad_out,) + (None,) * 6
+        return (node_grad * wa_grad_out,) + (None,) * 9
 
 
 def merged_wl_loss_grad(
     node_pos,
     pin_id2node_id,
     pin_rel_cpos,
+    node2pin_list,
+    node2pin_list_end,
     hyperedge_list,
     hyperedge_list_end,
     net_mask,
     hpwl_scale,
     gamma,
+    deterministic,
     cache_hpwl=True,
 ):
     (
@@ -93,11 +108,14 @@ def merged_wl_loss_grad(
         node_pos,
         pin_id2node_id,
         pin_rel_cpos,
+        node2pin_list,
+        node2pin_list_end,
         hyperedge_list,
         hyperedge_list_end,
         net_mask,
         hpwl_scale,
         gamma,
+        deterministic,
     )
     if cache_hpwl:
         hpwl_cache.masked_scale_partial_hpwl = partial_hpwl

@@ -1,0 +1,1 @@
+This GPU-accelerated detailed placer is adapted from [ABCDPlace](https://ieeexplore.ieee.org/document/8982049).
