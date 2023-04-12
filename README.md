@@ -1,6 +1,6 @@
 # Xplace-NN
 
-Xplace-NN is a neural-enhanced extension of Xplace developed by the research team supervised by Prof. Evangeline F. Y. Young at The Chinese University of Hong Kong (CUHK).
+Xplace-NN is a neural-enhanced extension of Xplace developed by the research team supervised by Prof. Evangeline F. Y. Young at The Chinese University of Hong Kong (CUHK). Xplace-NN supports deterministic mode now.
 
 ## About
 Xplace is a fast and extensible GPU-accelerated global placement framework developed by the research team supervised by Prof. Evangeline F. Y. Young at The Chinese University of Hong Kong (CUHK). It achieves around 3x speedup per GP iteration compared to DREAMPlace and shows high extensibility.
@@ -143,11 +143,6 @@ We provide three ways to evaluate the routability of a placement solution:
 
 3. (Optional). If Innovus® has been properly installed in your OS, you may try to use Innovus® to detailedly route the placement solution. Please refer to [tool/innovus_ispd2015_fix/README.md](tool/innovus_ispd2015_fix/README.md) for instructions.
 
-<!-- ## Xplace-NN Placement Results
-
-Benchmark | Placement Solutions
-|:---:|:---:|
-ISPD2005 | [Google Drive](https://drive.google.com/drive/folders/1oV9xlp2VcP0ShZLjdXQhyO9HP5eKNr8t?usp=sharing) -->
 
 ## Citation
 If you find **Xplace** or **Xplace-NN** useful in your research, please consider to cite:

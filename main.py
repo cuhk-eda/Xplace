@@ -62,7 +62,7 @@ def get_option():
     parser.add_argument('--eval_dir', type=str, default='eval', help='visualization directory') 
 
     # nn
-    parser.add_argument('--model_path', type=str, default="misc/model_12x24x128_xplacenn.pt", help='FNO trained model path') 
+    parser.add_argument('--model_path', type=str, default="misc/model_12x24x128_xplacenn_epoch_49.pt", help='FNO trained model path') 
     # parser.add_argument('--grad_fn', type=str, default="nn", help='electronic & neural network') 
     # parser.add_argument('--ps_thrs', type=float, default=0.01, help='ps threshold')
     parser.add_argument('--ps_end', type=float, default=0.05, help='ps threshold')

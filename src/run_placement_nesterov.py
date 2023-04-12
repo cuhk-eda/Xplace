@@ -69,6 +69,8 @@ def run_placement_main_nesterov(args, logger):
     args_nn.num_bin_y = nn_bin
     args_nn.num_bin_x = nn_bin
     data_nn.__args__ = args_nn
+    data_nn.__num_bin_x__ = args_nn.num_bin_x
+    data_nn.__num_bin_y__ = args_nn.num_bin_y
     data_nn = data_nn.to(device)
     data_nn = data_nn.preprocess()
     init_density_map_nn = get_init_density_map(data_nn, args_nn, logger)
