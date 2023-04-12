@@ -59,7 +59,7 @@ def get_fno_data(dataset, num_bin_x, num_bin_y, device):
     )
     for i, params in enumerate(mul_params):
         args.design_name = params["design_name"]
-        data_path = "./data/FNO/%s/%s_%dx%d.pt" % (
+        data_path = "./FNO/training_data/%s/%s_%dx%d.pt" % (
                      dataset, params["design_name"], num_bin_x, num_bin_y)
         if os.path.exists(data_path):
             data = torch.load(data_path)

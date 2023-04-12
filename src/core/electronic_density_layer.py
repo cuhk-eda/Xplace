@@ -411,12 +411,18 @@ class ElectronicDensityLayer(torch.nn.Module):
 
         node_weight = node_size.new_ones((num_nodes))
 
+        expand_ratio = node_pos.new_ones((node_pos.shape[0]))
+        node_area = torch.prod(node_size, 1)
+        clamp_node_size = node_size.clamp(min=self.unit_len * math.sqrt(2))
+        clamp_node_area = torch.prod(clamp_node_size, 1)
+        expand_ratio = node_area / clamp_node_area
+        node_size = clamp_node_size
+
         normalize_node_info = node_size.new_zeros((num_nodes, 5)) # x_l, x_h, y_l, y_h, weight
-        normalize_node_info = density_map_cuda.pre_normalize_naive(
-            node_pos, node_size, node_weight, 
+        normalize_node_info = density_map_cuda.pre_normalize(
+            node_pos, node_size, node_weight, expand_ratio,
             self.unit_len, normalize_node_info,
-            self.num_bin_x, self.num_bin_y, num_nodes, self.min_node_w, self.min_node_h, 
-            1e-4, True
+            self.num_bin_x, self.num_bin_y, num_nodes
         )
 
         aux_mat = init_density_map.clone()
