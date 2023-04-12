@@ -89,7 +89,6 @@ In ./result/exp_id
 ```console
 python main_train_fno.py
 ```
-We observed non-determinism of FNO training loss, and we guessed it might cause by the floating point atomic add when dynamically generating a density map. One possible way to mitigate the non-determinism is to pre-generate all used density maps, but it is memory-consuming.
 
 ## Parameters
 Please refer to `main.py` and `main_train_fno.py`.
