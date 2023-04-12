@@ -13,7 +13,7 @@ def get_trunc_node_pos_fn(mov_node_size, data):
 
 def run_placement_main_nesterov(args, logger):
     total_start = time.time()
-    data, rawdb, gpdb = load_dataset(args, logger)
+    data, data_nn, rawdb, gpdb = load_dataset(args, logger)
     device = torch.device(
         "cuda:{}".format(args.gpu) if torch.cuda.is_available() else "cpu"
     )
@@ -64,18 +64,19 @@ def run_placement_main_nesterov(args, logger):
     width, neck, modes = [int(i) for i in model_path.split("/")[-1].split("_")[1].split("x")]
     
     nn_bin = args.nn_bin
-    args_tmp = copy.deepcopy(args)
-    args_tmp.clamp_node = args.nn_expand   
-    args_tmp.num_bin_y = nn_bin
-    args_tmp.num_bin_x = nn_bin
-    data_nn, _, _ = load_dataset(args_tmp, logger)
+    args_nn = copy.deepcopy(args)
+    args_nn.clamp_node = args.nn_expand   
+    args_nn.num_bin_y = nn_bin
+    args_nn.num_bin_x = nn_bin
+    data_nn.__args__ = args_nn
     data_nn = data_nn.to(device)
     data_nn = data_nn.preprocess()
-    init_density_map_nn = get_init_density_map(data_nn, args_tmp, logger)
+    init_density_map_nn = get_init_density_map(data_nn, args_nn, logger)
     data_nn.init_filler()
     if data.filler_size != None:
         data_nn.filler_size = data.filler_size.clone()
-    else: data_nn.filler_size=None
+    else:
+        data_nn.filler_size = None
     data_nn.__num_fillers__ = data.__num_fillers__
     _, mov_node_size_nn, expand_ratio_nn = data_nn.get_mov_node_info()
     def overflow_fn_nn(mov_density_map):

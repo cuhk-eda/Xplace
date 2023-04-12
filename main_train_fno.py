@@ -14,7 +14,7 @@ def get_option():
 
     # training parameters
     parser.add_argument('--batch_size', type=int, default=128, help='batch size')
-    parser.add_argument('--epochs', type=int, default=60, help='epoches')
+    parser.add_argument('--epochs', type=int, default=50, help='epoches')
     parser.add_argument('--lr', type=float, default=1e-3, help='learning rate')
     parser.add_argument('--weight_decay', type=float, default=1e-3, help='weight decay')
     parser.add_argument('--inner_iter', type=int, default=40, help='per episode length in data generator')

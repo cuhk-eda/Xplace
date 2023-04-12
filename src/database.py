@@ -29,7 +29,8 @@ def load_dataset(args, logger, placement=None):
         design_info = torch.load(design_pt_path)
         gpdb = None
     data = PlaceData(args, logger, **design_info)
-    return data, rawdb, gpdb
+    data_nn = PlaceData(args, logger, **design_info)
+    return data, data_nn, rawdb, gpdb
 
 
 def size_repr(key, item, indent=0):
