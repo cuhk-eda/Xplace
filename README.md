@@ -2,18 +2,6 @@
 
 Xplace-NN is a neural-enhanced extension of Xplace developed by the research team supervised by Prof. Evangeline F. Y. Young at The Chinese University of Hong Kong (CUHK).
 
-## News 🚀
-We are happy to announce that Xplace 2.0 is now released. Compared to [Xplace 1.0](https://dl.acm.org/doi/abs/10.1145/3489517.3530485), this version supports the following new features:
-
-- Support deterministic mode with only 5~25% extra GP runtime overhead.
-- Implement an extremely fast GPU-accelerated detailed-routability-driven placement algorithm.
-- Integrate with a GPU-accelerated detailed placer and a GPU-accelerated global router.
-- Support a superfast **GPU-accelerated place and global route flow** ([Xplace](https://dl.acm.org/doi/abs/10.1145/3489517.3530485) + [GGR](https://dl.acm.org/doi/10.1145/3508352.3549474))! Input your LEF/DEF, the flow will output the **placement DEF** and the **global routing guide**! 
-- Provide benchmark download and preprocess scripts, and three routability evaluation scripts. 
-- Code refactoring.
-
-😄 Detailed experimental results of Xplace 2.0 are given in [BENCHMARK.md](BENCHMARK.md).
-
 ## About
 Xplace is a fast and extensible GPU-accelerated global placement framework developed by the research team supervised by Prof. Evangeline F. Y. Young at The Chinese University of Hong Kong (CUHK). It achieves around 3x speedup per GP iteration compared to DREAMPlace and shows high extensibility.
 
