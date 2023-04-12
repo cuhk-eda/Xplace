@@ -53,7 +53,8 @@ def train_FNO(args, logger):
 
     # traing data generator
     train_generator = DataGenerator(
-        episode_len, args.macro_mode, device, args.num_x, args.num_y, random_transform=True
+        episode_len, args.macro_mode, device, args.num_x, args.num_y,
+        random_transform=True, deterministic=args.deterministic
     )
 
     # model

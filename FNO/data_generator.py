@@ -35,6 +35,7 @@ def generate_training_data_single(args, logger, device):
 def get_fno_data(dataset, num_bin_x, num_bin_y, device):
     args = {
         "dataset": dataset,
+        "dataset_root": "./data/raw",
         "design_name": None,
         "num_bin_x": num_bin_x,
         "num_bin_y": num_bin_y,
@@ -45,11 +46,16 @@ def get_fno_data(dataset, num_bin_x, num_bin_y, device):
         "target_density": 1.0,
         "use_filler": True,
         "noise_ratio": 0.025,
+        "custom_path": "",
+        "num_threads": 20,
+        "deterministic": True,
+        "use_route_force": False,
+        "use_cell_inflate": False,
     }
     logger = DummyLogger()
     args = setup_dataset_args(DummyArgs(args))
     mul_params = sorted(
-        get_multiple_design_params(dataset), key=lambda params: params["design_name"]
+        get_multiple_design_params(args.dataset_root, dataset), key=lambda params: params["design_name"]
     )
     for i, params in enumerate(mul_params):
         args.design_name = params["design_name"]
@@ -82,7 +88,7 @@ def random_transform_2d_tensor(tensor, hflip=False, vflip=False):
 
 class DataGenerator:
     def __init__(
-        self, batch_size, mode, device, num_bin_x=512, num_bin_y=512, random_transform=False
+        self, batch_size, mode, device, num_bin_x=512, num_bin_y=512, random_transform=False, deterministic=True
     ):
         self.batch_size = batch_size
         self.mode = mode
@@ -112,6 +118,8 @@ class DataGenerator:
             device=self.device,
             overflow_helper=(None, None, None),
             sorted_maps=None,
+            expand_ratio=None,
+            deterministic=deterministic,
         ).to(self.device)
 
     def generator(self, move_node=True, starter=0.5):

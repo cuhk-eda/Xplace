@@ -422,7 +422,7 @@ class ElectronicDensityLayer(torch.nn.Module):
         aux_mat = init_density_map.clone()
         density_map = density_map_cuda.forward(
             normalize_node_info, mov_sorted_map, aux_mat, 
-            self.num_bin_x, self.num_bin_y, num_nodes
+            self.num_bin_x, self.num_bin_y, num_nodes, self.deterministic,
         )
         
         # aux_mat = init_density_map.clone()
@@ -454,7 +454,7 @@ class ElectronicDensityLayer(torch.nn.Module):
             node_grad = normalize_node_info.new_zeros((num_nodes, 2))
             node_grad = density_map_cuda.backward(
                 normalize_node_info, grad_mat, mov_sorted_map, node_grad,
-                grad_weight, self.num_bin_x, self.num_bin_y, num_nodes
+                grad_weight, self.num_bin_x, self.num_bin_y, num_nodes, self.deterministic,
             )
 
         return  potential_map, density_map, grad_mat, node_grad

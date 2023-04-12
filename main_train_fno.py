@@ -10,6 +10,7 @@ def get_option():
     parser.add_argument('--seed', type=int, default=0, help='seed to initialize all the random modules')
     parser.add_argument('--gpu', type=int, default=0, help='gpu id')
     parser.add_argument('--macro_mode', type=str, default="bench", help='macro data mode')
+    parser.add_argument('--deterministic', type=str2bool, default=True, help='use deterministic mode')
 
     # training parameters
     parser.add_argument('--batch_size', type=int, default=128, help='batch size')
