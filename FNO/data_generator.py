@@ -20,7 +20,7 @@ class DummyArgs(object):
 
 
 def generate_training_data_single(args, logger, device):
-    data, rawdb, gpdb = load_dataset(args, logger)
+    data, _, rawdb, gpdb = load_dataset(args, logger)
     data = data.to(device)
     data = data.preprocess()
     init_density_map = get_init_density_map(data, args, logger)
