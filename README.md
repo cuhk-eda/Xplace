@@ -6,7 +6,7 @@ We are happy to announce that Xplace 2.0 is now released. Compared to [Xplace 1.
 - Support deterministic mode with only 5~25% extra GP runtime overhead.
 - Implement an extremely fast GPU-accelerated detailed-routability-driven placement algorithm.
 - Integrate with a GPU-accelerated detailed placer and a GPU-accelerated global router.
-- Support a superfast **GPU-accelerated place and global route flow** ([Xplace](https://dl.acm.org/doi/abs/10.1145/3489517.3530485) + [GGR](https://dl.acm.org/doi/10.1145/3508352.3549474))! Input your LEF/DEF, the flow will output the **placement DEF** and the **global routing guide**! 
+- Support a superfast **GPU-accelerated place and global route flow** ([Xplace](https://dl.acm.org/doi/abs/10.1145/3489517.3530485) + [GGR](cpp_to_py/gpugr/README.md))! Input your LEF/DEF, the flow will output the **placement DEF** and the **global routing guide**! 
 - Provide benchmark download and preprocess scripts, and three routability evaluation scripts. 
 - Code refactoring.
 
@@ -128,7 +128,7 @@ python main.py --dataset ispd2005 --run_all True --load_from_raw False
 3. If you want to run `pt` mode for the custom dataset, you need to add the custom dataset path in `utils/get_design_params.py`.
 
 ## GPU-accelerated place and global route flow (Xplace + GGR)
-Set `--final_route_eval True` in Python arguments to invoke the internal global router [GGR](https://dl.acm.org/doi/10.1145/3508352.3549474) to run GPU-accelerated PnR flow. The flow will output the **placement DEF** and the **global routing guide** in `./result/exp_id/output`. Besides, GR metrics are reported in the log and recorded in `./result/exp_id/log/route.csv`. 
+Set `--final_route_eval True` in Python arguments to invoke the internal global router [GGR](cpp_to_py/gpugr/README.md) to run GPU-accelerated PnR flow. The flow will output the **placement DEF** and the **global routing guide** in `./result/exp_id/output`. Besides, GR metrics are reported in the log and recorded in `./result/exp_id/log/route.csv`. 
 
 - To run Place and Global Route flow for ISPD2015 dataset:
 ```bash
@@ -140,7 +140,7 @@ More details about using GGR in Xplace can be found in [cpp_to_py/gpugr/README.m
 ## Evaluate the routability of Xplace's solution 
 We provide three ways to evaluate the routability of a placement solution:
 
-1. Set `--final_route_eval True` to invoke [GGR](https://dl.acm.org/doi/10.1145/3508352.3549474) to evaluate the placement solution.
+1. Set `--final_route_eval True` to invoke [GGR](cpp_to_py/gpugr/README.md) to evaluate the placement solution.
 
 2. Use [CU-GR](https://github.com/cuhk-eda/cu-gr) to evaluate the placement solution by global routing. Please refer to [tool/cugr_ispd2015_fix/README.md](tool/cugr_ispd2015_fix/README.md) for instructions.
 

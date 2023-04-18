@@ -5,7 +5,7 @@ More details are in the following paper:
 
 Shiju Lin, Jinwei Liu, Evangeline F.Y. Young and Martin D.F. Wong. "[GAMER: GPU-Accelerated Maze Routing](https://ieeexplore.ieee.org/document/9799536)". In IEEE Transactions on Computer-Aided Design of Integrated Circuits and Systems, vol. 42, no. 2, pp. 583-593, Feb. 2023. 
 
-Shiju Lin and Martin D. F. Wong. "[Superfast Full-Scale CPU-Accelerated Global Routing](https://doi.org/10.1145/3508352.3549474)". In Proceedings of the 41st IEEE/ACM International Conference on Computer-Aided Design (ICCAD '22). Association for Computing Machinery, New York, NY, USA, Article 51, 1–8. 
+Shiju Lin and Martin D. F. Wong. "[Superfast Full-Scale GPU-Accelerated Global Routing](https://doi.org/10.1145/3508352.3549474)". In Proceedings of the 41st IEEE/ACM International Conference on Computer-Aided Design (ICCAD '22). Association for Computing Machinery, New York, NY, USA, Article 51, 1–8. 
 
 **GGR is integrated in Xplace now!**
 
@@ -30,7 +30,7 @@ If you find **GGR** useful in your research, please consider to cite:
 @inproceedings{lin2022ggr,
 author = {Lin, Shiju and Wong, Martin D. F.},
 booktitle = {Proceedings of the 41st IEEE/ACM International Conference on Computer-Aided Design},
-title = {Superfast Full-Scale CPU-Accelerated Global Routing},
+title = {Superfast Full-Scale GPU-Accelerated Global Routing},
 year = {2022},
 }
 
