@@ -138,6 +138,7 @@ def calc_obj_and_grad_nn(
         )
         mov_node_pos.grad[mov_lhs:mov_rhs] = conn_node_grad_by_wl[mov_lhs:mov_rhs]
         if ps.enable_sample_force:
+            ps.use_nn = False
             if ps.iter > 3 and ps.iter % 20 == 0:
                 # ps.iter > 3 for warmup
                 density_loss, _, node_grad_by_density = density_map_layer.merged_density_loss_grad(
@@ -153,10 +154,10 @@ def calc_obj_and_grad_nn(
             if (ps.iter > 3 and ps.recorder.force_ratio[-1] > 1e-2) or ps.iter > 100:
                 # no longer enable sampling back
                 ps.enable_sample_force = False
-        elif ps.iter > 2 and ps.weighted_weight < args.ps_end and ps.iter > 200:
+        elif ps.iter > 100 and ps.weighted_weight < args.ps_end and not ps.terminate_nn:
             # density_map_layer_nn: use nn_size model to calc nn_bin level grad (can use "ep" or "nn")
             # density_map_layer: use nn_size model to calc num_bin_x/y level grad (can use "ep" or "nn")
-
+            ps.use_nn = True
             density_loss, _, node_grad_by_density = density_map_layer.merged_density_loss_grad(
                 mov_node_pos, mov_node_size, init_density_map, calc_overflow=False,
                 grad_fn="ep",
@@ -171,13 +172,26 @@ def calc_obj_and_grad_nn(
                 cache_grad_4norm=False,
                 norm_grad=True,
             )
+            # compute smooth function (for nesterov)
             s_func = lambda a,x: 1 - 1 / (1 + torch.exp(-a * (x / args.ps_end-0.5)))
-            t1_func = lambda a,b,x: 1 / (1 + math.exp(-a *(x - b)))
+            t_func = lambda a,b,x: 1 / (1 + math.exp(-a * (x / b - 0.5)))
             a = s_func(5, ps.weighted_weight)
-            # NOTE: best strategy should base one force ratio, however, it will cause non-deterministic
-            # b = t_func(300, 0.01, ps.force_ratio) # 0.01
-            b = t1_func(0.2, 200, ps.iter) # trick to smooth the Step function in iter == 100
+            b = t_func(5, 0.005, ps.force_ratio)
             sigma = max(a + b - 1, 0)
+
+            # we observe that using NN mode too long would affect the quality and runtime,
+            # here is a fast decay trick to detect and avoid that
+            if ps.nn_dominate_iter is None and sigma > 0.5:
+                ps.nn_dominate_iter = ps.iter
+            if sigma > 0.5 and ps.iter - ps.nn_dominate_iter > ps.max_nn_dominate_iter:
+                ps.fast_decay = True
+            if ps.fast_decay:
+                e_func = lambda a,b,x: 1 - math.exp(-a * (x - b))
+                diff_iter = ps.iter - (ps.nn_dominate_iter + ps.max_nn_dominate_iter)
+                sigma = max(sigma - e_func(0.1, 0, diff_iter), 0)
+                if sigma < 1e-4:
+                    # save runtime
+                    ps.terminate_nn = True
 
             # update grad
             ps.nn_sigma = sigma
@@ -188,6 +202,7 @@ def calc_obj_and_grad_nn(
             ).clamp_(max=10)
             mov_node_pos.grad += node_grad_by_density * ps.density_weight
         else:
+            ps.use_nn = False
             ps.nn_sigma = 0
             density_loss, _, node_grad_by_density = density_map_layer.merged_density_loss_grad(
                 mov_node_pos, mov_node_size, init_density_map, calc_overflow=False,

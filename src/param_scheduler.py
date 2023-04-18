@@ -116,6 +116,11 @@ class ParamScheduler:
         self.enable_fence = data.enable_fence
         # nn scheduler
         self.nn_sigma = 0
+        self.use_nn = False
+        self.nn_dominate_iter = None
+        self.max_nn_dominate_iter = 250
+        self.fast_decay = False
+        self.terminate_nn = False
         # skip density force
         self.enable_sample_force = True
         self.force_ratio = 0.0

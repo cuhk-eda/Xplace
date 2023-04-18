@@ -63,13 +63,12 @@ def get_option():
 
     # nn
     parser.add_argument('--model_path', type=str, default="misc/model_12x24x128_xplacenn_epoch_49.pt", help='FNO trained model path') 
-    # parser.add_argument('--grad_fn', type=str, default="nn", help='electronic & neural network') 
-    # parser.add_argument('--ps_thrs', type=float, default=0.01, help='ps threshold')
     parser.add_argument('--ps_end', type=float, default=0.05, help='ps threshold')
-    parser.add_argument('--ps_end_iter', type=int, default=200, help='nn mode end iter')
-    parser.add_argument('--nn_expand', type=bool, default=True, help='expand nn map?')
+    parser.add_argument('--nn_expand', type=bool, default=True, help='expand nn map')
+    parser.add_argument('--nn_bin_x', type=int, default=512, help='#binsX for density_map_layer_nn prediction') 
+    parser.add_argument('--nn_bin_y', type=int, default=512, help='#binsY for density_map_layer_nn prediction') 
+    # parser.add_argument('--grad_fn', type=str, default="nn", help='electronic & neural network') 
     # parser.add_argument('--nn_size', type=int, default=256, help='nn model size') 
-    parser.add_argument('--nn_bin', type=int, default=512, help='#bins for density_map_layer_nn prediction') 
 
     # placement output
     parser.add_argument('--draw_placement', type=str2bool, default=False, help='draw placement') 

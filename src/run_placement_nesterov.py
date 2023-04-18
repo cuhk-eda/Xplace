@@ -63,11 +63,10 @@ def run_placement_main_nesterov(args, logger):
     model_path = args.model_path
     width, neck, modes = [int(i) for i in model_path.split("/")[-1].split("_")[1].split("x")]
     
-    nn_bin = args.nn_bin
     args_nn = copy.deepcopy(args)
     args_nn.clamp_node = args.nn_expand   
-    args_nn.num_bin_y = nn_bin
-    args_nn.num_bin_x = nn_bin
+    args_nn.num_bin_x = args.nn_bin_x
+    args_nn.num_bin_y = args.nn_bin_y
     data_nn.__args__ = args_nn
     data_nn.__num_bin_x__ = args_nn.num_bin_x
     data_nn.__num_bin_y__ = args_nn.num_bin_y
@@ -87,11 +86,11 @@ def run_placement_main_nesterov(args, logger):
     overflow_helper_nn = (mov_lhs, mov_rhs, overflow_fn_nn)
     density_map_layer_nn = ElectronicDensityLayer(
         unit_len=data_nn.unit_len,
-        num_bin_x=nn_bin,
-        num_bin_y=nn_bin,
+        num_bin_x=args_nn.num_bin_x,
+        num_bin_y=args_nn.num_bin_y,
         device=device,
         overflow_helper=overflow_helper_nn,
-        sorted_maps=data.sorted_maps,   #FIXME: !!!
+        sorted_maps=data.sorted_maps,
         expand_ratio=expand_ratio_nn,
         deterministic=args.deterministic,
         scale_w_k=False,
@@ -101,7 +100,7 @@ def run_placement_main_nesterov(args, logger):
         model.load_state_dict(torch.load(model_path, map_location=device))
         model.eval()
         torch.cuda.synchronize()
-        model(torch.randn((1, nn_bin, nn_bin, 1), device=device)) # warmup
+        model(torch.randn((1, args_nn.num_bin_x, args_nn.num_bin_y, 1), device=device)) # warmup
     # fix_lhs, fix_rhs = data.fixed_index
     # info = (0, 0, data.design_name + "_fix")
     # fix_node_pos = data.node_pos[fix_lhs:fix_rhs, ...]
@@ -165,7 +164,7 @@ def run_placement_main_nesterov(args, logger):
         hpwl, overflow = evaluator_fn(mov_node_pos)
         # for nn tuning
         nn_weights.append(ps.nn_sigma.item() if type(ps.nn_sigma) == torch.Tensor else ps.nn_sigma)
-        enable_nns.append((ps.weighted_weight < args.ps_end).item() and ps.iter > args.ps_end_iter)
+        enable_nns.append(ps.use_nn)
         force_ratios.append(ps.force_ratio.item() if type(ps.force_ratio) == torch.Tensor else ps.force_ratio)
         # update parameters
         ps.step(hpwl, overflow, mov_node_pos, data)
