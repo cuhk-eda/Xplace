@@ -27,6 +27,8 @@ moveNDRToLef = True
 # Add default to fix nanoroute via error. 
 # FIXME: I dont' know which vias in superblue should be set with default...
 addDefaultForLefVia = True # only for mgc_superblue_*
+# PG Nets will cause a lot of violations with macro OBS, use EXCEPTPGNET to avoid that
+eceptPGNetsForObs = True
 
 
 def generate_one_raw_design(input_root, output_root, design_name):
@@ -147,6 +149,7 @@ def generateLefContent(techLines, cellLines, defLines, design_name):
     # for cell lef
     macroStart = False
     cellcontent = ""
+    findObs = False
     for lid, line in enumerate(cellLines):
         if not macroStart:
             if "MACRO" in line:
@@ -182,6 +185,15 @@ def generateLefContent(techLines, cellLines, defLines, design_name):
                     line = line.replace("236.028 ", "236.030 ")
                 if "235.773 " in line and "RECT" in line:
                     line = line.replace("235.773 ", "235.775 ")
+
+        if eceptPGNetsForObs:
+            if "OBS" in line:
+                findObs = True
+            if findObs:
+                if "END" in line:
+                    findObs = False
+                if "LAYER" in line:
+                    line = line.replace(";", "EXCEPTPGNET ;")
 
         cellcontent += line
         lefcontent += line
