@@ -30,12 +30,6 @@ def get_init_density_map(rawdb, gpdb, data: PlaceData, args, logger):
     if (init_density_map < 0).sum() > 0:
         logger.error("init_density_map has negative value. Please check.")
     if args.use_route_force or args.use_cell_inflate:
-        # reduce the cell density near the fixed macro
-        init_density_map += density_map_cuda.forward_naive(
-            node_pos, node_size * 1.025, node_weight, data.unit_len, zeros_density_map,
-            data.num_bin_x, data.num_bin_y, node_pos.shape[0], -1.0, -1.0, 1e-4, False,
-            args.deterministic
-        ).contiguous() * 0.5
         # consider snet as plaement blkg in density map to resolve M2 Vertical 
         # SNet pin access problem
         if gpdb is not None and gpdb.m1direction() == 0:
