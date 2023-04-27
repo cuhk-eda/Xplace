@@ -562,6 +562,42 @@ std::vector<torch::Tensor> GPDatabase::getRegionInfoTensor() {
     return {node_id2region_id, region_boxes, region_boxes_end};
 }
 
+std::vector<torch::Tensor> GPDatabase::getSnetInfoTensor() {
+    auto options_int = torch::TensorOptions().dtype(torch::kInt64);
+
+    unsigned num_snetshapes = 0;
+    for (size_t snetId = 0; snetId < database.snets.size(); snetId++) {
+        db::SNet* snet = database.snets[snetId];
+        for (size_t shapeIdx = 0; shapeIdx < snet->shapes.size(); shapeIdx++) {
+            num_snetshapes++;
+        }
+    }
+
+    torch::Tensor snet_lpos = torch::zeros({num_snetshapes, 2});
+    torch::Tensor snet_size = torch::zeros({num_snetshapes, 2});
+    torch::Tensor snet_layer = torch::zeros({num_snetshapes}, options_int);
+
+    auto snet_lpos_a = snet_lpos.accessor<coord_type, 2>();
+    auto snet_size_a = snet_size.accessor<coord_type, 2>();
+    auto snet_layer_a = snet_layer.accessor<index_type, 1>();
+
+    int ptr = 0;
+    for (size_t snetId = 0; snetId < database.snets.size(); snetId++) {
+        db::SNet* snet = database.snets[snetId];
+        for (size_t shapeIdx = 0; shapeIdx < snet->shapes.size(); shapeIdx++) {
+            auto& shape = snet->shapes[shapeIdx];
+            snet_lpos_a[ptr][0] = shape.lx;
+            snet_lpos_a[ptr][1] = shape.ly;
+            snet_size_a[ptr][0] = shape.hx - shape.lx;
+            snet_size_a[ptr][1] = shape.hy - shape.ly;
+            snet_layer_a[ptr] = shape.layer.rIndex;
+            ptr++;
+        }
+    }
+
+    return {snet_lpos, snet_size, snet_layer};
+}
+
 void GPDatabase::applyOneNodeOrient(int node_id) {
     auto& node = nodes[node_id];
     int rowId;

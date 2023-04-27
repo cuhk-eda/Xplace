@@ -5,7 +5,7 @@ from .core import WAWirelengthLossAndHPWL
 from .calculator import calc_grad
 
 
-def get_init_density_map(data: PlaceData, args, logger):
+def get_init_density_map(rawdb, gpdb, data: PlaceData, args, logger):
     lhs, rhs = data.fixed_index
     device = data.node_size.get_device()
     dtype = data.node_size.dtype
@@ -13,6 +13,7 @@ def get_init_density_map(data: PlaceData, args, logger):
         (data.num_bin_x, data.num_bin_y), device=device, dtype=dtype,
     )
     if lhs == rhs:
+        data.init_density_map = zeros_density_map
         return zeros_density_map
     # get fix nodes which are located inside die
     node_pos = data.node_pos[lhs:rhs]
@@ -28,9 +29,40 @@ def get_init_density_map(data: PlaceData, args, logger):
         logger.warning("Some bins in init_density_map are overflow. Clamp them.")
     if (init_density_map < 0).sum() > 0:
         logger.error("init_density_map has negative value. Please check.")
+    if args.use_route_force or args.use_cell_inflate:
+        # reduce the cell density near the fixed macro
+        init_density_map += density_map_cuda.forward_naive(
+            node_pos, node_size * 1.025, node_weight, data.unit_len, zeros_density_map,
+            data.num_bin_x, data.num_bin_y, node_pos.shape[0], -1.0, -1.0, 1e-4, False,
+            args.deterministic
+        ).contiguous() * 0.5
+        # consider snet as plaement blkg in density map to resolve M2 Vertical 
+        # SNet pin access problem
+        if gpdb is not None and gpdb.m1direction() == 0:
+            # TODO: only include snet density when util is small
+            snet_lpos, snet_size, snet_layer = gpdb.snet_info_tensor()
+
+            snet_lpos = snet_lpos.to(device)
+            snet_size = snet_size.to(device)
+            snet_layer = snet_layer.to(device)
+            m2_mask = snet_layer == 1
+            snet_lpos = snet_lpos[m2_mask, :]
+            snet_size = snet_size[m2_mask, :]
+            snet_lpos -= data.die_shift
+            snet_lpos /= data.die_scale
+            snet_size /= data.die_scale
+
+            snet_pos = snet_lpos + snet_size / 2
+            snet_weight = snet_size.new_ones(snet_size.shape[0])
+            snet_density_map = density_map_cuda.forward_naive(
+                snet_pos, snet_size, snet_weight, data.unit_len, zeros_density_map,
+                data.num_bin_x, data.num_bin_y, snet_pos.shape[0], -1.0, -1.0, 1e-4, False,
+                args.deterministic
+            )
+            init_density_map += snet_density_map.contiguous()
     init_density_map.clamp_(min=0.0, max=1.0).mul_(args.target_density)
     if args.use_route_force or args.use_cell_inflate:
-        # enable route, inflate connected IOPins
+        # inflate connected IOPins
         _, fix_rhs, _ = data.node_type_indices[2]
         _, iopin_rhs, _ = data.node_type_indices[3]
         if fix_rhs != iopin_rhs:
@@ -40,7 +72,6 @@ def get_init_density_map(data: PlaceData, args, logger):
             iopin_pos = data.node_pos[fix_rhs:iopin_rhs]
             iopin_size = data.node_size[fix_rhs:iopin_rhs]
             iopin_weight = iopin_size.new_ones(iopin_size.shape[0])
-            row_height = data.row_height / data.site_width
             iopin_density_map = density_map_cuda.forward_naive(
                 iopin_pos, iopin_size, iopin_weight, data.unit_len, zeros_density_map,
                 data.num_bin_x, data.num_bin_y, iopin_pos.shape[0], -1.0, -1.0, 1e-4, False,

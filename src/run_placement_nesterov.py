@@ -27,7 +27,7 @@ def run_placement_main_nesterov(args, logger):
     logger.info(data.node_type_indices)
     # args.num_bin_x = args.num_bin_y = 2 ** math.ceil(math.log2(max(data.die_info).item() // 25))
 
-    init_density_map = get_init_density_map(data, args, logger)
+    init_density_map = get_init_density_map(rawdb, gpdb, data, args, logger)
     data.init_filler()
     mov_lhs, mov_rhs = data.movable_index
     mov_node_pos, mov_node_size, expand_ratio = data.get_mov_node_info()

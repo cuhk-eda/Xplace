@@ -422,7 +422,7 @@ def run_dp(node_pos: torch.Tensor, data: PlaceData, args, logger):
 def run_dp_route_opt(node_pos: torch.Tensor, gpdb, rawdb, ps, data: PlaceData, args, logger):
     # NOTE: we suppose M1's prefer routing direction is 0 (horizontal)
     if ps.enable_route and gpdb.m1direction() == 0:
-        func_name = "routedp"
+        func_name = "PA-Refine"
         logger.info("Start running %s" % func_name)
         start_time = time.time()
         node_pos_bk = node_pos.clone()
@@ -445,9 +445,10 @@ def run_dp_route_opt(node_pos: torch.Tensor, gpdb, rawdb, ps, data: PlaceData, a
         dieHX = die_info[1].item()
         dieLY = die_info[2].item()
         dieHY = die_info[3].item()
+        K = 5
         new_node_lpos = routedp.dp_route_opt(
             node_lpos, node_size, dieLX, dieHX, dieLY, dieHY, 
-            site_width, row_height, rawdb, gpdb
+            site_width, row_height, rawdb, gpdb, K
         )
         new_mov_cpos = new_node_lpos.to(node_pos.device)[mov_lhs:mov_rhs] + data.node_size[mov_lhs:mov_rhs] / 2
         node_pos[mov_lhs:mov_rhs].data.copy_(new_mov_cpos)
