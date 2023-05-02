@@ -1,4 +1,4 @@
-# Experimental Results (Last Updated on April 2023)
+# Experimental Results (Last Updated on May 2023)
 ## Detailed Routing Performance of Xplace-Route on ISPD 2015
 Xplace-Route: Routability GP + DP Flow:
 ```bash
@@ -6,7 +6,7 @@ python main.py --dataset ispd2015_fix --run_all True --load_from_raw True --deta
 ```
 and use Innovus® to detailedly route the placement solution. 
 <div align="center">
-  <img src="img/exp_dr.png">
+  <img src="img/exp_ispd2015_route.png">
 </div>
 
 ## Performance of Xplace on ISPD 2005
