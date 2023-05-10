@@ -11,7 +11,7 @@ We are happy to announce that Xplace 2.0 is now released. Compared to [Xplace 1.
 - Code refactoring.
 
 ## Experimental Results 😄
-Detailed **experimental results** of Xplace 2.0 (including Xplace-Route, deterministic Xplace, etc.) are given in [BENCHMARK.md](BENCHMARK.md).
+Detailed experimental results of Xplace 2.0 (including Xplace-Route, deterministic Xplace, etc.) are given in [BENCHMARK.md](BENCHMARK.md).
 
 ## About
 Xplace is a fast and extensible GPU-accelerated global placement framework developed by the research team supervised by Prof. Evangeline F. Y. Young at The Chinese University of Hong Kong (CUHK). It achieves around 3x speedup per GP iteration compared to DREAMPlace and shows high extensibility.
