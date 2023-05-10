@@ -10,7 +10,8 @@ We are happy to announce that Xplace 2.0 is now released. Compared to [Xplace 1.
 - Provide benchmark download and preprocess scripts, and three routability evaluation scripts. 
 - Code refactoring.
 
-😄 Detailed experimental results of Xplace 2.0 are given in [BENCHMARK.md](BENCHMARK.md).
+## Experimental Results 😄
+Detailed **experimental results** of Xplace 2.0 (including Xplace-Route, deterministic Xplace, etc.) are given in [BENCHMARK.md](BENCHMARK.md).
 
 ## About
 Xplace is a fast and extensible GPU-accelerated global placement framework developed by the research team supervised by Prof. Evangeline F. Y. Young at The Chinese University of Hong Kong (CUHK). It achieves around 3x speedup per GP iteration compared to DREAMPlace and shows high extensibility.
@@ -52,7 +53,7 @@ make -j40 && make install
 ```
 
 ## Prepare data
-The following script will automatically download `ispd2005`, `ispd2015`, and `iccad2019` benchmarks in `./data/raw`. It also preprocesses `ispd2015` benchmark to fix some errors when routing them by Innovus®.
+The following script will automatically download `ispd2005`, `ispd2015`, and `iccad2019` benchmarks in `./data/raw`. It also preprocesses `ispd2015` benchmark to fix some errors. Note that Innovus® can run detailed routing on this fixed `ispd2015`.
 ```bash
 cd $XPLACE_HOME/data
 ./download_data.sh
