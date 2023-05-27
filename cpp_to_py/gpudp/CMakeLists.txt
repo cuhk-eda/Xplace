@@ -24,7 +24,7 @@ add_library(dp SHARED ${CMAKE_CURRENT_SOURCE_DIR}/../io_parser/gp/GPDatabase.cpp
                        ${SRC_FILES_DP_CUDA})
 
 target_include_directories(dp PRIVATE ${PROJECT_SOURCE_DIR}/cpp_to_py ${TORCH_INCLUDE_DIRS} ${FLUTE_INCLUDE_DIR})
-target_link_libraries(dp PRIVATE torch ${TORCH_PYTHON_LIBRARY} xplace_common flute dp_cuda_tmp pthread)
+target_link_libraries(dp PRIVATE torch ${TORCH_PYTHON_LIBRARY} xplace_common flute dp_cuda_tmp pthread CUDA::curand)
 target_compile_options(dp PRIVATE -fPIC)
 
 install(TARGETS dp DESTINATION ${XPLACE_LIB_DIR})

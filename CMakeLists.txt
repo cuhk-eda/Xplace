@@ -65,6 +65,7 @@ message(STATUS TORCH_VERSION=${TORCH_VERSION_MAJOR}.${TORCH_VERSION_MINOR})
 # find CUDA
 if (TORCH_ENABLE_CUDA)
   find_package(CUDA 11.4)
+  find_package(CUDAToolkit)
   if (NOT CUDA_FOUND)
     set(TORCH_ENABLE_CUDA 0 CACHE BOOL "Whether enable CUDA" FORCE)
     message(FATAL_ERROR "Xplace only supports CUDA mode, CMake will exit." )
