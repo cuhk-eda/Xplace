@@ -19,7 +19,7 @@ def apply_precond(mov_node_pos: torch.Tensor, ps: ParamScheduler, args):
     mov_node_pos.grad /= ps.precond_weight
     return mov_node_pos.grad
 
-# For nesterov
+
 def calc_obj_and_grad(
     mov_node_pos,
     constraint_fn=None,
@@ -103,18 +103,17 @@ def calc_obj_and_grad(
         grad = apply_precond(mov_node_pos, ps, args)
     return loss, grad
 
-# For Adam
 
 def calc_grad(
     optimizer: torch.optim.Optimizer, mov_node_pos: torch.Tensor, wl_loss, density_loss
 ):
-    optimizer.zero_grad()
+    optimizer.zero_grad(set_to_none=False)
     wl_loss.backward(retain_graph=True)
     wl_grad = mov_node_pos.grad.detach().clone()
-    optimizer.zero_grad()
+    optimizer.zero_grad(set_to_none=False)
     density_loss.backward(retain_graph=True)
     density_grad = mov_node_pos.grad.detach().clone()
-    optimizer.zero_grad()
+    optimizer.zero_grad(set_to_none=False)
     return wl_grad, density_grad
 
 

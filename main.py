@@ -11,7 +11,7 @@ def get_option():
     parser.add_argument('--load_from_raw', type=str2bool, default=True, help='If True, parse and load from benchmark files. If False, load from pt')
     parser.add_argument('--run_all', type=str2bool, default=False, help='If True, run all designs in the given dataset. If False, run the given design_name only.')
     parser.add_argument('--seed', type=int, default=0, help='seed to initialize all the random modules')
-    parser.add_argument('--gpu', type=int, default=1, help='gpu id')
+    parser.add_argument('--gpu', type=int, default=0, help='gpu id')
     parser.add_argument('--num_threads', type=int, default=20, help='threads')
     parser.add_argument('--deterministic', type=str2bool, default=True, help='use deterministic mode')
 
