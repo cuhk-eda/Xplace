@@ -76,7 +76,7 @@ message(STATUS TORCH_ENABLE_CUDA=${TORCH_ENABLE_CUDA})
 # set cuda arch and nvcc flags
 if (CUDA_FOUND)
   if (NOT CUDA_ARCH_LIST)
-    set(CUDA_ARCH_LIST 8.0 8.6)
+    set(CUDA_ARCH_LIST 6.0 6.1 7.0 7.5 8.0 8.6)
   endif(NOT CUDA_ARCH_LIST)
   # for cuda_add_library
   cuda_select_nvcc_arch_flags(CUDA_ARCH_FLAGS ${CUDA_ARCH_LIST})
