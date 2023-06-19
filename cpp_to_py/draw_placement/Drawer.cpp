@@ -67,15 +67,15 @@ Drawer::Drawer(const std::vector<std::tuple<std::string, double, double, double,
     if (type_to_rgba.find(ele_type) == type_to_rgba.end()) {
         type_to_rgba.emplace(ele_type, std::make_tuple(0.878, 0.365, 0.365, 0.8));
     }
-    ele_type = "doubleIOPin";
+    ele_type = "FloatIOPin";
     if (type_to_rgba.find(ele_type) == type_to_rgba.end()) {
         type_to_rgba.emplace(ele_type, std::make_tuple(0.878, 0.365, 0.365, 0.8));
     }
-    ele_type = "doubleFix";
+    ele_type = "FloatFix";
     if (type_to_rgba.find(ele_type) == type_to_rgba.end()) {
         type_to_rgba.emplace(ele_type, std::make_tuple(0.878, 0.365, 0.365, 0.8));
     }
-    ele_type = "doubleMov";
+    ele_type = "FloatMov";
     if (type_to_rgba.find(ele_type) == type_to_rgba.end()) {
         type_to_rgba.emplace(ele_type, std::make_tuple(0.082, 0.176, 0.208, 0.8));
     }

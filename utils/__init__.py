@@ -1,5 +1,4 @@
 from .io_parser import IOParser
-from .timer import Timer
 from .logger import setup_logger
 from .visualization import *
 from .tools import *

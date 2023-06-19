@@ -256,6 +256,7 @@ def run_gr_and_fft_main(
 
 def run_gr_and_fft(args, logger, data, rawdb, gpdb, ps, grdb=None, skip_m1_route=True, run_fft=False, visualize=False, report_gr_metrics_only=False, given_gr_params={}):
     route_size = 512
+    iteration = ps.iter - 1  # ps.iter is increased before running GR optimization
     die_ratio = (data.__ori_die_hx__ - data.__ori_die_lx__) / (data.__ori_die_hy__ - data.__ori_die_ly__)
     route_xSize = route_size if die_ratio <= 1 else round(route_size / die_ratio)
     route_ySize = route_size if die_ratio >= 1 else round(route_size / die_ratio)
@@ -269,7 +270,7 @@ def run_gr_and_fft(args, logger, data, rawdb, gpdb, ps, grdb=None, skip_m1_route
     gpugr.load_gr_params(gr_params)
 
     # 1.2) do GR
-    logger.info("--------- Start GR in Iter: %d ---------" % ps.iter)
+    logger.info("--------- Start GR in Iter: %d ---------" % iteration)
     if grdb is None:
         grdb = gpugr.create_grdatabase(rawdb, gpdb)
     routeforce = gpugr.create_routeforce(grdb)
@@ -371,11 +372,11 @@ def run_gr_and_fft(args, logger, data, rawdb, gpdb, ps, grdb=None, skip_m1_route
         title = "#OvflNets: %.2e, WL: %.2e, #Vias: %.2e\n#Shorts: %.2e, RC Hor: %.3f, RC Ver: %.3f " % (
             numOvflNets, gr_wirelength, gr_numVias, gr_numShorts, rc_hor_mean, rc_ver_mean
         )
-        draw_cg_fig(args, input_mat, (data.design_name, ps.iter, "cg_mapAll"), title)
-        draw_cg_fig(args, cg_mapHV[0], (data.design_name, ps.iter, "cg_mapH"), title)
-        draw_cg_fig(args, cg_mapHV[1], (data.design_name, ps.iter, "cg_mapV"), title)
-        # draw_cg_fig(args, route_gradmat[0], (data.design_name, ps.iter, "route_gradmatX"), title)
-        # draw_cg_fig(args, route_gradmat[1], (data.design_name, ps.iter, "route_gradmatY"), title)
+        draw_cg_fig(args, input_mat, (data.design_name, iteration, "cg_mapAll"), title)
+        draw_cg_fig(args, cg_mapHV[0], (data.design_name, iteration, "cg_mapH"), title)
+        draw_cg_fig(args, cg_mapHV[1], (data.design_name, iteration, "cg_mapV"), title)
+        # draw_cg_fig(args, route_gradmat[0], (data.design_name, iteration, "route_gradmatX"), title)
+        # draw_cg_fig(args, route_gradmat[1], (data.design_name, iteration, "route_gradmatY"), title)
 
     if report_gr_metrics_only:
         return gr_metrics
