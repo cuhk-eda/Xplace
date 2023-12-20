@@ -30,7 +30,7 @@ Lixin Liu, Bangqi Fu, Martin D. F. Wong, and Evangeline F. Y. Young. "[Xplace: a
 (For the Xplace-NN, please refer to branch [neural](https://github.com/cuhk-eda/Xplace/tree/neural))
 
 ## Requirements
-- [CMake](https://cmake.org/) >= 3.12
+- [CMake](https://cmake.org/) >= 3.17
 - [GCC](https://gcc.gnu.org/) >= 7.5.0
 - [Boost](https://www.boost.org/) >= 1.56.0
 - [CUDA](https://developer.nvidia.com/cuda-toolkit) >= 11.3
