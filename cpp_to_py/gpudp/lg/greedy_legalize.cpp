@@ -45,10 +45,16 @@ void distributeCells2Bins(const LegalizationData& db,
                           int num_bins_y,
                           int num_nodes,
                           int num_movable_nodes,
-                          std::vector<std::vector<int>>& bin_cells) {
+                          int num_conn_movable_nodes,
+                          std::vector<std::vector<int>>& bin_cells,
+                          bool legalize_filler) {
     // do not handle large macros
     // one cell cannot be distributed to one bin
-    for (int i = 0; i < num_movable_nodes; i += 1) {
+    int num_legalized_nodes = num_conn_movable_nodes;
+    if (legalize_filler) {
+        num_legalized_nodes = num_movable_nodes;
+    }
+    for (int i = 0; i < num_legalized_nodes; i += 1) {
         if (!db.is_dummy_fixed(i)) {
             int bin_id_x = (x[i] + node_size_x[i] / 2 - xl) / bin_size_x;
             int bin_id_y = (y[i] + node_size_y[i] / 2 - yl) / bin_size_y;
@@ -527,7 +533,7 @@ void minNodeSize(const std::vector<std::vector<int>>& bin_cells,
     }
 }
 
-void greedyLegalization(DPTorchRawDB& at_db, int num_bins_x, int num_bins_y) {
+void greedyLegalization(DPTorchRawDB& at_db, int num_bins_x, int num_bins_y, bool legalize_filler) {
     LegalizationData db(at_db);
     db.set_num_bins(num_bins_x, num_bins_y);
     // first from right to left
@@ -566,7 +572,9 @@ void greedyLegalization(DPTorchRawDB& at_db, int num_bins_x, int num_bins_y) {
                              num_bins_y,
                              db.num_nodes,
                              db.num_movable_nodes,
-                             bin_cells);
+                             db.num_conn_movable_nodes,
+                             bin_cells, 
+                             legalize_filler);
 
         // allocate bin fixed cells
         std::vector<std::vector<int>> bin_fixed_cells(num_bins_x * num_bins_y);

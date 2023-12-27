@@ -137,6 +137,7 @@ def run_placement_main_nesterov(args, logger):
     #             p.step()
     # exit(0)
     terminate_signal = False
+    route_early_terminate_signal = False
     for iteration in range(args.inner_iter):
         # optimizer.zero_grad() # zero grad inside obj_and_grad_fn
         obj = optimizer.step(obj_and_grad_fn)
@@ -189,7 +190,9 @@ def run_placement_main_nesterov(args, logger):
                     constraint_fn=trunc_node_pos_fn,
                 )  # ps.use_cell_inflate is updated in route_inflation
                 if not ps.use_cell_inflate:
-                    logger.info("Stop cell inflation...")
+                    route_early_terminate_signal = True
+                    terminate_signal = True
+                    logger.info("Early stop cell inflation...")
                 if output is not None:
                     gr_metrics, new_mov_node_size, new_expand_ratio = output
                     ps.push_gr_sol(gr_metrics, hpwl, overflow, mov_node_pos)
@@ -240,7 +243,7 @@ def run_placement_main_nesterov(args, logger):
                 )
                 ps.reset_best_sol()
 
-        if iteration % args.log_freq == 0 or iteration == args.inner_iter - 1 or ps.rerun_route:
+        if iteration % args.log_freq == 0 or iteration == args.inner_iter - 1 or ps.rerun_route or terminate_signal:
             log_str = (
                 "iter: %d | masked_hpwl: %.2E overflow: %.4f obj: %.4E "
                 "density_weight: %.4E wa_coeff: %.4E"
@@ -287,13 +290,14 @@ def run_placement_main_nesterov(args, logger):
         mov_node_pos[mov_lhs:mov_rhs].data.copy_(best_sol[mov_lhs:mov_rhs])
     if ps.enable_route:
         route_inflation_roll_back(args, logger, data, mov_node_size)
-        ps.rerun_route = True
-        gr_metrics = run_gr_and_fft_main(
-            args, logger, data, rawdb, gpdb, ps, mov_node_pos, constraint_fn=trunc_node_pos_fn, 
-            skip_m1_route=True, report_gr_metrics_only=True
-        )
-        ps.rerun_route = False
-        ps.push_gr_sol(gr_metrics, hpwl, overflow, mov_node_pos)
+        if not route_early_terminate_signal:
+            ps.rerun_route = True
+            gr_metrics = run_gr_and_fft_main(
+                args, logger, data, rawdb, gpdb, ps, mov_node_pos, constraint_fn=trunc_node_pos_fn, 
+                skip_m1_route=True, report_gr_metrics_only=True
+            )
+            ps.rerun_route = False
+            ps.push_gr_sol(gr_metrics, hpwl, overflow, mov_node_pos)
         best_sol_gr = ps.get_best_gr_sol()
         mov_node_pos[mov_lhs:mov_rhs].data.copy_(best_sol_gr[mov_lhs:mov_rhs])
 

@@ -9,8 +9,12 @@ sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 dataset_root = "./raw"
 # remove fence region related information, including GROUP, REGION
 removeDefFence = True 
-# Since there are so many DRCs caused by SNet Vias (spacing) when routing by nanoroute, 
-# we remove these SNet Vias to avoid them. Note that such modification won't affect placement.
+# Due to numerous DRVs caused by SNet Vias (spacing) after nanoroute routing, we have 
+# removed these vias to address the issue. It is likely that these vias are oversized, 
+# directly violating the spacing rule. While this adjustment has no significant impact 
+# on placement, it does result in an open SNet. We sincerely encourage and appreciate 
+# contributions towards resolving this issue. Your contribution is highly valued and 
+# appreciated.
 removeDefSNetVias = True
 # Some fixed cell is not placed on manufacture grid, we move them to the nearest grid
 fixDefPlaceOnManGrid = True # only for mgc_fft_b, mgc_matrix_mult_b
@@ -27,8 +31,9 @@ moveNDRToLef = True
 # Add default to fix nanoroute via error. 
 # FIXME: I dont' know which vias in superblue should be set with default...
 addDefaultForLefVia = True # only for mgc_superblue_*
-# PG Nets will cause a lot of violations with macro OBS, use EXCEPTPGNET to avoid that
+# PG Nets will cause a lot of violations with macro OBS/Route Blkg, use EXCEPTPGNET to avoid that
 eceptPGNetsForObs = True
+eceptPGNetsForBlkg = True
 
 
 def generate_one_raw_design(input_root, output_root, design_name):
@@ -207,6 +212,7 @@ def generateDefContent(defLines, design_name):
     
     isSNet, isVia, isNdr = False, False, False
     isRegion, isGroup = False, False
+    isBlockages = False
     jumpToEndComponents = False
     for lid, line in enumerate(defLines):
         if fixDefTracksLayers:
@@ -265,6 +271,15 @@ def generateDefContent(defLines, design_name):
                 continue
             if isGroup or isRegion:
                 continue
+
+        if eceptPGNetsForBlkg:
+            if "BLOCKAGES" in line and "END" not in line:
+                isBlockages = True
+            if "END BLOCKAGES" in line:
+                isBlockages = False
+            if isBlockages:
+                if "LAYER" in line:
+                    line = line.replace("\n", " + EXCEPTPGNET\n")
 
         if fixDefPlaceOnManGrid and "fft_b" in design_name:
             if "+ PLACED ( 661359 799490 ) N" in line:

@@ -178,8 +178,30 @@ __global__ void move_nodes_kernel(DetailedPlaceDBType db, IndependentSetMatching
                     if (j != sol_k) {
                         atomicAdd(state.device_num_moved, 1);
                         auto const& orig_space = orig_spaces[sol_k];
+                        // printf(
+                        //     "apply cost matrix %d, j %d, node_id %d, sol_k %d, pos_id %d, space (%g, %g), "
+                        //     "orig_space (%g, %g) xy (%g, %g) orig_xy (%g, %g)\n",
+                        //     i,
+                        //     j,
+                        //     node_id,
+                        //     sol_k,
+                        //     independent_set[sol_k],
+                        //     space.xl,
+                        //     space.xh,
+                        //     orig_space.xl,
+                        //     orig_space.xh,
+                        //     x,
+                        //     y,
+                        //     orig_x[sol_k],
+                        //     orig_y[sol_k]);
                         x = orig_x[sol_k];
                         bool ret = adjust_pos(x, node_width, orig_space);
+                        if (!ret) {
+                            printf("ERROR: ism adjust_pos, node_width: %g, orig_space(%g, %g)\n",
+                                   node_width,
+                                   orig_space.xl,
+                                   orig_space.xh);
+                        }
                         assert(ret);
                         y = orig_y[sol_k];
                         space = orig_space;

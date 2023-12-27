@@ -186,6 +186,7 @@ public:
     void setupNets();
     void setupIndexMap();
     void setupCheckVar();
+    void transferOrient();
     bool setup();
     bool reset();
 

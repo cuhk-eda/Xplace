@@ -66,6 +66,41 @@ bool loadParams(const py::dict& kwargs) {
         utils::verbose_parser_log = false;
     }
 
+    // global logging level, default is LOG_INFO
+    //   need to enable "verbose_parser_log"
+    if (kwargs.contains("global_log_level")) {
+        int log_level = kwargs["global_log_level"].cast<int>();
+        switch (log_level) {
+            case 0:
+                logger.set_global_log_level(utils::log_level::LOG_DEBUG);
+                break;
+            case 1:
+                logger.set_global_log_level(utils::log_level::LOG_VERBOSE);
+                break;
+            case 2:
+                logger.set_global_log_level(utils::log_level::LOG_INFO);
+                break;
+            case 3:
+                logger.set_global_log_level(utils::log_level::LOG_NOTICE);
+                break;
+            case 4:
+                logger.set_global_log_level(utils::log_level::LOG_WARN);
+                break;
+            case 5:
+                logger.set_global_log_level(utils::log_level::LOG_ERROR);
+                break;
+            case 6:
+                logger.set_global_log_level(utils::log_level::LOG_FATAL);
+                break;
+            case 7:
+                logger.set_global_log_level(utils::log_level::LOG_OK);
+                break;
+            default:
+                logger.set_global_log_level(utils::log_level::LOG_INFO);
+                break;
+        }
+    }
+
     if (kwargs.contains("num_threads")) {
         db::setting.numThreads = kwargs["num_threads"].cast<int>();
     }

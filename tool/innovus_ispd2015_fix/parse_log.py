@@ -41,8 +41,8 @@ for idx, (lhs, rhs) in enumerate(design_lines):
         if "End route_design" in line:
             DrCpuTimeStr = line.split("total cpu=")[-1].split(", ")[0]
             DrTotalTimeStr = line.split("real=")[-1].split(", ")[0]
-            DrCpuTime = sum(x * int(t) for x, t in zip([3600, 60, 1], DrCpuTimeStr.split(":"))) # seconds
-            DrTotalTime = sum(x * int(t) for x, t in zip([3600, 60, 1], DrTotalTimeStr.split(":"))) # seconds
+            DrCpuTime = sum(x * int(float(t)) for x, t in zip([3600, 60, 1], DrCpuTimeStr.split(":"))) # seconds
+            DrTotalTime = sum(x * int(float(t)) for x, t in zip([3600, 60, 1], DrTotalTimeStr.split(":"))) # seconds
 
         if line.startswith("Wire Length Statistics :"):
             findTotalWL = True

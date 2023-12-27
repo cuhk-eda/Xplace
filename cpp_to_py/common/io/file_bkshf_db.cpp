@@ -417,6 +417,7 @@ bool Database::readBSAux(const std::string& auxFile, const std::string& plFile) 
         row->xNum(bsData.rowSites[i]);
         row->yNum(1);
         row->flip((i % 2) == 1);
+        row->orient((i % 2) * 6);  // 0:N or 6:FS
         this->dieLX = std::min(this->dieLX, row->x());
         this->dieLY = std::min(this->dieLY, row->y());
         this->dieHX = std::max(this->dieHX, row->x() + (int)row->width());
@@ -575,7 +576,8 @@ bool Database::readBSAux(const std::string& auxFile, const std::string& plFile) 
         } else {
             string celltypename(bsData.typeName[typeID]);
             Cell* cell = this->addCell(bsData.cellName[i], this->getCellType(celltypename));
-            cell->place(bsData.cellX[i], bsData.cellY[i], false, false);
+            // In Bookshelf, we don't need to consider the cell orient, set it as -1
+            cell->place(bsData.cellX[i], bsData.cellY[i], -1);
             // cout<<cell->x<<","<<cell->y<<endl;
             cell->fixed((bsData.cellFixed[i] == (char)1));
         }

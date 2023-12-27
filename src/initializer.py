@@ -54,6 +54,24 @@ def get_init_density_map(rawdb, gpdb, data: PlaceData, args, logger):
                 args.deterministic
             )
             init_density_map += snet_density_map.contiguous()
+
+            # compute utilization to determine whether there are sufficient space to enlarge snet density
+            mov_lhs, mov_rhs = data.movable_index
+            mov_node_size = data.node_size[mov_lhs:mov_rhs, ...]
+            total_mov_cell_area = torch.sum(torch.prod(mov_node_size, 1)).item()
+            die_area = torch.prod(data.die_ur - data.die_ll)
+            fixed_node_area = init_density_map.clamp_(min=0.0, max=1.0).sum() * data.bin_area
+            placeable_area = die_area - fixed_node_area
+            total_filler_area = max(args.target_density * placeable_area - total_mov_cell_area, 0.0)
+            if total_filler_area / total_mov_cell_area > 2:
+                # low utilization, can enlarge snet density to further enhance routability
+                tmp_map = init_density_map + (snet_density_map.contiguous() > 0.1).float()
+                diff_area = (tmp_map.clamp_(min=0.0, max=1.0).sum() * data.bin_area - fixed_node_area).item()
+                if diff_area < total_filler_area * 0.5:
+                    logger.info("Low utilization detect, enlarge snet density.")
+                    init_density_map += (snet_density_map.contiguous() > 0.1).float()
+                    init_density_map.clamp_(min=0.0, max=1.0)
+
     init_density_map.clamp_(min=0.0, max=1.0).mul_(args.target_density)
     if args.use_route_force or args.use_cell_inflate:
         # inflate connected IOPins

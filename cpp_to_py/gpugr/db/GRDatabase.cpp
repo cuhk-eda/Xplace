@@ -254,6 +254,7 @@ void GRDatabase::updateUsageLength() {
 }
 
 void GRDatabase::addFixObs() {
+    logger.info("Marking fixed cell obs...");
     fixObs.clear();
     // 1) add IOPins
     for (auto iopin : rawdb.iopins) {
@@ -309,6 +310,7 @@ void GRDatabase::addFixObs() {
 }
 
 void GRDatabase::addMovObs() {
+    logger.info("Marking movable cell obs...");
     movObs.clear();
     for (auto cell : rawdb.cells) {
         if (!cell->fixed()) {
@@ -320,16 +322,7 @@ void GRDatabase::addMovObs() {
 
 void GRDatabase::addCellObs(std::vector<RectOnLayer>& allObs, db::Cell* cell) {
     db::CellType* ctype = cell->ctype();
-    int cellOrient = 0;
-    if (!cell->flipX() && !cell->flipY()) {
-        cellOrient = 0;  // N
-    } else if (cell->flipX() && cell->flipY()) {
-        cellOrient = 2;  // S
-    } else if (cell->flipX() && !cell->flipY()) {
-        cellOrient = 4;  // FN
-    } else if (!cell->flipX() && cell->flipY()) {
-        cellOrient = 6;  // FS
-    }
+    int cellOrient = cell->orient();
     int dx = ctype->originX() + cell->lx();
     int dy = ctype->originY() + cell->ly();
     // Macro Obs
@@ -386,7 +379,7 @@ void GRDatabase::addCellObs(std::vector<RectOnLayer>& allObs, db::Cell* cell) {
 
 tuple<int, int, int, int> GRDatabase::getOrientOffset(int orient, int lx, int ly, int hx, int hy) {
     tuple<int, int, int, int> offset;  // lx, ly, hx, hy
-    // 0:N, 1:W, 2:S, 3:E, 4:FN, 5:FW, 6:FS, 7:FE
+    // 0:N, 1:W, 2:S, 3:E, 4:FN, 5:FW, 6:FS, 7:FE, -1:NONE
     switch (orient) {
         case 0:  // N
             offset = {lx, ly, hx, hy};
@@ -507,6 +500,19 @@ void GRDatabase::markObs(std::vector<RectOnLayer>& allObs,
             utils::BoxT<int> obsBox(
                 curObs.lx - margin.x, curObs.ly - margin.y, curObs.hx + margin.x, curObs.hy + margin.y);
 
+            if (obsBox.IsValid()) {
+                if (obsBox.hx() <= gridlines[0][0] || obsBox.hy() <= gridlines[1][0] ||
+                    obsBox.lx() >= gridlines[0][gridlines[0].size() - 1] ||
+                    obsBox.ly() >= gridlines[1][gridlines[1].size() - 1]) {
+                    logger.verbose("ignore obs that is outside gridgraph, obsBox: %d %d %d %d",
+                                   obsBox.lx(),
+                                   obsBox.hx(),
+                                   obsBox.ly(),
+                                   obsBox.hy());
+                    continue;
+                }
+            }
+
             int xmin =
                 std::upper_bound(gridlines[0].begin(), gridlines[0].end(), obsBox.lx()) - gridlines[0].begin() - 1;
             int xmax =
@@ -520,7 +526,15 @@ void GRDatabase::markObs(std::vector<RectOnLayer>& allObs,
             xmax = std::min(xmax, xSize - 1);
             ymax = std::min(ymax, ySize - 1);
             if (xmin > xmax || ymin > ymax) {
-                logger.error("continue obs %d %d %d %d", xmin, xmax, ymin, ymax);
+                logger.error("continue, obs: %d %d %d %d, obsBox: %d %d %d %d",
+                             xmin,
+                             xmax,
+                             ymin,
+                             ymax,
+                             obsBox.lx(),
+                             obsBox.hx(),
+                             obsBox.ly(),
+                             obsBox.hy());
                 continue;
             }
             utils::BoxT<int> grBox(xmin, ymin, xmax, ymax);
@@ -745,7 +759,8 @@ void GRDatabase::setupGrNets() {
                     continue;
                 }
                 std::set<std::tuple<int, int, int>> vis;
-                for (auto& e : pin_shapes) {
+                for (int shapeIdx = 0; shapeIdx < pin_shapes.size(); shapeIdx++) {
+                    auto& e = pin_shapes[shapeIdx];
                     int xmin =
                         std::upper_bound(gridlines[0].begin(), gridlines[0].end(), e.lx) - gridlines[0].begin() - 1;
                     int xmax =
@@ -761,7 +776,37 @@ void GRDatabase::setupGrNets() {
                     xmax = std::min(std::max(xmax, 0), xSize - 1);
                     ymax = std::min(std::max(ymax, 0), ySize - 1);
                     if (xmin > xmax || ymin > ymax) {
-                        logger.error("continue pin %d %d %d %d", xmin, xmax, ymin, ymax);
+                        std::string instName = "";
+                        std::string instType = "";
+                        if (net_pin->iopin != nullptr) {
+                            db::IOPin* iopin = net_pin->iopin;
+                            instName = iopin->name;
+                            instType = iopin->type->name();
+                        } else if (net_pin->cell != nullptr) {
+                            db::Cell* cell = net_pin->cell;
+                            instName = cell->name();
+                            instType = cell->ctype()->name;
+                        }
+                        // NOTE: some benchmarks have strange definition of pin shapes (lx ly hx hy).
+                        // For example, in ispd18_test9, one of ADDFHX2 CI shapes is "RECT 2.59 0.40 3.67 0.36".
+                        logger.error(
+                            "continue netId: %d netName: %s net_pinId: %d | instName: %s instType: %s pinName: %s "
+                            "pinShapeId: %d | grid: %d %d %d %d | coord: %d %d %d %d",
+                            netId,
+                            rawdbNet->name.c_str(),
+                            pinIdx,
+                            instName.c_str(),
+                            instType.c_str(),
+                            net_pin->type->name().c_str(),
+                            shapeIdx,
+                            xmin,
+                            xmax,
+                            ymin,
+                            ymax,
+                            e.lx,
+                            e.hx,
+                            e.ly,
+                            e.hy);
                         continue;
                     }
                     for (int x = xmin; x <= xmax; x++) {

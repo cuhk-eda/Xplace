@@ -39,6 +39,7 @@ def get_option():
 
     # global routing params
     parser.add_argument('--use_cell_inflate', type=str2bool, default=False, help='use cell inflation')
+    parser.add_argument('--min_area_inc', type=float, default=0.01, help='threshold of terminating inflation')
     parser.add_argument('--use_route_force', type=str2bool, default=False, help='use routing force')
     parser.add_argument('--route_freq', type=int, default=1000, help='routing freq')
     parser.add_argument('--num_route_iter', type=int, default=400, help='number of routing iters')
@@ -54,7 +55,9 @@ def get_option():
     parser.add_argument('--final_route_eval', type=str2bool, default=False, help='eval placement solution by GR')
 
     # logging and saver
-    parser.add_argument('--log_freq', type=int, default=100) 
+    parser.add_argument('--log_freq', type=int, default=100)
+    parser.add_argument('--verbose_cpp_log', type=str2bool, default=False, help='verbose cpp log for debugging')
+    parser.add_argument('--cpp_log_level', type=int, default=2, help='0: DEBUG, 1: VERBOSE, 2:INFO')
     parser.add_argument('--result_dir', type=str, default='result', help='log/model root directory') 
     parser.add_argument('--exp_id', type=str, default='', help='experiment id') 
     parser.add_argument('--log_dir', type=str, default='log', help='log directory') 
@@ -75,6 +78,10 @@ def get_option():
     if args.dataset == "ispd2015":
         print("We haven't yet support fence region in ispd2015, use ispd2015_fix instead")
         args.dataset = "ispd2015_fix"
+
+    if args.dataset == "ispd2019":
+        print("We haven't yet support fence region in ispd2019, use ispd2019_no_fence instead")
+        args.dataset = "ispd2019_no_fence"
 
     if args.custom_path != "":
         get_custom_design_params(args)

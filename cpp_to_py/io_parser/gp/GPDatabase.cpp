@@ -305,6 +305,209 @@ void GPDatabase::setupCheckVar() {
     // }
 }
 
+std::string orient2name(orient_type orient) {
+    switch (orient) {
+        case 0:
+            return "N";
+        case 1:
+            return "W";
+        case 2:
+            return "S";
+        case 3:
+            return "E";
+        case 4:
+            return "FN";
+        case 5:
+            return "FW";
+        case 6:
+            return "FS";
+        case 7:
+            return "FE";
+        case -1:
+            return "NONE";
+        default:
+            return "N";
+    }
+}
+
+orient_type hflip_orient(orient_type orient) {
+    // N => FN; W => FW; S => FS; E => FE
+    // FN => N; FW => W; FS => S; FE => E
+    if (orient == -1) {
+        return orient;
+    } else if (orient < 4) {
+        return orient + 4;
+    } else {
+        return orient - 4;
+    }
+}
+
+orient_type rotate_180_orient(orient_type orient) {
+    //  N => S;   W => E;   S => N;   E => W
+    // FN => FS; FW => FE; FS => FN; FE => FW
+    if (orient == -1) {
+        return orient;
+    } else if (orient == 0 || orient == 1 || orient == 4 || orient == 5) {
+        return orient + 2;
+    } else {
+        return orient - 2;
+    }
+}
+
+orient_type vflip_orient(orient_type orient) { return hflip_orient(rotate_180_orient(orient)); }
+
+
+void GPDatabase::transferOrient() {
+    // Transfer all gpdb nodes to "N" direction for global placement
+    // NOTE: we don't change rawdb
+    logger.info("Updating gpdb node orient...");
+
+    // 0:N, 1:W, 2:S, 3:E, 4:FN, 5:FW, 6:FS, 7:FE, -1:NONE
+    auto getOrientDegreeFlip = [](orient_type orient) -> std::pair<int, int> {
+        // return value: {degree, flip}
+        if (orient == 0) {  // N
+            return {0, 0};
+        } else if (orient == 1) {  // W
+            return {90, 0};
+        } else if (orient == 2) {  // S
+            return {180, 0};
+        } else if (orient == 3) {  // E
+            return {270, 0};
+        } else if (orient == 4) {  // FN
+            return {0, 1};
+        } else if (orient == 5) {  // FW
+            return {90, 1};
+        } else if (orient == 6) {  // FS
+            return {180, 1};
+        } else if (orient == 7) {  // FE
+            return {270, 1};
+        } else {  // assume NONE is N
+            return {0, 0};
+        }
+    };
+
+    auto getRotatedSizes = [](int rotDegree, coord_type width, coord_type height) -> std::pair<coord_type, coord_type> {
+        if (rotDegree == 0 || rotDegree == 180) {
+            return {width, height};
+        } else if (rotDegree == 90 || rotDegree == 270) {
+            return {height, width};
+        } else {
+            logger.warning("Unknown rotation degree %d, regarded as 0", rotDegree);
+            return {width, height};
+        }
+    };
+
+    auto getRotatedPinInfo = [](int rotDegree,
+                                coord_type srcNodeWidth,
+                                coord_type srcNodeHeight,
+                                coord_type srcPinWidth,
+                                coord_type srcPinHeight,
+                                coord_type srcPinRelLx,
+                                coord_type srcPinRelLy) {
+        coord_type dstPinWidth = srcPinWidth;
+        coord_type dstPinHeight = srcPinHeight;
+        coord_type dstPinRelLx = std::numeric_limits<coord_type>::max();
+        coord_type dstPinRelLy = std::numeric_limits<coord_type>::max();
+        switch (rotDegree) {
+            default:
+                logger.warning("Unknown rotation degree %d, regarded as 0", rotDegree);
+            case 0:
+                dstPinRelLx = srcPinRelLx;
+                dstPinRelLy = srcPinRelLy;
+                break;
+            case 180:
+                dstPinRelLx = srcNodeWidth - srcPinRelLx - srcPinWidth;
+                dstPinRelLy = srcNodeHeight - srcPinRelLy - srcPinHeight;
+                break;
+            case 90:
+                dstPinRelLx = srcNodeHeight - srcPinRelLy - srcPinHeight;
+                dstPinRelLy = srcPinRelLx;
+                std::swap(dstPinWidth, dstPinHeight);
+                break;
+            case 270:
+                dstPinRelLx = srcPinRelLy;
+                dstPinRelLy = srcNodeWidth - srcPinRelLx - srcPinWidth;
+                std::swap(dstPinWidth, dstPinHeight);
+                break;
+        }
+
+        return std::make_tuple(dstPinWidth, dstPinHeight, dstPinRelLx, dstPinRelLy);
+    };
+
+    auto getFlipYPinRelPos =
+        [](coord_type srcNodeWidth, coord_type srcNodeHeight, coord_type srcPinRelLx, coord_type srcPinRelLy) {
+            // assume the src here are after rotation
+            coord_type dstPinRelLx = srcNodeWidth - srcPinRelLx;
+            coord_type dstPinRelLy = srcPinRelLy;
+
+            return std::make_pair(dstPinRelLx, dstPinRelLy);
+        };
+
+    // create a vector to restore statistics
+    int numOrientTypes = 9;  // 0:N, 1:W, 2:S, 3:E, 4:FN, 5:FW, 6:FS, 7:FE, -1:NONE
+    std::vector<int> orient2cnt(numOrientTypes, 0);
+
+    for (auto& node : nodes) {
+        orient_type srcOrient = node.getOrient();
+        if (srcOrient != 0 && srcOrient != -1) {
+            // srcOrient is not "N" or "NONE"
+            orient2cnt[srcOrient]++;
+            auto [srcDegree, srcFlip] = getOrientDegreeFlip(srcOrient);
+            auto [dstDegree, dstFlip] = getOrientDegreeFlip(0);  // dst: N
+
+            // compute rotation degree and flipping Y
+            int rotDegree = (dstDegree - srcDegree + 360) % 360;
+            bool flipY = (dstFlip != srcFlip);
+
+            auto [dstNodeWidth, dstNodeHeight] = getRotatedSizes(rotDegree, node.getWidth(), node.getHeight());
+
+            for (auto& pin_id : node.pins()) {
+                auto& pin = pins[pin_id];
+                auto [dstPinWidth, dstPinHeight, dstPinRelLx, dstPinRelLy] = getRotatedPinInfo(rotDegree,
+                                                                                               node.getWidth(),
+                                                                                               node.getHeight(),
+                                                                                               pin.getWidth(),
+                                                                                               pin.getHeight(),
+                                                                                               pin.getRelLx(),
+                                                                                               pin.getRelLy());
+                pin.setWidth(dstPinWidth);
+                pin.setHeight(dstPinHeight);
+                pin.setRelLx(dstPinRelLx);
+                pin.setRelLy(dstPinRelLy);
+            }
+
+            node.setWidth(dstNodeWidth);
+            node.setHeight(dstNodeHeight);
+
+            if (flipY) {
+                for (auto& pin_id : node.pins()) {
+                    auto& pin = pins[pin_id];
+                    auto [dstPinRelLx, dstPinRelLy] =
+                        getFlipYPinRelPos(node.getWidth(), node.getHeight(), pin.getRelLx(), pin.getRelLy());
+                    pin.setRelLx(dstPinRelLx);
+                    pin.setRelLy(dstPinRelLy);
+                }
+            }
+        }
+    }
+
+    logger.info("=== Transfer Node Orient Statistics ===");
+    for (int i = 0; i < orient2cnt.size(); i++) {
+        int count = orient2cnt[i];
+        orient_type orient;
+        if (i == 8) {
+            orient = -1;  // NONE
+        } else {
+            orient = i;
+        }
+        std::string orientName = orient2name(orient);
+        if (orient != 0 && orient != -1) {
+            logger.info("  %s => N: %d nodes in gpdb", orientName.c_str(), count);
+        }
+    }
+    logger.info("=======================================");
+}
+
 bool GPDatabase::setup() {
     if (db::setting.random_place) {
         setup_random_place();
@@ -316,6 +519,7 @@ bool GPDatabase::setup() {
     setupNets();
     setupIndexMap();
     setupCheckVar();
+    transferOrient();
     logger.info("Finish initializing global placement database");
     return true;
 }
@@ -600,6 +804,7 @@ std::vector<torch::Tensor> GPDatabase::getSnetInfoTensor() {
 
 void GPDatabase::applyOneNodeOrient(int node_id) {
     auto& node = nodes[node_id];
+
     int rowId;
     int numRows = database.rows.size();
     if (node.getLy() <= database.coreLY) {
@@ -611,10 +816,14 @@ void GPDatabase::applyOneNodeOrient(int node_id) {
         rowId = std::max(std::min(rowId, numRows - 1), 0);
     }
     auto row = database.rows[rowId];
-    if (row->flip()) {
-        node.setOrient(6);  // FS
+    if (node.getOrient() == -1) {
+        node.setOrient(row->orient());
     } else {
-        node.setOrient(0);  // N
+        if (row->orient() == vflip_orient(node.getOrient())) {
+            node.setOrient(row->orient());
+        } else if (row->orient() == hflip_orient(vflip_orient(node.getOrient()))) {
+            node.setOrient(vflip_orient(node.getOrient()));
+        }
     }
 }
 

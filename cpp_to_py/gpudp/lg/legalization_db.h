@@ -82,6 +82,7 @@ public:
           num_threads(at_db.num_threads),
           num_nodes(at_db.num_nodes),
           num_movable_nodes(at_db.num_movable_nodes),
+          num_conn_movable_nodes(at_db.num_conn_movable_nodes),
           num_nets(at_db.num_nets),
           num_pins(at_db.num_pins),
           num_regions(at_db.num_regions) {}
@@ -125,6 +126,7 @@ public:
     float site_width;
 
     int num_nets;
+    int num_conn_movable_nodes;
     int num_movable_nodes;
     int num_nodes;
     int num_pins;

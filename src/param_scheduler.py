@@ -114,6 +114,8 @@ class ParamScheduler:
         self.stop_overflow = args.stop_overflow
         self.skip_update = False if args.enable_skip_update else None
         self.enable_fence = data.enable_fence
+        self.min_enlarge_density_interval = 1000
+        self.last_enlarge_density_iter = -self.min_enlarge_density_interval
         # skip density force
         self.enable_sample_force = True
         self.force_ratio = 0.0
@@ -202,7 +204,7 @@ class ParamScheduler:
             #     self.skip_update = np.random.random() > (np.random.randn() * 0.08 + 0.4)
             # if self.density_weight > 0.1 or self.recorder.overflow[-1] < 0.2: # 2021 11 13 best
             #     self.skip_update = np.random.random() > 0.4
-            if self.weighted_weight > 0.5 and self.weighted_weight < 0.99:
+            if self.weighted_weight > 0.5 and self.weighted_weight < 0.95:
                 self.skip_update = ((self.iter - self.init_iter) % 3 != 0)
             elif self.iter - self.init_iter < 50:
                 # slow down the param update of early stage
@@ -229,6 +231,19 @@ class ParamScheduler:
         else:
             self.mu = 1.05 * np.clip(np.power(1.05, -delta_hpwl / 350000), 0.95, 1.05)
         self.density_weight *= self.mu
+
+        if (
+            not self.enable_fence and 
+            self.iter > 15 and
+            self.iter - self.last_enlarge_density_iter > self.min_enlarge_density_interval and
+            self.check_plateau(self.recorder.overflow, window=25, threshold=0.001)
+        ):
+            if self.recorder.overflow[-1] > 0.9:
+                self.last_enlarge_density_iter = self.iter
+                self.density_weight *= 2
+                self.__logger__.warning(
+                    "Detect plateau at early stage, enlarge density_weight. Iter: %d" % 
+                self.iter)
 
     def param_smooth_func(self, input, r=0.2, half_iter=30, end_iter=400):
         logistic = lambda x,k,x_0: 1 / (1 + math.exp(-k * (x - x_0)))

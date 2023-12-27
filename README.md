@@ -78,10 +78,14 @@ python main.py --dataset ispd2015_fix --design_name mgc_fft_1 --load_from_raw Tr
 python main.py --dataset ispd2015_fix --run_all True --load_from_raw True --detail_placement True
 ```
 
-- To run Routability GP + DP flow for ISPD2015 dataset:
+- To run Routability GP + DP flow for ISPD2015/2018/2019 dataset:
 ```bash
-# run all the designs in ispd2015 with routability optimization
+# run all the designs with routability optimization
 python main.py --dataset ispd2015_fix --run_all True --load_from_raw True --detail_placement True --use_cell_inflate True
+
+python main.py --dataset ispd2018 --run_all True --load_from_raw True --detail_placement True --use_cell_inflate True
+
+python main.py --dataset ispd2019_no_fence --run_all True --load_from_raw True --detail_placement True --use_cell_inflate True
 ```
 
 **NOTE**: We default enable the deterministic mode. If you don't need determinism and want to run placement in an extremely fast mode, please try to set `--deterministic False` in the Python arguments.

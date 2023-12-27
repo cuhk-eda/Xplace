@@ -14,7 +14,6 @@ inline constexpr int LOG_WARN = 4;       // 4
 inline constexpr int LOG_ERROR = 5;      // 5
 inline constexpr int LOG_FATAL = 6;      // 6
 inline constexpr int LOG_OK = 7;         // 7
-inline int GLOBAL_LOG_LEVEL = LOG_INFO;  // change verbose level in Setting.h
 
 }  // namespace utils::log_level
 

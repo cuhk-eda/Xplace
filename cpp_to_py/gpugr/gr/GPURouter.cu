@@ -659,6 +659,9 @@ void GPURouter::route(vector<GrNet> &nets, int iter) {
         printf("%d\n", test.check_all(13, 128, 0));
         exit(0);*/
         // const int LEN = 10;
+        if (std::max(X, Y) >= 2000) {
+            logger.warning("Extremely large gridgraph may cause error during batch generation.");
+        }
         if (vis.size() == 0) {
             vis.resize(2000, std::vector<short>(2000, 0));
             visLL.resize(2000, std::vector<short>(2000, 0));

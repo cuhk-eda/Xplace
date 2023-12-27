@@ -154,6 +154,7 @@ public:
                 const int y,
                 const unsigned xNum = 0,
                 const unsigned yNum = 0,
+                const int orient = 0,
                 const bool flip = false,
                 const unsigned xStep = 0,
                 const unsigned yStep = 0);

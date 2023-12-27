@@ -145,14 +145,21 @@ def rearrange_dpdb_node_info(node_pos: torch.Tensor, data: PlaceData):
 
 
 def setup_detailed_rawdb(
-    node_pos: torch.Tensor, use_cpu_db_: bool, data: PlaceData, args, logger
+    node_pos: torch.Tensor, use_cpu_db_: bool, data: PlaceData, args, logger, after_lg=True
 ):
     curr_site_width = 1.0  # prescale_by_site_width
     node_lpos, node_size, node_weight, pin_id2node_id, node2pin_list, node2pin_list_end = rearrange_dpdb_node_info(
         node_pos, data
     )
+    if after_lg:
+        # NOTE: we assume all legalized cells are on integer system
+        # this step can avoid some potential floating-point precision errors
+        _, floatmov_rhs, _ = data.node_type_indices[1]
+        inv_scalar = round(1.0 / get_ori_scale_factor(data))
+        node_lpos[:floatmov_rhs].mul_(inv_scalar).round_().div_(inv_scalar)
 
     mov_lhs, mov_rhs = data.movable_index
+    conn_mov_lhs, conn_mov_rhs = data.movable_connected_index
     if args.scale_design:
         # scale back
         die_scale = data.die_scale / data.site_width # assume site width == 1 in dp
@@ -179,12 +186,9 @@ def setup_detailed_rawdb(
     num_iopin = iopin_rhs - fix_rhs
     num_floatiopin = floatiopin_rhs - blkg_rhs
 
-    die_info = die_info.cpu()
-    xl = die_info[0].item()
-    xh = die_info[1].item()
-    yl = die_info[2].item()
-    yh = die_info[3].item()
+    xl, xh, yl, yh = die_info.cpu().numpy()
     num_movable_nodes = mov_rhs - mov_lhs
+    num_conn_movable_nodes = conn_mov_rhs - conn_mov_lhs
     num_nodes = node_lpos.shape[0] - num_iopin - num_floatiopin
     site_width = curr_site_width
     row_height = data.row_height / data.site_width
@@ -213,6 +217,7 @@ def setup_detailed_rawdb(
             xh,
             yl,
             yh,
+            num_conn_movable_nodes,
             num_movable_nodes,
             num_nodes,
             site_width,
@@ -238,6 +243,7 @@ def setup_detailed_rawdb(
             xh,
             yl,
             yh,
+            num_conn_movable_nodes,
             num_movable_nodes,
             num_nodes,
             site_width,
@@ -296,7 +302,7 @@ def commit_to_node_pos(node_pos: torch.Tensor, data:PlaceData, dp_rawdb):
 
 def run_lg(node_pos: torch.Tensor, data: PlaceData, args, logger):
     # CPU legalization
-    lg_rawdb = setup_detailed_rawdb(node_pos, True, data, args, logger)
+    lg_rawdb = setup_detailed_rawdb(node_pos, True, data, args, logger, after_lg=False)
 
     # run LG
     logger.info("Start running Macro Legalization...")
@@ -306,13 +312,38 @@ def run_lg(node_pos: torch.Tensor, data: PlaceData, args, logger):
         lg_rawdb.commit()
     logger.info("Finish Macro Legalization. Time: %.4f" % (time.time() - ml_time))
 
+    total_cell_area = torch.sum(torch.prod(data.node_size, 1)).item()
+    die_area = torch.prod(data.die_ur - data.die_ll).item()
+    is_high_util = (total_cell_area / die_area) > 0.999
+    logger.info("Utilization: %.2f" % (total_cell_area / die_area))
+
     logger.info("Start running Greedy Legalization...")
     gl_time = time.time()
     num_bins_x, num_bins_y = 1, 64
-    gpudp.greedyLegalization(lg_rawdb, num_bins_x, num_bins_y)
-    if not lg_rawdb.check(get_ori_scale_factor(data)):
-        logger.error("Check failed in Greedy Legalization")
-    logger.info("Finish Greedy Legalization. Time: %.4f" % (time.time() - gl_time))
+    if not is_high_util:
+        gpudp.greedyLegalization(lg_rawdb, num_bins_x, num_bins_y, True)
+    if is_high_util or not lg_rawdb.check(get_ori_scale_factor(data)):
+        logger.warning("Check failed in Greedy Legalization. Re-try by Greedy + Filler Legalization.")
+        
+        # NOTE: this greedy legalization only legalizes movable connected cells
+        logger.info("Start running Greedy Legalization...")
+        gpudp.greedyLegalization(lg_rawdb, num_bins_x, num_bins_y, False)
+        # NOTE: filler legalization only legalizes movable unconnected cells (fillers)
+        logger.info("Start Filler Legalization...")
+        gpudp.fillerLegalization(lg_rawdb)
+        if not lg_rawdb.check(get_ori_scale_factor(data)):
+            logger.error("Check failed in Greedy + Filler Legalization.")
+        logger.info("Finish Greedy + Filler Legalization. Time: %.4f" % (time.time() - gl_time))
+    else:
+        logger.info("Finish Greedy Legalization. Time: %.4f" % (time.time() - gl_time))
+
+    # # Commit result
+    # commit_to_node_pos(node_pos, data, lg_rawdb)
+    # torch.cuda.synchronize(node_pos.device)
+    # if args.scale_design:
+    #     node_pos /= data.die_scale
+    # info = (-1, 0, data.design_name)
+    # draw_fig_with_cairo_cpp(node_pos, data.node_size, data, info, args, base_size=4096)
 
     logger.info("Start running Abacus Legalization...")
     al_time = time.time()
@@ -380,14 +411,16 @@ def run_dp(node_pos: torch.Tensor, data: PlaceData, args, logger):
     ism_iter = 50
 
     # use integer coordinate systems in DP for better quality
-    scalar = compute_scalar(get_ori_scale_factor(data))
+    # scalar = compute_scalar(get_ori_scale_factor(data))
+    scalar = 1.0
 
     def dp_handler(dp_func, func_name, *func_args):
         logger.info("Start running %s..." % func_name)
         start_time = time.time()
         if scalar != 1.0:
-            logger.info("scale dp_rawdb by %g" % (1.0 / scalar))
-            dp_rawdb.scale(1.0 / scalar, True)
+            # NOTE: we assume site_width is integer, so 1 / scalar should be an integer
+            logger.info("scale dp_rawdb by %g" % round(1.0 / scalar))
+            dp_rawdb.scale(round(1.0 / scalar), True)
         dp_func(dp_rawdb, *func_args)
         if scalar != 1.0:
             logger.info("scale dp_rawdb back by %g" % scalar)
@@ -431,6 +464,11 @@ def run_dp_route_opt(node_pos: torch.Tensor, gpdb, rawdb, ps, data: PlaceData, a
             node_pos[:mov_rhs].detach() - data.node_size[:mov_rhs] / 2,
             data.node_lpos[mov_rhs:],
         ), dim=0).cpu()
+        # this step can avoid some potential floating-point precision errors
+        _, floatmov_rhs, _ = data.node_type_indices[1]
+        inv_scalar = round(1.0 / get_ori_scale_factor(data))
+        node_lpos[:floatmov_rhs].mul_(inv_scalar).round_().div_(inv_scalar)
+
         node_size = data.node_size.cpu()
         if args.scale_design:
             # scale back
@@ -441,10 +479,7 @@ def run_dp_route_opt(node_pos: torch.Tensor, gpdb, rawdb, ps, data: PlaceData, a
         site_width = 1.0
         row_height = data.row_height / data.site_width
         die_info = data.die_info.cpu()
-        dieLX = die_info[0].item()
-        dieHX = die_info[1].item()
-        dieLY = die_info[2].item()
-        dieHY = die_info[3].item()
+        dieLX, dieHX, dieLY, dieHY = die_info.numpy()
         K = 5
         new_node_lpos = routedp.dp_route_opt(
             node_lpos, node_size, dieLX, dieHX, dieLY, dieHY, 
