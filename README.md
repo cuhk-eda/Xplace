@@ -1,7 +1,7 @@
 # Xplace: An Extremely Fast and Extensible Global Placement Framework
 
 ## News 🚀
-We are happy to announce that Xplace 2.0 is now released. Compared to [Xplace 1.0](https://dl.acm.org/doi/abs/10.1145/3489517.3530485), this version supports the following new features:
+We are happy to announce that [Xplace 2.0](https://ieeexplore.ieee.org/abstract/document/10373583) is now released. Compared to [Xplace 1.0](https://dl.acm.org/doi/abs/10.1145/3489517.3530485), this version supports the following new features:
 
 - Support deterministic mode with only 5~25% extra GP runtime overhead.
 - Implement an extremely fast GPU-accelerated detailed-routability-driven placement algorithm.
@@ -190,8 +190,10 @@ Thanks the authors of [ePlace](https://dl.acm.org/doi/10.1145/2699873), [RePlAce
 
 ## Contact
 
-[Lixin Liu](https://liulixinkerry.github.io/) (lxliu@cse.cuhk.edu.hk)
- and Bangqi Fu (bqfu21@cse.cuhk.edu.hk)
+- [Lixin Liu](https://liulixinkerry.github.io/) (lxliu@cse.cuhk.edu.hk)
+- Bangqi Fu (bqfu21@cse.cuhk.edu.hk)
+- [Shiju Lin](https://shijulin.github.io/) (sjlin@cse.cuhk.edu.hk)
+- [Jinwei Liu](https://anticold.github.io/) (jwliu@cse.cuhk.edu.hk)
 
 
 ## License
