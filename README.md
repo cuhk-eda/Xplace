@@ -4,7 +4,7 @@
 We are happy to announce that [Xplace 2.0](https://ieeexplore.ieee.org/abstract/document/10373583) is now released. Compared to [Xplace 1.0](https://dl.acm.org/doi/abs/10.1145/3489517.3530485), this version supports the following new features:
 
 - Support deterministic mode with only 5~25% extra GP runtime overhead.
-- Implement an extremely fast GPU-accelerated detailed-routability-driven placement algorithm.
+- Implement an extremely fast GPU-accelerated detailed-routability-driven placement algorithm Xplace-Route.
 - Integrate with a GPU-accelerated detailed placer and a GPU-accelerated global router [GGR](cpp_to_py/gpugr/README.md).
 - Support a superfast **GPU-accelerated place and global route flow**! Input your LEF/DEF, the flow will output the **placement DEF** and the **global routing guide**! 
 - Provide benchmark download and preprocess scripts, and three routability evaluation scripts. 
@@ -156,16 +156,11 @@ We provide three ways to evaluate the routability of a placement solution:
 ## Citation
 If you find **Xplace** useful in your research, please consider to cite:
 ```bibtex
-@ARTICLE{xplace_tcad,
+@article{xplace_tcad,
     author={Liu, Lixin and Fu, Bangqi and Lin, Shiju and Liu, Jinwei and Young, Evangeline F.Y. and Wong, Martin D.F.},
     journal={IEEE Transactions on Computer-Aided Design of Integrated Circuits and Systems}, 
     title={Xplace: An Extremely Fast and Extensible Placement Framework}, 
     year={2023},
-    volume={},
-    number={},
-    pages={1-1},
-    keywords={Mathematical models;Graphics processing units;Neural networks;Optimization;Engines;Electrostatics;Runtime;placement;GPU acceleration;physical design;neural network;routability optimization},
-    doi={10.1109/TCAD.2023.3346291}
 }
 
 @inproceedings{liu2022xplace,
