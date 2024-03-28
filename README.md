@@ -5,13 +5,12 @@ We are happy to announce that [Xplace 2.0](https://ieeexplore.ieee.org/abstract/
 
 - Support deterministic mode with only 5~25% extra GP runtime overhead.
 - Implement an extremely fast GPU-accelerated detailed-routability-driven placement algorithm.
-- Integrate with a GPU-accelerated detailed placer and a GPU-accelerated global router.
-- Support a superfast **GPU-accelerated place and global route flow** ([Xplace](https://dl.acm.org/doi/abs/10.1145/3489517.3530485) + [GGR](cpp_to_py/gpugr/README.md))! Input your LEF/DEF, the flow will output the **placement DEF** and the **global routing guide**! 
+- Integrate with a GPU-accelerated detailed placer and a GPU-accelerated global router [GGR](cpp_to_py/gpugr/README.md).
+- Support a superfast **GPU-accelerated place and global route flow**! Input your LEF/DEF, the flow will output the **placement DEF** and the **global routing guide**! 
 - Provide benchmark download and preprocess scripts, and three routability evaluation scripts. 
 - Code refactoring.
 
-## Experimental Results 😄
-Detailed experimental results of Xplace 2.0 (including Xplace-Route, deterministic Xplace, etc.) are given in [BENCHMARK.md](BENCHMARK.md).
+Please check our [TCAD paper](https://ieeexplore.ieee.org/document/10373583) for more details about **Xplace-Route**!
 
 ## About
 Xplace is a fast and extensible GPU-accelerated global placement framework developed by the research team supervised by Prof. Evangeline F. Y. Young at The Chinese University of Hong Kong (CUHK). It achieves around 3x speedup per GP iteration compared to DREAMPlace and shows high extensibility.
@@ -24,6 +23,8 @@ As shown in the following figure, Xplace framework is built on top of PyTorch an
 </div>
 
 More details are in the following paper:
+
+Lixin Liu, Bangqi Fu, Shiju Lin, Jinwei Liu, Evangeline F.Y. Young, Martin D.F. Wong. "[Xplace: An Extremely Fast and Extensible Placement Framework](https://ieeexplore.ieee.org/document/10373583)". In IEEE Transactions on Computer-Aided Design of Integrated Circuits and Systems (TCAD), doi: 10.1109/TCAD.2023.3346291.
 
 Lixin Liu, Bangqi Fu, Martin D. F. Wong, and Evangeline F. Y. Young. "[Xplace: an extremely fast and extensible global placement framework](https://doi.org/10.1145/3489517.3530485)". In Proceedings of the 59th ACM/IEEE Design Automation Conference (DAC '22). Association for Computing Machinery, New York, NY, USA, 1309–1314. 
 
@@ -53,7 +54,7 @@ make -j40 && make install
 ```
 
 ## Prepare data
-The following script will automatically download `ispd2005`, `ispd2015`, and `iccad2019` benchmarks in `./data/raw`. It also preprocesses `ispd2015` benchmark to fix some errors. Note that Innovus® can run detailed routing on this fixed `ispd2015`.
+The following script will automatically download `ispd2005`, `ispd2015`, `iccad2019`, `ispd2018`, and `ispd2019` benchmarks in `./data/raw`. It also preprocesses `ispd2015` benchmark to fix some errors. Note that Innovus® can run detailed routing on this fixed `ispd2015`.
 ```bash
 cd $XPLACE_HOME/data
 ./download_data.sh
@@ -132,7 +133,7 @@ python main.py --dataset ispd2005 --run_all True --load_from_raw False
 2. We currently do not support `pt` mode in the routability-driven global placement.
 3. If you want to run `pt` mode for the custom dataset, you need to add the custom dataset path in `utils/get_design_params.py`.
 
-## GPU-accelerated place and global route flow (Xplace + GGR)
+## GPU-accelerated place and global route flow (Xplace-Route + GGR)
 Set `--final_route_eval True` in Python arguments to invoke the internal global router [GGR](cpp_to_py/gpugr/README.md) to run GPU-accelerated PnR flow. The flow will output the **placement DEF** and the **global routing guide** in `./result/exp_id/output`. Besides, GR metrics are reported in the log and recorded in `./result/exp_id/log/route.csv`. 
 
 - To run Place and Global Route flow for ISPD2015 dataset:
@@ -155,6 +156,18 @@ We provide three ways to evaluate the routability of a placement solution:
 ## Citation
 If you find **Xplace** useful in your research, please consider to cite:
 ```bibtex
+@ARTICLE{xplace_tcad,
+    author={Liu, Lixin and Fu, Bangqi and Lin, Shiju and Liu, Jinwei and Young, Evangeline F.Y. and Wong, Martin D.F.},
+    journal={IEEE Transactions on Computer-Aided Design of Integrated Circuits and Systems}, 
+    title={Xplace: An Extremely Fast and Extensible Placement Framework}, 
+    year={2023},
+    volume={},
+    number={},
+    pages={1-1},
+    keywords={Mathematical models;Graphics processing units;Neural networks;Optimization;Engines;Electrostatics;Runtime;placement;GPU acceleration;physical design;neural network;routability optimization},
+    doi={10.1109/TCAD.2023.3346291}
+}
+
 @inproceedings{liu2022xplace,
     author={Liu, Lixin and Fu, Bangqi and Wong, Martin D. F. and Young, Evangeline F. Y.},
     booktitle={Proceedings of the 59th ACM/IEEE Design Automation Conference},
