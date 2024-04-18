@@ -27,6 +27,11 @@ bool loadParams(const py::dict& kwargs) {
     } else if (kwargs.contains("cell_lef") && kwargs.contains("tech_lef")) {
         db::setting.LefCell = kwargs["cell_lef"].cast<std::string>();
         db::setting.LefTech = kwargs["tech_lef"].cast<std::string>();
+    } else if (kwargs.contains("lefs")) {
+        for (auto lef_py : kwargs["lefs"]) {
+            auto lef = lef_py.cast<std::string>();
+            db::setting.LefFiles.emplace_back(lef);
+        }   
     }
 
     if (kwargs.contains("constraints")) {

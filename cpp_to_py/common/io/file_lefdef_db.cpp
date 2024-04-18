@@ -1325,11 +1325,11 @@ int readDefTrack(defrCallbackType_e c, defiTrack* dtrack, defiUserData ud) {
         Layer* layer = db->getLayer(layername);
         if (layer) {
             if (track->direction == 'x' || layer->direction == 'x') {
-                layer->track = *track;
+                layer->tracks.push_back(*track);
             } else if (layer->direction == track->direction) {
-                layer->track = *track;
+                layer->tracks.push_back(*track);
             } else if (layer->direction != track->direction) {
-                layer->nonPreferDirTrack = *track;
+                layer->nonPreferDirTracks.push_back(*track);
             } else {
                 logger.error("wrong definition of tracks for layer %s", layername.c_str());
             }

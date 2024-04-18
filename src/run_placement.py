@@ -4,11 +4,9 @@ from src import run_placement_main_nesterov
 
 def run_placement_single(args, logger):
     logger.info("=================")
-    logger.info("Start place %s/%s" % (args.dataset , args.design_name))
     assert torch.cuda.is_available()
     torch.cuda.synchronize("cuda:{}".format(args.gpu))
     set_random_seed(args)
-    setup_dataset_args(args)
     res = run_placement_main_nesterov(args, logger)
     return res
 

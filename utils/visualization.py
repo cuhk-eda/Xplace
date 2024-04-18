@@ -175,7 +175,11 @@ def draw_fig_with_cairo_cpp(node_pos, node_size, data, info, args, base_size=204
         ("Bin", 0.1, 0.1, 0.1, 1.0),
         ("Mov", 0.475, 0.706, 0.718, 0.8),
         ("Filler", 0.8, 0.8, 0.8, 0.8),
+        ("Buffer", 0.65, 0.08, 0.9, 0.8),
+        ("FF", 0.65, 0.9, 0.08, 0.7),
     ]
+    
+    node_special_type: List[int] = (data.node_special_type.cpu()).tolist()
     width = base_size
     height = round(width * (hy - ly) / (hx - lx))
     draw_contents: List[str] = ["Nodes", "NodesText"]
@@ -191,6 +195,7 @@ def draw_fig_with_cairo_cpp(node_pos, node_size, data, info, args, base_size=204
         bin_size_info,
         node_type_indices,
         ele_type_to_rgba_vec,
+        node_special_type,
         png_path,
         width,
         height,

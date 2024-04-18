@@ -55,6 +55,7 @@ void bindGPDatabase(pybind11::module& m) {
         .def("m1direction", &gp::GPDatabase::getM1Direction, py::return_value_policy::copy)
         .def("node_type_indices", &gp::GPDatabase::getNodeTypeIndices, py::return_value_policy::copy)
         .def("node_id2node_name", &gp::GPDatabase::getNodeId2NodeName, py::return_value_policy::copy)
+        .def("node_id2celltype_name", &gp::GPDatabase::getNodeId2CellTypeName, py::return_value_policy::copy)
         .def("node_lpos_tensor", &gp::GPDatabase::getNodeLPosTensor, py::return_value_policy::move)
         .def("node_cpos_tensor", &gp::GPDatabase::getNodeCPosTensor, py::return_value_policy::move)
         .def("node_size_tensor", &gp::GPDatabase::getNodeSizeTensor, py::return_value_policy::move)

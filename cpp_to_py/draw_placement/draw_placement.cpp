@@ -11,6 +11,7 @@ bool DrawGlobalPlacement(
     const std::tuple<double, double>& bin_size_info,
     const std::vector<std::tuple<index_type, index_type, std::string>>& node_types_indices,
     const std::vector<std::tuple<std::string, double, double, double, double>>& ele_type_to_rgba_vec,
+    const std::vector<int>& node_special_type,
     const std::string& filename,
     double width,
     double height,
@@ -25,8 +26,8 @@ bool DrawGlobalPlacement(
                die_info,
                site_info,
                bin_size_info,
-               node_types_indices);
+               node_types_indices,
+               node_special_type);
     return status;
 }
-
 PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) { m.def("draw", &DrawGlobalPlacement, "Draw placement results"); }

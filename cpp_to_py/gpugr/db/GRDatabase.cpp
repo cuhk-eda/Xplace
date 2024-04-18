@@ -15,7 +15,7 @@ GRDatabase::GRDatabase(std::shared_ptr<db::Database> rawdb_, std::shared_ptr<gp:
     } else {
         csrnScale = grSetting.csrnScale;
     }
-    if (db::setting.BookshelfVariety != "" || db::setting.LefFile == "") {
+    if (db::setting.BookshelfVariety != "" || db::setting.Format != "lefdef") {
         // NOTE: GGR is a LEFDEF based detailed-routability driven global placer and it is not
         //       designed for the old bookshelf designs. For bookshelf, please consider to use
         //       NCTU-GR to generate the routing congestion maps. Note that existing bookshelf
@@ -33,10 +33,13 @@ GRDatabase::GRDatabase(std::shared_ptr<db::Database> rawdb_, std::shared_ptr<gp:
         auto rLayer = rawdb.getRLayer(l);
         layerWidth[l] = rLayer->width;
         layerPitch[l] = rLayer->pitch;
-        db::Track& track = rLayer->track;
-        for (int i = 0; i < track.num; i++) {
-            tracks[l].emplace_back(i * track.step + track.start);
+        for (auto& track : rLayer->tracks) {
+            for (int i = 0; i < track.num; i++) {
+                tracks[l].emplace_back(i * track.step + track.start);
+            }
         }
+        sort(tracks[l].begin(), tracks[l].end());
+        tracks[l].erase(unique(tracks[l].begin(), tracks[l].end()), tracks[l].end());
     }
     m1direction = rawdb.getRLayer(0)->direction == 'v' ? 1 : 0;
     microns = rawdb.LefConvertFactor;
@@ -448,11 +451,11 @@ utils::PointT<int> GRDatabase::getObsMargin(RectOnLayer box, AggrParaRunSpace ag
 
 utils::IntervalT<int> GRDatabase::rangeSearchTracks(const utils::IntervalT<int>& locRange, int layerIdx) {
     auto& t = tracks[layerIdx];
-    int lpos = locRange.low / layerPitch[layerIdx];
-    while (lpos + 1 < t.size() && t[lpos] < locRange.low) lpos++;
+    int lpos = lower_bound(t.begin(), t.end(), locRange.low) - t.begin();
+    lpos = std::min(static_cast<int>(t.size()) - 1, lpos);
     while (lpos > 0 && t[lpos - 1] >= locRange.low) lpos--;
-    int hpos = locRange.high / layerPitch[layerIdx];
-    while (hpos > 0 && t[hpos] > locRange.high) hpos--;
+    int hpos = upper_bound(t.begin(), t.end(), locRange.high) - t.begin() - 1;
+    hpos = std::max(hpos, 0);
     return utils::IntervalT<int>(lpos, hpos);
 }
 
@@ -480,9 +483,9 @@ void GRDatabase::markObs(std::vector<RectOnLayer>& allObs,
         vector<vector<vector<std::pair<utils::IntervalT<int>, int>>>> markingBufferLUT;
 
         auto searchLowerBoundTrack = [&](int p) {
-            int pos = p / layerPitch[l];
-            while (pos + 1 < t.size() && t[pos] < p) pos++;
-            while (pos && t[pos - 1] >= p) pos--;
+            int pos = lower_bound(t.begin(), t.end(), p) - t.begin();
+            pos = std::min(static_cast<int>(t.size()) - 1, pos);
+            while (pos > 0 && t[pos - 1] >= p) pos--;
             return pos;
         };
 
@@ -561,12 +564,12 @@ void GRDatabase::markObs(std::vector<RectOnLayer>& allObs,
         }
 
         for (int i = 0; i < markingBufferLUT.size(); i++) {
+            utils::IntervalT<int> gridTrackIntvl;
+            gridTrackIntvl.low = searchLowerBoundTrack(gridlines[1 - dir][i]);
+            gridTrackIntvl.high = searchLowerBoundTrack(gridlines[1 - dir][i + 1]) - 1;
             for (int j = 0; j < markingBufferLUT[i].size(); j++) {
                 if (markingBufferLUT[i][j].size() == 0) continue;
                 const auto& buf = markingBufferLUT[i][j];
-                utils::IntervalT<int> gridTrackIntvl;
-                gridTrackIntvl.low = searchLowerBoundTrack(gridlines[1 - dir][i]);
-                gridTrackIntvl.high = searchLowerBoundTrack(gridlines[1 - dir][i + 1]) - 1;
                 vector<int> trackBlocked(gridTrackIntvl.range() + 1, 0);  // blocked track length
                 for (auto& pair : buf) {
                     for (int k = pair.first.low; k <= pair.first.high; k++) {

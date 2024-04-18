@@ -41,7 +41,15 @@ class IOParser(object):
             print("Can only support one input format!")
             return False
         if "def" in params.keys():
-            if "lef" not in params.keys():
+            if "lefs" in params.keys():
+                valid_flag = True
+                for lef in params["lefs"]:
+                    if not os.path.exists(lef):
+                        print("lef %s not exists." % lef)
+                        valid_flag = False
+                if not valid_flag:
+                    return False
+            elif "lef" not in params.keys():
                 if "cell_lef" not in params.keys() and "tech_lef" not in params.keys():
                     print("lef or (cell_lef and tech_lef) is not found")
                     return False
@@ -171,6 +179,7 @@ class IOParser(object):
 
         node_type_indices = gpdb.node_type_indices()
         node_id2node_name = gpdb.node_id2node_name()
+        node_id2celltype_name = gpdb.node_id2celltype_name()
         all_node_types = []
         mov_end_idx = None
         fix_end_idx = None
@@ -195,6 +204,7 @@ class IOParser(object):
             "dataset_path": self.params,
             "node_type_indices": node_type_indices,
             "node_id2node_name": node_id2node_name,
+            "node_id2celltype_name": node_id2celltype_name,
             "movable_index": movable_index,
             "connected_index": connected_index,
             "fixed_index": fixed_index,

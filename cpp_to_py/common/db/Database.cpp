@@ -32,6 +32,11 @@ void Database::load() {
         setting.Format = "lefdef";
         readLEF(setting.LefTech);
         readLEF(setting.LefCell);
+    } else if (setting.LefFiles.size() > 0) {
+        setting.Format = "lefdef";
+        for (auto lef : setting.LefFiles) {
+            readLEF(lef);
+        }
     }
 
     if (setting.DefFile != "") {

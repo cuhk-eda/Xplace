@@ -9,6 +9,9 @@ def load_dataset(args, logger, placement=None):
     rawdb, gpdb = None, None
     if args.custom_path != "":
         params = get_custom_design_params(args)
+    elif args.custom_json != "":
+        logger.info("Detect json mode. Please make sure that tech_lef are included first.")
+        params = get_custom_json_params(args)
     else:
         params = get_single_design_params(
             args.dataset_root, args.dataset, args.design_name, placement
@@ -80,6 +83,7 @@ class PlaceData(object):
         site_info=None,
         node_type_indices=None,
         node_id2node_name=None,
+        node_id2celltype_name=None,
         movable_index=None,
         connected_index=None,
         fixed_index=None,
@@ -112,6 +116,15 @@ class PlaceData(object):
         self.region_boxes = region_boxes
         self.region_boxes_end = region_boxes_end
 
+        # TODO: more cases?
+        self.node_special_type = torch.zeros(len(node_id2celltype_name), dtype=torch.int32)
+        if False:
+            for node_id, celltype_name in enumerate(node_id2celltype_name):
+                if celltype_name.startswith("CORE/BUF"):
+                    self.node_special_type[node_id] = 1
+                if celltype_name.startswith("CORE/DFF"):
+                    self.node_special_type[node_id] = 2
+
         dataset_format = ""
         if "aux" in dataset_path.keys():
             dataset_format = "bookshelf"
@@ -122,6 +135,7 @@ class PlaceData(object):
         self.__design_name__ = benchmark + "/" + dataset_path["design_name"]
 
         self.__node_id2node_name__ = node_id2node_name
+        self.__node_id2celltype_name__ = node_id2celltype_name
 
         # NOTE: we set float movable node as connected node for convenience purposes
         self.__node_type_indices__ = node_type_indices
@@ -195,6 +209,11 @@ class PlaceData(object):
     def node_id2node_name(self):
         if hasattr(self, "__node_id2node_name__"):
             return self.__node_id2node_name__
+
+    @property
+    def node_id2celltype_name(self):
+        if hasattr(self, "__node_id2celltype_name__"):
+            return self.__node_id2celltype_name__
 
     @property
     def node_type_indices(self):

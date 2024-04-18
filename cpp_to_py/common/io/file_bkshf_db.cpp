@@ -490,10 +490,10 @@ bool Database::readBSAux(const std::string& auxFile, const std::string& plFile) 
         // } else if (i % 2) {
         if (i % 2) {
             layer.direction = m2direction;
-            layer.track.direction = m2direction;
+            // layer.track.direction = m2direction;
         } else {
             layer.direction = m1direction;
-            layer.track.direction = m1direction;
+            // layer.track.direction = m1direction;
         }
         if (isDac2012) {
             layer.width = bsData.wireWidth[i];

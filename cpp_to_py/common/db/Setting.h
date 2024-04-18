@@ -27,6 +27,7 @@ public:
     std::string LefFile = "";
     std::string LefCell = "";
     std::string LefTech = "";
+    std::vector<std::string> LefFiles;
 
     std::string Constraints = "";
     std::string Verilog = "";

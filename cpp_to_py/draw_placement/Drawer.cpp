@@ -101,8 +101,10 @@ bool Drawer::run(const std::vector<double>& node_pos_x,   // after die scale
                  const std::tuple<double, double, double, double>& die_info,  // after die scale
                  const std::tuple<double, double>& site_info,
                  const std::tuple<double, double>& bin_size_info,  // after die scale
-                 std::vector<std::tuple<index_type, index_type, std::string>> node_types_indices) {
+                 std::vector<std::tuple<index_type, index_type, std::string>> node_types_indices,
+                 const std::vector<int>& node_special_type) {
     // init cairo
+    bool special_cell = !node_special_type.empty();
     cairo_surface_t* cs;
     if (format == "png") {
         cs = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, width, height);
@@ -190,7 +192,19 @@ bool Drawer::run(const std::vector<double>& node_pos_x,   // after die scale
                 double node_lx = node_pos_x[i] - node_size_x[i] / 2;
                 double node_ly = node_pos_y[i] - node_size_y[i] / 2;
                 cairo_rectangle(c, node_lx, node_ly, node_size_x[i], node_size_y[i]);
-                set_rgba(node_type);
+                if (special_cell && i < node_special_type.size() && node_special_type[i] > 0){
+                    switch (node_special_type[i]) {
+                        case 1:
+                            set_rgba("Buffer");
+                            break;
+                        case 2:
+                            set_rgba("FF");
+                            break;
+                        default:
+                            set_rgba(node_type);
+                            break;
+                    }
+                } else set_rgba(node_type);
                 cairo_fill(c);
                 if (draw_node_bd) {
                     cairo_rectangle(c, node_lx, node_ly, node_size_x[i], node_size_y[i]);

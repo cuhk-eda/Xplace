@@ -13,10 +13,12 @@ def get_trunc_node_pos_fn(mov_node_size, data):
 def run_placement_main_nesterov(args, logger):
     total_start = time.time()
     data, rawdb, gpdb = load_dataset(args, logger)
+    setup_dataset_args(args)
     device = torch.device(
         "cuda:{}".format(args.gpu) if torch.cuda.is_available() else "cpu"
     )
     assert args.use_eplace_nesterov
+    logger.info("Start place %s/%s" % (args.dataset , args.design_name))
     logger.info("Use Nesterov optimizer!")
     if args.scale_design:
         logger.warning("Eplace's nesterov optimizer cannot support normalized die. Disable scale_design.")
@@ -187,7 +189,7 @@ def run_placement_main_nesterov(args, logger):
             if ps.use_cell_inflate:
                 output = route_inflation(
                     args, logger, data, rawdb, gpdb, ps, mov_node_pos, mov_node_size, expand_ratio,
-                    constraint_fn=trunc_node_pos_fn,
+                    constraint_fn=trunc_node_pos_fn, visualize=args.visualize_cgmap
                 )  # ps.use_cell_inflate is updated in route_inflation
                 if not ps.use_cell_inflate:
                     route_early_terminate_signal = True
@@ -294,7 +296,7 @@ def run_placement_main_nesterov(args, logger):
             ps.rerun_route = True
             gr_metrics = run_gr_and_fft_main(
                 args, logger, data, rawdb, gpdb, ps, mov_node_pos, constraint_fn=trunc_node_pos_fn, 
-                skip_m1_route=True, report_gr_metrics_only=True
+                skip_m1_route=True, report_gr_metrics_only=True, visualize=args.visualize_cgmap
             )
             ps.rerun_route = False
             ps.push_gr_sol(gr_metrics, hpwl, overflow, mov_node_pos)

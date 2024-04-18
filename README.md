@@ -110,6 +110,12 @@ Suppose there is a LEF/DEF benchmark named `toy` in `data/raw`, you can use the 
 python main.py --custom_path lef:data/raw/toy_input.lef,def:data/raw/toy_input.def,design_name:toy,benchmark:test --load_from_raw True --detail_placement True
 ```
 
+You can also use the argument `--custom_json` to run multiple LEFs + DEF:
+```
+python main.py --custom_json examples/examples.json --load_from_raw True --target_density 0.9
+```
+Please provide your LEFs/DEF in the input `json` file. An example of [ASAP7](https://github.com/The-OpenROAD-Project/asap7) input is given in `./examples/examples.json`.
+
 
 ## Load design from preprocessed `pt` file (Optional)
 The following script will dump the parsed design into a single torch `pt` file so Xplace can load the design from the `pt` file instead of parsing the input file from scratch. 

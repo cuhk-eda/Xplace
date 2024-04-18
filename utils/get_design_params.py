@@ -185,3 +185,16 @@ def get_custom_design_params(args):
     args.dataset = params["benchmark"]
     args.design_name = params["design_name"]
     return params
+
+
+def get_custom_json_params(args):
+    import json
+    with open(args.custom_json, 'r') as f:
+        params = json.load(f)
+    if "benchmark" not in params.keys():
+        raise ValueError("Cannot find 'benchmark' in args.custom_path")
+    if "design_name" not in params.keys():
+        raise ValueError("Cannot find 'design_name' in args.custom_path")
+    args.dataset = params["benchmark"]
+    args.design_name = params["design_name"]
+    return params

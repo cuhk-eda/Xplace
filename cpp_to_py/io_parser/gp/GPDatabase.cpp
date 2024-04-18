@@ -21,6 +21,9 @@ void GPDatabase::addCellNode(index_type cell_id, std::string& node_type) {
     node.setRegionId(static_cast<index_type>(cell->region->id));
     regions[node.getRegionId()].addNode(node.getId());
 
+    std::string celltype_name_ = cell->ctype()->cls + "/" + cell->ctype()->name;
+    node.setCellTypeName(celltype_name_);
+
     if (cell->fixed() && cell->ctype()->nonRegularRects().size() > 0) {
         node.setIsPolygonShape(true);
     }
@@ -41,6 +44,8 @@ void GPDatabase::addIOPinNode(index_type iopin_id, std::string& node_type) {
     node.setNodeType(node_type);
     node.setOriDBId(iopin_id);
 
+    node.setCellTypeName(iopin->name);
+
     iopin->gpdb_id = nodes.size() - 1;
 }
 
@@ -58,6 +63,8 @@ void GPDatabase::addBlockageNode(index_type blkg_id, std::string& node_type) {
     node.setOrient(-1);  // No orientation for placement blockage
     node.setNodeType(node_type);
     node.setOriDBId(blkg_id);
+
+    node.setCellTypeName(blockage_name);
 }
 
 void GPDatabase::addNet(index_type dbnet_id) {
@@ -270,6 +277,7 @@ void GPDatabase::setupIndexMap() {
     }
     for (auto& node : nodes) {
         node_id2node_name.emplace_back(node.getName());
+        node_id2celltype_name.emplace_back(node.getCellTypeName());
     }
 }
 

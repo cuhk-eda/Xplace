@@ -23,5 +23,6 @@ public:
              const std::tuple<double, double, double, double>& die_info,
              const std::tuple<double, double>& site_info,
              const std::tuple<double, double>& bin_size_info,
-             std::vector<std::tuple<index_type, index_type, std::string>> node_types_indices);
+             std::vector<std::tuple<index_type, index_type, std::string>> node_types_indices,
+             const std::vector<int>& node_special_type);
 };

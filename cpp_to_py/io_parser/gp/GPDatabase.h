@@ -42,6 +42,8 @@ public:
     const std::string& getNodeType() const { return node_type; }
     void setOriDBId(const index_type& ori_db_id_) { ori_db_id = ori_db_id_; }
     const index_type& getOriDBId() const { return ori_db_id; }
+    void setCellTypeName(const std::string& celltype_name_) { celltype_name = celltype_name_; }
+    const std::string& getCellTypeName() const { return celltype_name; }
     void setRegionId(const index_type& region_id_) { region_id = region_id_; }
     const index_type& getRegionId() const { return region_id; }
 
@@ -62,6 +64,7 @@ protected:
     index_type region_id = -1;  // no region, we should ignore fixed nodes' fence region
     std::vector<index_type> pins_id;
     bool isPolygonShape = false;
+    std::string celltype_name = ""; // CORE/DFF*, BLOCK/RAM*, IOPIN/PinName
 };
 
 class GPPin : public Basic {
@@ -161,6 +164,7 @@ protected:
 
     std::vector<std::tuple<index_type, index_type, std::string>> node_types_indices;  // (start_idx, end_idx, type)
     std::vector<std::string> node_id2node_name;
+    std::vector<std::string> node_id2celltype_name;
 
     std::vector<index_type> pin_id2node_id;  // pin_id to node_id mapping
     std::vector<index_type> pin_id2net_id;   // pin_id to net_id mapping
@@ -199,6 +203,7 @@ public:
         return node_types_indices;
     }
     const std::vector<std::string>& getNodeId2NodeName() const { return node_id2node_name; }
+    const std::vector<std::string>& getNodeId2CellTypeName() const { return node_id2celltype_name; }
 
     const std::tuple<int, int, int, int>& getDieInfo() const { return dieInfo; }
     const std::tuple<int, int, int, int>& getCoreInfo() const { return coreInfo; }

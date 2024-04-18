@@ -70,8 +70,8 @@ public:
     vector<int> parWidth;
     vector<vector<int>> parWidthSpace; // 2D table: (parWidth, parLength) -> widthSpacing
 
-    Track track;
-    Track nonPreferDirTrack;
+    vector<Track> tracks;
+    vector<Track> nonPreferDirTracks;
 
     Layer(const string& name = "", const char type = 'x') : _name(name), _type(type) {}
 
