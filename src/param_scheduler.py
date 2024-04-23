@@ -403,6 +403,14 @@ class ParamScheduler:
             and self.recorder.hpwl[ptr] > self.best_metric["hpwl"] * 2
         ):
             return True
+        if (
+            math.isnan(self.recorder.overflow[ptr]) or 
+            math.isnan(self.recorder.hpwl[ptr])
+        ):
+            self.__logger__.warning(
+                "Detect NAN value in Iteration %d. Kill the optimization process." % ptr
+            )
+            return True
         return False
 
     def check_plateau(self, x, window=10, threshold=0.001):
