@@ -1541,6 +1541,31 @@ int readDefPin(defrCallbackType_e c, defiPin* dpin, defiUserData ud) {
         }
     }
 
+    if (dpin->hasPort()) {
+        for (int j = 0; j < dpin->numPorts(); j++) {
+            if (j > 1) {
+                string pinName(dpin->pinName());
+                logger.warning("DefPin %s has multiple ports. We currently only support single port definition",
+                               pinName.c_str());
+                break;
+            }
+            defiPinPort* port = dpin->pinPort(j);
+
+            if (port->hasPlacement()) {
+                iopin->x = port->placementX();
+                iopin->y = port->placementY();
+                iopin->_orient = port->orient();
+            }
+
+            for (int i = 0; i < port->numLayer(); i++) {
+                Layer* layer = db->getLayer(string(port->layer(i)));
+                int lx, ly, hx, hy;
+                port->bounds(i, &lx, &ly, &hx, &hy);
+                iopin->type->addShape(*layer, lx, ly, hx, hy);
+            }
+        }
+    }
+
     return 0;
 }
 

@@ -171,7 +171,7 @@ class PlaceData(object):
             new_num_bin_y = int(2 ** math.floor(math.log2(num_rows)))
             new_num_bin_x = int(round(args.num_bin_x / args.num_bin_y * new_num_bin_y))
             logger.warning(
-                "Given num_bin_y %d is larger than num_rows %d."
+                "Given num_bin_y %d is larger than num_rows %d. "
                 "Use (num_bin_x=%d, num_bin_y=%d) instead" %
                 (args.num_bin_y, num_rows, new_num_bin_x, new_num_bin_y)
             )
