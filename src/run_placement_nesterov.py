@@ -12,8 +12,8 @@ def get_trunc_node_pos_fn(mov_node_size, data):
 
 def run_placement_main_nesterov(args, logger):
     total_start = time.time()
-    data, rawdb, gpdb = load_dataset(args, logger)
     setup_dataset_args(args)
+    data, rawdb, gpdb = load_dataset(args, logger)
     device = torch.device(
         "cuda:{}".format(args.gpu) if torch.cuda.is_available() else "cpu"
     )
