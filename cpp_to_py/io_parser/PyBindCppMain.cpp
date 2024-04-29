@@ -47,10 +47,9 @@ bool loadParams(const py::dict& kwargs) {
         return false;
     }
 
-    // verilog is unused now
-    // if (kwargs.contains("verilog")) {
-    //     db::setting.Verilog = kwargs["verilog"].cast<std::string>();
-    // }
+    if (kwargs.contains("verilog")) {
+        db::setting.Verilog = kwargs["verilog"].cast<std::string>();
+    }
 
     // ----- other options -----
 

@@ -72,6 +72,7 @@ bool readVerilogLine(istream &is, vector<string> &tokens) {
 }
 
 bool Database::readVerilog(const std::string &file) {
+    logger.info("Reading verilog...");
     ifstream fs(file.c_str());
     if (!fs.good()) {
         logger.error("cannot open verilog file: %s", file.c_str());
@@ -120,7 +121,7 @@ bool Database::readVerilog(const std::string &file) {
             }
         }
 
-        if (tokens.back() == ";") {
+        if (!tokens.empty() && tokens.back() == ";") {
             tokens.pop_back();
             finished = true;
         }
@@ -134,7 +135,12 @@ bool Database::readVerilog(const std::string &file) {
                 if (!iopin) {
                     logger.error("io pin not found: %s", pinName.c_str());
                 }
+                Pin* pin = iopin->pin;
+                iopin->is_connected = true;
                 Net *net = addNet(pinName);
+
+                pin->net = net;
+                pin->is_connected = true;
                 net->addPin(iopin->pin);
             }
         } else if (status == StatusWire) {
@@ -151,8 +157,11 @@ bool Database::readVerilog(const std::string &file) {
                 string netName(tokens[3 + i * 2]);
                 Pin *pin = cell->pin(pinName);
                 Net *net = this->getNet(netName);
+                pin->net = net;
                 net->addPin(pin);
+                pin->is_connected = true;
             }
+            cell->is_connected = true;
         }
     }
 

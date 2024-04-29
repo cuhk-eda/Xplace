@@ -53,10 +53,10 @@ void Database::load() {
         readConstraints(setting.Constraints);
     }
 
-    // verilog is unused now
-    // if (setting.Verilog != "") {
-    //     readVerilog(setting.Verilog);
-    // }
+    if (setting.Verilog != "") {
+        readVerilog(setting.Verilog);
+    }
+
     logger.info("Finish loading rawdb");
 }
 
