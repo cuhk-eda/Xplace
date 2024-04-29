@@ -5,17 +5,8 @@ import math
 from utils import *
 
 
-def load_dataset(args, logger, placement=None):
+def load_dataset(args, logger, params):
     rawdb, gpdb = None, None
-    if args.custom_path != "":
-        params = get_custom_design_params(args)
-    elif args.custom_json != "":
-        logger.info("Detect json mode. Please make sure that tech_lef are included first.")
-        params = get_custom_json_params(args)
-    else:
-        params = get_single_design_params(
-            args.dataset_root, args.dataset, args.design_name, placement
-        )
     parser = IOParser()
     if args.load_from_raw:
         logger.info("loading from original benchmark...")
@@ -116,14 +107,13 @@ class PlaceData(object):
         self.region_boxes = region_boxes
         self.region_boxes_end = region_boxes_end
 
-        # TODO: more cases?
+        # TODO: more cases, hardcode?
         self.node_special_type = torch.zeros(len(node_id2celltype_name), dtype=torch.int32)
-        if False:
-            for node_id, celltype_name in enumerate(node_id2celltype_name):
-                if celltype_name.startswith("CORE/BUF"):
-                    self.node_special_type[node_id] = 1
-                if celltype_name.startswith("CORE/DFF"):
-                    self.node_special_type[node_id] = 2
+        for node_id, celltype_name in enumerate(node_id2celltype_name):
+            if celltype_name.startswith("CORE/BUF"):
+                self.node_special_type[node_id] = 1
+            if celltype_name.startswith("CORE/DFF"):
+                self.node_special_type[node_id] = 2
 
         dataset_format = ""
         if "aux" in dataset_path.keys():
@@ -452,6 +442,7 @@ class PlaceData(object):
         :obj:`*keys`.
         If :obj:`*keys` is not given, the conversion is applied to all present
         attributes."""
+        self.device = device
         return self.apply(lambda x: x.to(device, **kwargs), *keys)
 
     def cpu(self, *keys):
@@ -539,14 +530,15 @@ class PlaceData(object):
 
     def prescale_by_site_width(self):
         # inplace scaling
-        self.die_info /= self.site_width
-        self.region_boxes /= self.site_width
-        self.node_pos /= self.site_width
-        self.node_lpos /= self.site_width
-        self.node_size /= self.site_width
-        self.pin_rel_cpos /= self.site_width
-        self.pin_rel_lpos /= self.site_width
-        self.pin_size /= self.site_width
+        scalar_at = torch.tensor([self.site_width], dtype=torch.float32, device=self.die_info.device)
+        self.die_info /= scalar_at
+        self.region_boxes /= scalar_at
+        self.node_pos /= scalar_at
+        self.node_lpos /= scalar_at
+        self.node_size /= scalar_at
+        self.pin_rel_cpos /= scalar_at
+        self.pin_rel_lpos /= scalar_at
+        self.pin_size /= scalar_at
         self.__die_scale__ *= self.site_width
         return self
 
