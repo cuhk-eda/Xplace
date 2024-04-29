@@ -415,8 +415,7 @@ def run_dp(node_pos: torch.Tensor, data: PlaceData, args, logger):
     ism_iter = 50
 
     # use integer coordinate systems in DP for better quality
-    # scalar = compute_scalar(get_ori_scale_factor(data))
-    scalar = 1.0
+    scalar = compute_scalar(get_ori_scale_factor(data))
 
     def dp_handler(dp_func, func_name, *func_args):
         logger.info("Start running %s..." % func_name)

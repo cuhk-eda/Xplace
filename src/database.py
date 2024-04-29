@@ -109,11 +109,12 @@ class PlaceData(object):
 
         # TODO: more cases, hardcode?
         self.node_special_type = torch.zeros(len(node_id2celltype_name), dtype=torch.int32)
-        for node_id, celltype_name in enumerate(node_id2celltype_name):
-            if celltype_name.startswith("CORE/BUF"):
-                self.node_special_type[node_id] = 1
-            if celltype_name.startswith("CORE/DFF"):
-                self.node_special_type[node_id] = 2
+        ## too slow...
+        # for node_id, celltype_name in enumerate(node_id2celltype_name):
+        #     if celltype_name.startswith("CORE/BUF"):
+        #         self.node_special_type[node_id] = 1
+        #     if celltype_name.startswith("CORE/DFF"):
+        #         self.node_special_type[node_id] = 2
 
         dataset_format = ""
         if "aux" in dataset_path.keys():
