@@ -244,10 +244,7 @@ void make_row2node_map(const DetailedPlaceDBType& db,
         // This will cause failure to detect some overlaps.
         // We need to remove the "small" fixed cell that is inside another.
         if (!row2nodes.empty()) {
-            std::vector<int> tmp_nodes;
-            tmp_nodes.reserve(row2nodes.size());
-            tmp_nodes.push_back(row2nodes.front());
-            for (int j = 1, je = row2nodes.size(); j < je; ++j) {
+            for (int j = 1; j < row2nodes.size(); ++j) {
                 int node_id1 = row2nodes.at(j - 1);
                 int node_id2 = row2nodes.at(j);
                 // two fixed cells
@@ -259,14 +256,12 @@ void make_row2node_map(const DetailedPlaceDBType& db,
                     typename DetailedPlaceDBType::type xh1 = xl1 + width1;
                     typename DetailedPlaceDBType::type xh2 = xl2 + width2;
                     // only collect node_id2 if its right edge is righter than node_id1
-                    if (xh1 < xh2) {
-                        tmp_nodes.push_back(node_id2);
+                    if (xh1 >= xh2 && !row2nodes.empty()) {
+                        row2nodes.erase(row2nodes.begin() + j);
+                        --j;
                     }
-                } else {
-                    tmp_nodes.push_back(node_id2);
                 }
             }
-            row2nodes.swap(tmp_nodes);
 
             // sort according to center
             std::sort(row2nodes.begin(), row2nodes.end(), [&](int node_id1, int node_id2) {
@@ -982,16 +977,17 @@ void kReorderCUDA(DPTorchRawDB& at_db, int num_bins_x, int num_bins_y, int K, in
         allocateCopyCpu(cpu_db.node_size_y, db.node_size_y, db.num_nodes, T);
 
         make_row2node_map(cpu_db, cpu_db.x, cpu_db.y, host_row2node_map, db.num_threads);
+        std::vector<std::vector<int>> host_row2node_map_left = db.reorder_row_map(cpu_db.x, cpu_db.y, cpu_db.node_size_x, cpu_db.node_size_y, host_row2node_map, 1);
         host_node_space_x.resize(cpu_db.num_movable_nodes);
         for (int i = 0; i < cpu_db.num_sites_y; ++i) {
-            for (unsigned int j = 0; j < host_row2node_map.at(i).size(); ++j) {
-                int node_id = host_row2node_map[i][j];
+            for (unsigned int j = 0; j < host_row2node_map_left.at(i).size(); ++j) {
+                int node_id = host_row2node_map_left[i][j];
                 if (node_id < db.num_movable_nodes) {
                     auto& space = host_node_space_x[node_id];
                     T space_xl = cpu_db.x[node_id];
                     T space_xh = cpu_db.xh;
-                    if (j + 1 < host_row2node_map[i].size()) {
-                        int right_node_id = host_row2node_map[i][j + 1];
+                    if (j + 1 < host_row2node_map_left[i].size()) {
+                        int right_node_id = host_row2node_map_left[i][j + 1];
                         space_xh = min(space_xh, cpu_db.x[right_node_id]);
                     }
                     space = space_xh - space_xl;

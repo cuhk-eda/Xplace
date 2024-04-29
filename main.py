@@ -50,6 +50,7 @@ def get_option():
     parser.add_argument('--visualize_cgmap', type=str2bool, default=False, help='visualize congestion map')
 
     # detailed placement and evaluation
+    parser.add_argument('--legalization', type=str2bool, default=True, help='perform lg') 
     parser.add_argument('--detail_placement', type=str2bool, default=True, help='perform dp') 
     parser.add_argument('--dp_engine', type=str, default="default", help='choose dp engine') 
     parser.add_argument('--eval_by_external', type=str2bool, default=False, help='eval dp sol by external binary') 

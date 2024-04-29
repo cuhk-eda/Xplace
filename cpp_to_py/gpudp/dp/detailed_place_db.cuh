@@ -274,12 +274,60 @@ public:
         return legal_flag;
     }
 
+    std::vector<std::vector<int>> reorder_row_map(
+        const float* host_x, const float* host_y, const float* host_node_size_x, const float* host_node_size_y, std::vector<std::vector<int>>& row2node_map, int sort_coord) {
+        if (sort_coord < 0 || sort_coord > 2) sort_coord = 0;
+
+        std::vector<std::vector<int>> row2node_map_helper;
+        // copy row2node_map to row2node_map_helper
+        row2node_map_helper.resize(row2node_map.size());
+        for (int i = 0; i < row2node_map.size(); ++i) {
+            row2node_map_helper[i] = row2node_map[i];
+        }
+
+        // sort according to right
+        for (int i = 0; i < row2node_map.size(); ++i) {
+            auto& row2nodes = row2node_map_helper[i];
+            if (!row2nodes.empty()) {
+                switch (sort_coord) {
+                    case 0:  // center
+                        std::sort(row2nodes.begin(), row2nodes.end(), [&](int node_id1, int node_id2) {
+                            float x1 = host_x[node_id1] + host_node_size_x[node_id1] / 2;
+                            float x2 = host_x[node_id2] + host_node_size_x[node_id2] / 2;
+                            return x1 < x2 || (x1 == x2 && node_id1 < node_id2);
+                        });
+                        break;
+                    case 1:  // left
+                        std::sort(row2nodes.begin(), row2nodes.end(), [&](int node_id1, int node_id2) {
+                            float x1 = host_x[node_id1];
+                            float x2 = host_x[node_id2];
+                            return x1 < x2 || (x1 == x2 && node_id1 < node_id2);
+                        });
+                        break;
+                    case 2:  // right
+                        std::sort(row2nodes.begin(), row2nodes.end(), [&](int node_id1, int node_id2) {
+                            float x1 = host_x[node_id1] + host_node_size_x[node_id1];
+                            float x2 = host_x[node_id2] + host_node_size_x[node_id2];
+                            return x1 < x2 || (x1 == x2 && node_id1 < node_id2);
+                        });
+                        break;
+                    default:
+                        break;
+                }
+            }
+        }
+
+        return row2node_map_helper;
+    }
+
     void make_row2node_map(const float* host_x,
                            const float* host_y,
                            const float* host_node_size_x,
                            const float* host_node_size_y,
                            int host_num_nodes,
-                           std::vector<std::vector<int>>& row2node_map) {
+                           std::vector<std::vector<int>>& row2node_map,
+                           int sort_coord = 0) {
+        if (sort_coord < 0 || sort_coord > 2) sort_coord = 0;
         // distribute cells to rows
         for (int i = 0; i < host_num_nodes; ++i) {
             float node_yl = host_y[i];
@@ -312,10 +360,7 @@ public:
                 return x1 < x2 || (x1 == x2 && node_id1 < node_id2);
             });
             if (!row2nodes.empty()) {
-                std::vector<int> tmp_nodes;
-                tmp_nodes.reserve(row2nodes.size());
-                tmp_nodes.push_back(row2nodes.front());
-                for (int j = 1, je = row2nodes.size(); j < je; ++j) {
+                for (int j = 1; j < row2nodes.size(); ++j) {
                     int node_id1 = row2nodes.at(j - 1);
                     int node_id2 = row2nodes.at(j);
                     // two fixed cells
@@ -327,21 +372,39 @@ public:
                         float xh1 = xl1 + width1;
                         float xh2 = xl2 + width2;
                         // only collect node_id2 if its right edge is righter than node_id1
-                        if (xh1 < xh2) {
-                            tmp_nodes.push_back(node_id2);
+                        if (xh1 >= xh2 && !row2nodes.empty()) {
+                            row2nodes.erase(row2nodes.begin() + j);
+                            --j;
                         }
-                    } else {
-                        tmp_nodes.push_back(node_id2);
                     }
                 }
-                row2nodes.swap(tmp_nodes);
 
                 // sort according to center
-                std::sort(row2nodes.begin(), row2nodes.end(), [&](int node_id1, int node_id2) {
-                    float x1 = host_x[node_id1] + host_node_size_x[node_id1] / 2;
-                    float x2 = host_x[node_id2] + host_node_size_x[node_id2] / 2;
-                    return x1 < x2 || (x1 == x2 && node_id1 < node_id2);
-                });
+                switch (sort_coord) {
+                    case 0:  // center
+                        std::sort(row2nodes.begin(), row2nodes.end(), [&](int node_id1, int node_id2) {
+                            float x1 = host_x[node_id1] + host_node_size_x[node_id1] / 2;
+                            float x2 = host_x[node_id2] + host_node_size_x[node_id2] / 2;
+                            return x1 < x2 || (x1 == x2 && node_id1 < node_id2);
+                        });
+                        break;
+                    case 1:  // left
+                        std::sort(row2nodes.begin(), row2nodes.end(), [&](int node_id1, int node_id2) {
+                            float x1 = host_x[node_id1];
+                            float x2 = host_x[node_id2];
+                            return x1 < x2 || (x1 == x2 && node_id1 < node_id2);
+                        });
+                        break;
+                    case 2:  // right
+                        std::sort(row2nodes.begin(), row2nodes.end(), [&](int node_id1, int node_id2) {
+                            float x1 = host_x[node_id1] + host_node_size_x[node_id1];
+                            float x2 = host_x[node_id2] + host_node_size_x[node_id2];
+                            return x1 < x2 || (x1 == x2 && node_id1 < node_id2);
+                        });
+                        break;
+                    default:
+                        break;
+                }
             }
         }
     }
@@ -352,8 +415,12 @@ public:
                                        const float* host_node_size_y,
                                        std::vector<std::vector<int>>& row2node_map,
                                        std::vector<RowMapIndex>& node2row_map,
-                                       std::vector<Space<float>>& spaces) {
-        make_row2node_map(host_x, host_y, host_node_size_x, host_node_size_y, num_nodes + 2, row2node_map);
+                                       std::vector<Space<float>>& spaces,
+                                       int sort_coord = 0) {
+        make_row2node_map(host_x, host_y, host_node_size_x, host_node_size_y, num_nodes + 2, row2node_map, sort_coord);
+
+        // copy row2node_map to row2node_map_helper
+        std::vector<std::vector<int>> row2node_map_helper = reorder_row_map(host_x, host_y, host_node_size_x, host_node_size_y, row2node_map, sort_coord);
 
         // construct node2row_map
         for (int i = 0; i < num_sites_y; ++i) {
@@ -373,7 +440,10 @@ public:
                 int node_id = row2node_map[i][j];
                 if (node_id < num_movable_nodes) {
                     assert(j);
-                    int left_node_id = row2node_map[i][j - 1];
+                    // int left_node_id = row2node_map[i][j - 1];
+                    int j_helper = std::find(row2node_map_helper[i].begin(), row2node_map_helper[i].end(), node_id) - row2node_map_helper[i].begin();
+                    int left_node_id = row2node_map[i][j_helper - 1];
+
                     spaces[node_id].xl = host_x[left_node_id] + host_node_size_x[left_node_id];
                     assert(j + 1 < row2node_map[i].size());
                     int right_node_id = row2node_map[i][j + 1];

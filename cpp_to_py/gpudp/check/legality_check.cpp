@@ -226,24 +226,19 @@ bool overlapCheck(const float* x,
         // This will cause failure to detect some overlaps.
         // We need to remove the "small" fixed cell that is inside another.
         if (!nodes_in_row.empty()) {
-            std::vector<int> tmp_nodes;
-            tmp_nodes.reserve(nodes_in_row.size());
-            tmp_nodes.push_back(nodes_in_row.front());
-            for (int j = 1, je = nodes_in_row.size(); j < je; ++j) {
+            for (int j = 1; j < nodes_in_row.size(); ++j) {
                 int node_id1 = nodes_in_row.at(j - 1);
                 int node_id2 = nodes_in_row.at(j);
                 // two fixed cells
                 if (node_id1 >= num_movable_nodes && node_id2 >= num_movable_nodes) {
                     float xh1 = getXH(node_id1);
                     float xh2 = getXH(node_id2);
-                    if (xh1 < xh2) {
-                        tmp_nodes.push_back(node_id2);
+                    if (xh1 >= xh2 && !nodes_in_row.empty()) {
+                        nodes_in_row.erase(nodes_in_row.begin() + j);
+                        --j;
                     }
-                } else {
-                    tmp_nodes.push_back(node_id2);
                 }
             }
-            nodes_in_row.swap(tmp_nodes);
         }
     }
 

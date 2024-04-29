@@ -155,7 +155,11 @@ def setup_detailed_rawdb(
         # NOTE: we assume all legalized cells are on integer system
         # this step can avoid some potential floating-point precision errors
         _, floatmov_rhs, _ = data.node_type_indices[1]
-        inv_scalar = round(1.0 / get_ori_scale_factor(data))
+        inv_scalar = torch.tensor(
+            [round(1.0 / get_ori_scale_factor(data))],
+            dtype=torch.float32,
+            device=node_lpos.device
+        )
         node_lpos[:floatmov_rhs].mul_(inv_scalar).round_().div_(inv_scalar)
 
     mov_lhs, mov_rhs = data.movable_index
@@ -466,7 +470,11 @@ def run_dp_route_opt(node_pos: torch.Tensor, gpdb, rawdb, ps, data: PlaceData, a
         ), dim=0).cpu()
         # this step can avoid some potential floating-point precision errors
         _, floatmov_rhs, _ = data.node_type_indices[1]
-        inv_scalar = round(1.0 / get_ori_scale_factor(data))
+        inv_scalar = torch.tensor(
+            [round(1.0 / get_ori_scale_factor(data))],
+            dtype=torch.float32,
+            device=node_lpos.device
+        )
         node_lpos[:floatmov_rhs].mul_(inv_scalar).round_().div_(inv_scalar)
 
         node_size = data.node_size.cpu()
@@ -626,7 +634,8 @@ def external_detail_placement(input_file, data: PlaceData, args, logger, eval_mo
         logger.info("Write detail placement in %s" % dp_out_file)
     # del gpdb, rawdb
     # logger.info("Evaluating detail placement result...")
-    # data, rawdb, gpdb = load_dataset(args, logger, dp_out_file)
+    # params = find_design_params(args, logger, dp_out_file)
+    # data, rawdb, gpdb = load_dataset(args, logger, params)
     # data = data.to(device).preprocess()
     # hpwl = get_obj_hpwl(data.node_pos, data, args).item()
     # info = (iteration + 1, hpwl, data.design_name)
@@ -645,10 +654,12 @@ def default_detail_placement(node_pos, gpdb, rawdb, ps, data: PlaceData, args, l
 
     torch.cuda.synchronize(node_pos.device)
     dp_start_time = time.time()
-    node_pos = run_lg(node_pos, data, args, logger)
+    if args.legalization:
+        node_pos = run_lg(node_pos, data, args, logger)
     torch.cuda.synchronize(node_pos.device)
     lg_end_time = time.time()
-    node_pos = run_dp(node_pos, data, args, logger)
+    if args.detail_placement:
+        node_pos = run_dp(node_pos, data, args, logger)
     torch.cuda.synchronize(node_pos.device)
     node_pos = run_dp_route_opt(node_pos, gpdb, rawdb, ps, data, args, logger)
     dp_end_time = time.time()
@@ -687,8 +698,9 @@ def detail_placement_main(node_pos, gpdb, rawdb, ps, data: PlaceData, args, logg
         gp_out_file = gp_prefix + post_fix
 
     args.write_global_placement = False # we won't write GP solution anymore
+    args.detail_placement = False if args.legalization is False else args.detail_placement
 
-    if args.detail_placement:
+    if args.detail_placement or args.legalization:
         logger.info("------- Start DP -------")
         if args.dp_engine in ["ntuplace3", "ntuplace4dr", "rippledp"]:
             # use external engine to perform lg/dp and write solution

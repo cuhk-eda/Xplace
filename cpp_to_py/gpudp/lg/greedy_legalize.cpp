@@ -145,40 +145,56 @@ void distributeBlanks2Bins(const float* x,
 
                 bin_blanks.at(blank_bin_id).push_back(blank);
             }
+        }
+    }
 
-            const std::vector<int>& cells = bin_fixed_cells.at(i);
-            std::vector<Blank<float>>& blanks = bin_blanks.at(blank_bin_id);
+    for (int i = 0; i < num_bins_x * num_bins_y; i += 1) {
+        int bin_id_x = i / num_bins_y;
+        int bin_id_y = i - bin_id_x * num_bins_y;
+        int blank_num_bins_per_bin = roundDiv(bin_size_y, blank_bin_size_y);
+        int blank_bin_id_yl = bin_id_y * blank_num_bins_per_bin;
+        int blank_bin_id_yh = std::min(blank_bin_id_yl + blank_num_bins_per_bin, blank_num_bins_y);
+        
+        const std::vector<int>& cells = bin_fixed_cells.at(i);
 
-            for (unsigned int bi = 0; bi < blanks.size(); ++bi) {
-                Blank<float>& blank = blanks.at(bi);
-                for (unsigned int ci = 0; ci < cells.size(); ++ci) {
-                    int node_id = cells.at(ci);
-                    float node_xl = x[node_id];
-                    float node_yl = y[node_id];
-                    float node_xh = node_xl + node_size_x[node_id];
-                    float node_yh = node_yl + node_size_y[node_id];
+        for (unsigned int ci = 0; ci < cells.size(); ++ci) {
+            int node_id = cells.at(ci);
+            float node_xl = x[node_id];
+            float node_yl = y[node_id];
+            float node_xh = node_xl + node_size_x[node_id];
+            float node_yh = node_yl + node_size_y[node_id];
 
-                    if (node_yh > blank.yl && node_yl < blank.yh && node_xh > blank.xl &&
-                        node_xl < blank.xh)  // overlap
+            // int node_2_blank_bin_id_yl = std::max(floorDiv((node_yl - yl), blank_bin_size_y), blank_bin_id_yl);
+            // int node_2_blank_bin_id_yh = std::min(ceilDiv((node_yh - yl), blank_bin_size_y), blank_bin_id_yh);
+
+            int node_2_blank_bin_id_yl = std::max((node_yl - yl) / blank_bin_size_y, (float)blank_bin_id_yl);
+            int node_2_blank_bin_id_yh = std::min((int)ceil((node_yh - yl) / blank_bin_size_y), blank_bin_id_yh);
+
+            for (int blank_bin_id_y = node_2_blank_bin_id_yl; blank_bin_id_y < node_2_blank_bin_id_yh; ++blank_bin_id_y) {
+                int blank_bin_id = bin_id_x * blank_num_bins_y + blank_bin_id_y;
+
+                std::vector<Blank<float>>& blanks = bin_blanks.at(blank_bin_id);
+
+                for (unsigned int bi = 0; bi < blanks.size(); ++bi) {
+                    Blank<float>& blank = blanks.at(bi);
+                    if (blank.xh <= node_xl) continue;
+                    if (blank.xl >= node_xh) break;
+
+                    if (node_xl <= blank.xl && node_xh >= blank.xh)  // erase
                     {
-                        if (node_xl <= blank.xl && node_xh >= blank.xh)  // erase
-                        {
-                            bin_blanks.at(blank_bin_id).erase(bin_blanks.at(blank_bin_id).begin() + bi);
-                            --bi;
-                            break;
-                        } else if (node_xl <= blank.xl) {                                       // one blank
-                            blank.xl = ceilDiv((node_xh - xl), site_width) * site_width + xl;   // align blanks to sites
-                        } else if (node_xh >= blank.xh) {                                       // one blank
-                            blank.xh = floorDiv((node_xl - xl), site_width) * site_width + xl;  // align blanks to sites
-                        } else {                                                                // two blanks
-                            Blank<float> new_blank = blank;
-                            blank.xh = floorDiv((node_xl - xl), site_width) * site_width + xl;  // align blanks to sites
-                            new_blank.xl =
-                                floorDiv((node_xh - xl), site_width) * site_width + xl;  // align blanks to sites
-                            bin_blanks.at(blank_bin_id).insert(bin_blanks.at(blank_bin_id).begin() + bi + 1, new_blank);
-                            --bi;
-                            break;
-                        }
+                        bin_blanks.at(blank_bin_id).erase(bin_blanks.at(blank_bin_id).begin() + bi);
+                        --bi;
+                    } else if (node_xl <= blank.xl) {                                       // one blank
+                        blank.xl = ceilDiv((node_xh - xl), site_width) * site_width + xl;   // align blanks to sites
+                    } else if (node_xh >= blank.xh) {                                       // one blank
+                        blank.xh = floorDiv((node_xl - xl), site_width) * site_width + xl;  // align blanks to sites
+                    } else {                                                                // two blanks
+                        Blank<float> new_blank = blank;
+                        blank.xh = floorDiv((node_xl - xl), site_width) * site_width + xl;  // align blanks to sites
+                        new_blank.xl =
+                            floorDiv((node_xh - xl), site_width) * site_width + xl;  // align blanks to sites
+                        bin_blanks.at(blank_bin_id).insert(bin_blanks.at(blank_bin_id).begin() + bi + 1, new_blank);
+                        --bi;
                     }
                 }
             }
