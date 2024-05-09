@@ -240,13 +240,13 @@ def calc_obj_and_grad_nn(
 def calc_grad(
     optimizer: torch.optim.Optimizer, mov_node_pos: torch.Tensor, wl_loss, density_loss
 ):
-    optimizer.zero_grad()
+    optimizer.zero_grad(set_to_none=False)
     wl_loss.backward(retain_graph=True)
     wl_grad = mov_node_pos.grad.detach().clone()
-    optimizer.zero_grad()
+    optimizer.zero_grad(set_to_none=False)
     density_loss.backward(retain_graph=True)
     density_grad = mov_node_pos.grad.detach().clone()
-    optimizer.zero_grad()
+    optimizer.zero_grad(set_to_none=False)
     return wl_grad, density_grad
 
 
