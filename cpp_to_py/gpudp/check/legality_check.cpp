@@ -51,7 +51,7 @@ bool siteAlignmentCheck(const float* x,
         float node_yl = y[i];
 
         float row_id_f = (node_yl - yl) / row_height;
-        int row_id = floorDiv(node_yl - yl, row_height);
+        int row_id = floorDiv(node_yl - yl, row_height, 1e-3);
         float row_yl = yl + row_height * row_id;
         float row_yh = row_yl + row_height;
 
@@ -186,8 +186,8 @@ bool overlapCheck(const float* x,
 
     // add a box to row
     auto addBox2Row = [&](int id, float bxl, float byl, float bxh, float byh) {
-        int row_idxl = floorDiv(byl - yl, row_height);
-        int row_idxh = ceilDiv(byh - yl, row_height);
+        int row_idxl = floorDiv(byl - yl, row_height, 1e-3);
+        int row_idxh = ceilDiv(byh - yl, row_height, 1e-3);
         row_idxl = std::max(row_idxl, 0);
         row_idxh = std::min(row_idxh, num_rows);
 

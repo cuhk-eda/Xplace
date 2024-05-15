@@ -187,7 +187,7 @@ def get_custom_design_params(args):
     return params
 
 
-def get_custom_json_params(args):
+def get_custom_json_params(args, logger):
     import json
     with open(args.custom_json, 'r') as f:
         params = json.load(f)
@@ -197,4 +197,15 @@ def get_custom_json_params(args):
         raise ValueError("Cannot find 'design_name' in args.custom_path")
     args.dataset = params["benchmark"]
     args.design_name = params["design_name"]
+    if "lefs" in params.keys():
+        logger.info("Detect json LEF/DEF mode. Please make sure that tech_lef are included first.")
+        lefs = params["lefs"]
+        for i in range(len(lefs)):
+            # Simple heuristic to find tech_lef (Only for ASAP7, Nangate45, Sky130, GF180)
+            if i == 0:
+                continue
+            if "tech" in lefs[i] or ".tlef" in lefs[i]:
+                lefs[i], lefs[0] = lefs[0], lefs[i]
+                break
+        params["lefs"] = lefs
     return params

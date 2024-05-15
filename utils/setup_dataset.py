@@ -5,8 +5,7 @@ def find_design_params(args, logger, placement=None):
     if args.custom_path != "":
         params = get_custom_design_params(args)
     elif args.custom_json != "":
-        logger.info("Detect json mode. Please make sure that tech_lef are included first.")
-        params = get_custom_json_params(args)
+        params = get_custom_json_params(args, logger)
     else:
         params = get_single_design_params(
             args.dataset_root, args.dataset, args.design_name, placement

@@ -326,15 +326,17 @@ def run_lg(node_pos: torch.Tensor, data: PlaceData, args, logger):
     num_bins_x, num_bins_y = 1, 64
     if not is_high_util:
         gpudp.greedyLegalization(lg_rawdb, num_bins_x, num_bins_y, True)
+    logger.info("Start checking...")
     if is_high_util or not lg_rawdb.check(get_ori_scale_factor(data)):
         logger.warning("Check failed in Greedy Legalization. Re-try by Greedy + Filler Legalization.")
-        
+
         # NOTE: this greedy legalization only legalizes movable connected cells
         logger.info("Start running Greedy Legalization...")
         gpudp.greedyLegalization(lg_rawdb, num_bins_x, num_bins_y, False)
         # NOTE: filler legalization only legalizes movable unconnected cells (fillers)
         logger.info("Start Filler Legalization...")
         gpudp.fillerLegalization(lg_rawdb)
+        logger.info("Start checking...")
         if not lg_rawdb.check(get_ori_scale_factor(data)):
             logger.error("Check failed in Greedy + Filler Legalization.")
         logger.info("Finish Greedy + Filler Legalization. Time: %.4f" % (time.time() - gl_time))
@@ -352,6 +354,7 @@ def run_lg(node_pos: torch.Tensor, data: PlaceData, args, logger):
     logger.info("Start running Abacus Legalization...")
     al_time = time.time()
     gpudp.abacusLegalization(lg_rawdb, num_bins_x, num_bins_y)
+    logger.info("Start checking...")
     if not lg_rawdb.check(get_ori_scale_factor(data)):
         logger.error("Check failed in Abacus Legalization")
     logger.info("Finish Abacus Legalization. Time: %.4f" % (time.time() - al_time))
@@ -401,8 +404,6 @@ def trace_ops(func, *args):
 def run_dp(node_pos: torch.Tensor, data: PlaceData, args, logger):
     # GPU Detailed Placement
     dp_rawdb = setup_detailed_rawdb(node_pos, False, data, args, logger)
-    # CPU Legality Check
-    check_rawdb = setup_detailed_rawdb(node_pos, True, data, args, logger)
 
     num_bins_x = data.num_bin_x
     num_bins_y = data.num_bin_y
@@ -430,11 +431,12 @@ def run_dp(node_pos: torch.Tensor, data: PlaceData, args, logger):
             dp_rawdb.scale(scalar, False)
         # commit lpos for legality check
         torch.cuda.synchronize(node_pos.device)
-        check_rawdb.commit_from(dp_rawdb.get_curr_lposx().cpu(), dp_rawdb.get_curr_lposy().cpu())
-        if not check_rawdb.check(get_ori_scale_factor(data)):
+        logger.info("Start checking...")
+        if not dp_rawdb.check(get_ori_scale_factor(data)):
             dp_rawdb.rollback()
             logger.error("Check failed in %s. Rollback to previous DP iteration." % func_name)
             return
+        logger.info("Check Pass. Commit solution...")
         # update dp_rawdb for next step dp_func and update the final solution
         dp_rawdb.commit()
         commit_to_node_pos(node_pos, data, dp_rawdb)
@@ -450,7 +452,7 @@ def run_dp(node_pos: torch.Tensor, data: PlaceData, args, logger):
     if args.scale_design:
         node_pos /= data.die_scale
 
-    del check_rawdb, dp_rawdb
+    del dp_rawdb
 
     return node_pos
 
