@@ -649,33 +649,34 @@ def external_detail_placement(input_file, data: PlaceData, args, logger, eval_mo
 
 
 def default_detail_placement(node_pos, gpdb, rawdb, ps, data: PlaceData, args, logger):
-    dp_start_time = None
-    dp_end_time = None
-    dp_hpwl = -1
-
     torch.cuda.synchronize(node_pos.device)
-    dp_start_time = time.time()
+    lg_start_time = time.time()
     if args.legalization:
         node_pos = run_lg(node_pos, data, args, logger)
     torch.cuda.synchronize(node_pos.device)
     lg_end_time = time.time()
+    if args.draw_placement:
+        info = ("%d_lg" % ps.iter, None, data.design_name)
+        draw_fig_with_cairo_cpp(node_pos, data.node_size, data, info, args)
+        torch.cuda.synchronize(node_pos.device)
+    dp_start_time = time.time()
     if args.detail_placement:
         node_pos = run_dp(node_pos, data, args, logger)
     torch.cuda.synchronize(node_pos.device)
     node_pos = run_dp_route_opt(node_pos, gpdb, rawdb, ps, data, args, logger)
     dp_end_time = time.time()
     logger.info("Finish detailed placement. LG Time: %.4f DP Time: %.4f LG+DP Time: %.4f" % (
-        lg_end_time - dp_start_time, dp_end_time - lg_end_time, dp_end_time - dp_start_time
+        lg_end_time - lg_start_time, dp_end_time - dp_start_time, dp_end_time - lg_start_time
     ))
     # Evaluate
     dp_hpwl = get_obj_hpwl(node_pos, data, args).item()
-    info = (ps.iter + 1, dp_hpwl, data.design_name)
+    info = ("%d_dp" % (ps.iter + 1), dp_hpwl, data.design_name)
     if args.draw_placement:
         draw_fig_with_cairo_cpp(node_pos, data.node_size, data, info, args)
     logger.info("After DP, HPWL: %.4E" % dp_hpwl)
 
-    lg_time = lg_end_time - dp_start_time
-    dp_time = dp_end_time - lg_end_time
+    lg_time = lg_end_time - lg_start_time
+    dp_time = dp_end_time - dp_start_time
 
     return node_pos, dp_hpwl, lg_time, dp_time
 

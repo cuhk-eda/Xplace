@@ -6,7 +6,7 @@ We are happy to announce that [Xplace 2.0](https://ieeexplore.ieee.org/abstract/
 - Support deterministic mode with only 5~25% extra GP runtime overhead.
 - Implement an extremely fast GPU-accelerated detailed-routability-driven placement algorithm Xplace-Route.
 - Integrate with a GPU-accelerated detailed placer and a GPU-accelerated global router [GGR](cpp_to_py/gpugr/README.md).
-- Support a superfast **GPU-accelerated place and global route flow**! Input your LEF/DEF, the flow will output the **placement DEF** and the **global routing guide**! 
+- Support a superfast **GPU-accelerated place and global route flow**! Input your LEF/DEF, the flow will output the **placement DEF** and the **global routing guide**! [xplace_route_flow.png](img/xplace_route_overview.png)
 - Provide benchmark download and preprocess scripts, and three routability evaluation scripts. 
 - Code refactoring.
 

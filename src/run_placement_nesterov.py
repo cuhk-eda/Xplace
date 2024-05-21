@@ -318,7 +318,7 @@ def run_placement_main_nesterov(args, logger):
         node_pos, density_map_layer, init_density_map, data, args
     )
     hpwl, overflow = hpwl.item(), overflow.item()
-    info = (iteration + 1, hpwl, data.design_name)
+    info = ("%d_gp" % (iteration + 1), hpwl, data.design_name)
     if args.draw_placement:
         draw_fig_with_cairo_cpp(node_pos, data.node_size, data, info, args)
     logger.info("After GP, best solution eval, exact HPWL: %.4E exact Overflow: %.4f" % (hpwl, overflow))
