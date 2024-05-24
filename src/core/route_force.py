@@ -262,7 +262,7 @@ def run_gr_and_fft(args, logger, data, rawdb, gpdb, ps, grdb=None, skip_m1_route
     route_size = min(512, args.num_bin_y)
     iteration = ps.iter - 1  # ps.iter is increased before running GR optimization
     die_ratio = (data.__ori_die_hx__ - data.__ori_die_lx__) / (data.__ori_die_hy__ - data.__ori_die_ly__)
-    route_xSize = route_size if die_ratio <= 1 else round(route_size / die_ratio)
+    route_xSize = route_size if die_ratio <= 1 else round(route_size * die_ratio)
     route_ySize = route_size if die_ratio >= 1 else round(route_size / die_ratio)
 
     # 1.1) init GRDatabase
