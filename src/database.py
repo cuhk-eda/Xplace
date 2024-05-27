@@ -158,17 +158,6 @@ class PlaceData(object):
         self.__num_pins__ = pin_id2node_id.shape[0]
         self.__num_nets__ = hyperedge_list_end.shape[0]
 
-        if self.__ori_die_hy__ / self.__row_height__ < args.num_bin_y:
-            num_rows = math.floor(self.__ori_die_hy__ / self.__row_height__)
-            new_num_bin_y = int(2 ** math.floor(math.log2(num_rows)))
-            new_num_bin_x = int(round(args.num_bin_x / args.num_bin_y * new_num_bin_y))
-            logger.warning(
-                "Given num_bin_y %d is larger than num_rows %d. "
-                "Use (num_bin_x=%d, num_bin_y=%d) instead" %
-                (args.num_bin_y, num_rows, new_num_bin_x, new_num_bin_y)
-            )
-            args.num_bin_x = new_num_bin_x
-            args.num_bin_y = new_num_bin_y
         self.__num_bin_x__ = args.num_bin_x
         self.__num_bin_y__ = args.num_bin_y
 
