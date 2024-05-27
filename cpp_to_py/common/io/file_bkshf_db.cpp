@@ -20,7 +20,7 @@ public:
     vector<int> cellType;
     vector<int> typeWidth;
     vector<int> typeHeight;
-    vector<char> typeFixed;
+    vector<bool> typeStdCell;
     vector<vector<vector<int>>> typeShapes;
     robin_hood::unordered_map<string, int> typePinMap;
     vector<int> typeNPins;
@@ -64,6 +64,10 @@ public:
     }
 
     void clearData() {
+        nCells = 0;
+        nTypes = 0;
+        nNets = 0;
+        nRows = 0;
         cellMap.clear();
         typeMap.clear();
         cellName.clear();
@@ -74,6 +78,7 @@ public:
         cellType.clear();
         typeWidth.clear();
         typeHeight.clear();
+        typeStdCell.clear();
         typeShapes.clear();
         typePinMap.clear();
         typeNPins.clear();
@@ -89,6 +94,23 @@ public:
         rowSites.clear();
         rowXStep.clear();
         rowHeight.clear();
+        siteWidth = 0;
+        siteHeight = 0;
+        gridNX = 0;
+        gridNY = 0;
+        gridNZ = 0;
+        capV.clear();
+        capH.clear();
+        wireWidth.clear();
+        wireSpace.clear();
+        viaSpace.clear();
+        gridOriginX = 0;
+        gridOriginY = 0;
+        tileW = 0;
+        tileH = 0;
+        blockagePorosity = 0;
+        IOPinRouteLayer.clear();
+        routeBlkgs.clear();
     }
 
     void scaleData(int scale) {
@@ -145,7 +167,7 @@ public:
         set<int> heightSet;
 
         for (int i = 0; i < nCells; i++) {
-            if (cellFixed[i] == (char)1) {
+            if (!typeStdCell[i]) {
                 continue;
             }
             int type = cellType[i];
@@ -369,12 +391,8 @@ bool Database::readBSAux(const std::string& auxFile, const std::string& plFile) 
     bsData.nTypes = 0;
     bsData.nNets = 0;
     bsData.nRows = 0;
-    // bsData.siteWidth = 240;
-    // bsData.siteHeight = 2880;
 
     readBSNodes(fileNodes);
-
-    bsData.estimateSiteSize();
 
     if (bsData.format == "dac2012") {
         readBSNets(fileNets);
@@ -394,11 +412,15 @@ bool Database::readBSAux(const std::string& auxFile, const std::string& plFile) 
         readBSScl(fileScl);
     }
 
+    bsData.estimateSiteSize();
+
     if (bsData.siteWidth < 10) {
+        logger.info("Scale Bookshelf with 100.");
         bsData.scaleData(100);
         // this->scale = 100;
     } else if (bsData.siteWidth < 100) {
         bsData.scaleData(10);
+        logger.info("Scale Bookshelf with 10.");
         // this->scale = 10;
     } else {
         // this->scale = 1;
@@ -410,10 +432,11 @@ bool Database::readBSAux(const std::string& auxFile, const std::string& plFile) 
     this->dieLY = INT_MAX;
     this->dieHX = INT_MIN;
     this->dieHY = INT_MIN;
+    unsigned int minRowXStep = INT_MAX;
     for (int i = 0; i < bsData.nRows; i++) {
         Row* row = this->addRow("core_SITE_ROW_" + to_string(i), "core", bsData.rowX[i], bsData.rowY[i]);
-        row->xStep(bsData.siteWidth);
-        row->yStep(bsData.siteHeight);
+        row->xStep(bsData.rowXStep[i]);
+        row->yStep(bsData.rowHeight[i]);
         row->xNum(bsData.rowSites[i]);
         row->yNum(1);
         row->flip((i % 2) == 1);
@@ -421,18 +444,29 @@ bool Database::readBSAux(const std::string& auxFile, const std::string& plFile) 
         this->dieLX = std::min(this->dieLX, row->x());
         this->dieLY = std::min(this->dieLY, row->y());
         this->dieHX = std::max(this->dieHX, row->x() + (int)row->width());
-        this->dieHY = std::max(this->dieHY, row->y() + bsData.siteHeight);
+        this->dieHY = std::max(this->dieHY, row->y() + bsData.rowHeight[i]);
         // make sure the parsed results are the same as the estimated results
-        assert_msg(bsData.rowXStep[i] == bsData.siteWidth,
-                   "Row %s rowXStep (%d) is not equal to siteWidth (%d)",
-                   row->name().c_str(),
-                   bsData.rowXStep[i],
-                   bsData.siteWidth);
+        minRowXStep = std::min(minRowXStep, row->xStep());
         assert_msg(bsData.rowHeight[i] == bsData.siteHeight,
                    "Row %s rowYStep (%d) is not equal to siteHeight (%d)",
                    row->name().c_str(),
                    bsData.rowHeight[i],
                    bsData.siteHeight);
+    }
+
+    if (minRowXStep != bsData.siteWidth) {
+        if (bsData.siteWidth % minRowXStep == 0) {
+            logger.warning(
+                "estimated siteWidth %d is not equal to the min rowXStep %d, but is a multiple of min rowXStep. Set "
+                "estimated siteWidth as %d.",
+                bsData.siteWidth,
+                minRowXStep,
+                minRowXStep);
+            bsData.siteWidth = minRowXStep;
+        } else {
+            logger.error(
+                "estimated siteWidth %d is not equal to the minimum rowXStep %d.", bsData.siteWidth, minRowXStep);
+        }
     }
 
     // parsing gcellgrid
@@ -528,7 +562,7 @@ bool Database::readBSAux(const std::string& auxFile, const std::string& plFile) 
         CellType* celltype = this->addCellType(bsData.typeName[i], this->celltypes.size());
         celltype->width = bsData.typeWidth[i];
         celltype->height = bsData.typeHeight[i];
-        celltype->stdcell = (!bsData.typeFixed[i]);
+        celltype->stdcell = bsData.typeStdCell[i];
         for (int j = 0; j < bsData.typeNPins[i]; ++j) {
             char direction = 'x';
             switch (bsData.typePinDir[i][j]) {
@@ -537,6 +571,10 @@ bool Database::readBSAux(const std::string& auxFile, const std::string& plFile) 
                     break;
                 case 'O':
                     direction = 'o';
+                    break;
+                case 'B':
+                    // We temporarily use 'x' to represent pin direction B in Bookshelf
+                    direction = 'x';
                     break;
                 default:
                     logger.error("unknown pin direction: %c", bsData.typePinDir[i][j]);
@@ -666,33 +704,35 @@ bool Database::readBSNodes(const std::string& file) {
             string cName = tokens[0];
             int cWidth = atoi(tokens[1].c_str());
             int cHeight = atoi(tokens[2].c_str());
-            bool cFixed = false;
+            bool cFixed = false;  // will be handeld in .pl
+            bool cStdCell = true;
             string cType = cName;
             if (tokens.size() >= 4) {
                 cType = tokens[3];
-                //  cout << cName << '\t' << cType << endl;
             }
-            if (cType == "terminal" && cWidth > 1 && cHeight > 1) {
-                // logger.info("read terminal");
+            // if (cWidth == 0 || cHeight == 0) {
+            //     logger.warning("Node %s (Type %s) has irregular shape: width %d height %d.",
+            //                    cName.c_str(),
+            //                    cType.c_str(),
+            //                    cWidth,
+            //                    cHeight);
+            // }
+            if (cType == "terminal") {
                 cType = cName;
-                cFixed = true;
+                cStdCell = false;
             }
             if (cType == "terminal_NI") {
                 cType = cName;
-                cFixed = true;
+                cStdCell = false;
             }
             int typeID = -1;
-            if (cType == "terminal") {
-                // logger.info("read terminal");
-                typeID = -1;
-                cFixed = true;
-            } else if (bsData.typeMap.find(cType) == bsData.typeMap.end()) {
+            if (bsData.typeMap.find(cType) == bsData.typeMap.end()) {
                 typeID = bsData.nTypes++;
                 bsData.typeMap[cType] = typeID;
                 bsData.typeName.push_back(cType);
                 bsData.typeWidth.push_back(cWidth);
                 bsData.typeHeight.push_back(cHeight);
-                bsData.typeFixed.push_back((char)(cFixed ? 1 : 0));
+                bsData.typeStdCell.push_back(cStdCell);
                 bsData.typeNPins.push_back(0);
                 bsData.typePinName.push_back(vector<string>());
                 bsData.typePinDir.push_back(vector<char>());
