@@ -14,11 +14,12 @@ class IOParser(object):
         self,
         params: dict,
         verbose_log: bool = False,
+        log_level: int = 2,
         lite_mode: bool = False,
         random_place: bool = True,
         num_threads: int = 8,
     ):
-        check_status = self.check_params(params, verbose_log, lite_mode, random_place, num_threads)
+        check_status = self.check_params(params, verbose_log, log_level, lite_mode, random_place, num_threads)
         if not check_status:
             raise ValueError(
                 "Checking failure. Please check the validity of params: %s" % params
@@ -31,7 +32,7 @@ class IOParser(object):
         return load_status
 
     def check_params(
-        self, params: dict, verbose_log: bool, lite_mode: bool, random_place: bool, num_threads: int = 8
+        self, params: dict, verbose_log: bool, log_level: int, lite_mode: bool, random_place: bool, num_threads: int = 8
     ) -> bool:
         if "def" not in params.keys() and "aux" not in params.keys():
             print("def or aux is not found!")
@@ -40,7 +41,15 @@ class IOParser(object):
             print("Can only support one input format!")
             return False
         if "def" in params.keys():
-            if "lef" not in params.keys():
+            if "lefs" in params.keys():
+                valid_flag = True
+                for lef in params["lefs"]:
+                    if not os.path.exists(lef):
+                        print("lef %s not exists." % lef)
+                        valid_flag = False
+                if not valid_flag:
+                    return False
+            elif "lef" not in params.keys():
                 if "cell_lef" not in params.keys() and "tech_lef" not in params.keys():
                     print("lef or (cell_lef and tech_lef) is not found")
                     return False
@@ -82,6 +91,14 @@ class IOParser(object):
         else:
             self.params["verbose_parser_log"] = False
 
+        # === LOG_LEVEL ===
+        # 0: DEBUG, 1: VERBOSE, 2: INFO, 3: NOTICE, 4: WARN, 5: ERROR, 6: FATAL, 7: OK
+        if log_level < 0:
+            log_level = 0
+        elif log_level > 7:
+            log_level = 2
+        self.params["global_log_level"] = log_level
+
         if lite_mode:
             self.params["lite_mode"] = True
         else:
@@ -100,12 +117,13 @@ class IOParser(object):
         self,
         params: dict,
         verbose_log: bool = False,
+        log_level: int = 2,
         lite_mode: bool = False,
         random_place: bool = True,
         num_threads: int = 8,
         debug: bool = False,
     ):
-        check_status = self.check_params(params, verbose_log, lite_mode, random_place, num_threads)
+        check_status = self.check_params(params, verbose_log, log_level, lite_mode, random_place, num_threads)
         if not check_status:
             raise ValueError(
                 "Checking failure. Please check the validity of params: %s" % params
@@ -161,6 +179,7 @@ class IOParser(object):
 
         node_type_indices = gpdb.node_type_indices()
         node_id2node_name = gpdb.node_id2node_name()
+        node_id2celltype_name = gpdb.node_id2celltype_name()
         all_node_types = []
         mov_end_idx = None
         fix_end_idx = None
@@ -185,6 +204,7 @@ class IOParser(object):
             "dataset_path": self.params,
             "node_type_indices": node_type_indices,
             "node_id2node_name": node_id2node_name,
+            "node_id2celltype_name": node_id2celltype_name,
             "movable_index": movable_index,
             "connected_index": connected_index,
             "fixed_index": fixed_index,

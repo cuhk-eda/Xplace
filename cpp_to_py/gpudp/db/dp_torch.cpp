@@ -23,6 +23,7 @@ DPTorchRawDB::DPTorchRawDB(torch::Tensor node_lpos_init_,
                            float xh_,
                            float yl_,
                            float yh_,
+                           int num_conn_movable_nodes_,
                            int num_movable_nodes_,
                            int num_nodes_,
                            float site_width_,
@@ -45,6 +46,7 @@ DPTorchRawDB::DPTorchRawDB(torch::Tensor node_lpos_init_,
     num_nets = hyperedge_list_end_.size(0);
     num_regions = region_boxes_end_.size(0);
     num_movable_nodes = num_movable_nodes_;
+    num_conn_movable_nodes = num_conn_movable_nodes_;
 
     flat_node2pin_start_map =
         torch::cat({torch::zeros({1}, torch::dtype(torch::kInt32).device(torch::Device(node_size.device()))),
@@ -92,13 +94,22 @@ bool DPTorchRawDB::check(float scale_factor) {
 }
 
 void DPTorchRawDB::scale(float scale_factor, bool use_round) {
-    pin_rel_lpos.mul_(scale_factor);
+    torch::Tensor scalar_at = torch::tensor({scale_factor}, torch::dtype(torch::kFloat32).device(node_size.device()));
     if (use_round) {
-        node_size.mul_(scale_factor).round_();
-        node_lpos_init.mul_(scale_factor).round_();
-        x.mul_(scale_factor).round_();
-        y.mul_(scale_factor).round_();
-        flat_region_boxes.mul_(scale_factor).round_();
+        pin_rel_lpos.mul_(scalar_at);
+        node_size.mul_(scalar_at).round_();
+        node_lpos_init.mul_(scalar_at).round_();
+
+        node_size_x.mul_(scalar_at).round_();
+        node_size_y.mul_(scalar_at).round_();
+        init_x.mul_(scalar_at).round_();
+        init_y.mul_(scalar_at).round_();
+        pin_offset_x.mul_(scalar_at).round_();
+        pin_offset_y.mul_(scalar_at).round_();
+        x.mul_(scalar_at).round_();
+        y.mul_(scalar_at).round_();
+
+        flat_region_boxes.mul_(scalar_at).round_();
         site_width = round(site_width * scale_factor);
         row_height = round(row_height * scale_factor);
         xl = round(xl * scale_factor);
@@ -106,17 +117,30 @@ void DPTorchRawDB::scale(float scale_factor, bool use_round) {
         yl = round(yl * scale_factor);
         yh = round(yh * scale_factor);
     } else {
-        node_size.mul_(scale_factor);
-        node_lpos_init.mul_(scale_factor);
-        x.mul_(scale_factor);
-        y.mul_(scale_factor);
-        flat_region_boxes.mul_(scale_factor);
-        site_width = site_width * scale_factor;
-        row_height = row_height * scale_factor;
-        xl = xl * scale_factor;
-        xh = xh * scale_factor;
-        yl = yl * scale_factor;
-        yh = yh * scale_factor;
+        float inv_scale_factor = std::round(1.0 / scale_factor);
+        torch::Tensor inv_scalar_at =
+            torch::tensor({inv_scale_factor}, torch::dtype(torch::kFloat32).device(node_size.device()));
+
+        pin_rel_lpos.div_(inv_scalar_at);
+        node_size.div_(inv_scalar_at);
+        node_lpos_init.div_(inv_scalar_at);
+
+        node_size_x.div_(inv_scalar_at);
+        node_size_y.div_(inv_scalar_at);
+        init_x.div_(inv_scalar_at);
+        init_y.div_(inv_scalar_at);
+        pin_offset_x.div_(inv_scalar_at);
+        pin_offset_y.div_(inv_scalar_at);
+        x.div_(inv_scalar_at);
+        y.div_(inv_scalar_at);
+
+        flat_region_boxes.div_(inv_scalar_at);
+        site_width = site_width / inv_scale_factor;
+        row_height = row_height / inv_scale_factor;
+        xl = xl / inv_scale_factor;
+        xh = xh / inv_scale_factor;
+        yl = yl / inv_scale_factor;
+        yh = yh / inv_scale_factor;
     }
 }
 

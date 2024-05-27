@@ -26,6 +26,7 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
                             float,
                             int,
                             int,
+                            int,
                             float,
                             float>())
         .def("check", &dp::DPTorchRawDB::check)
@@ -57,6 +58,7 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
              float xh_,
              float yl_,
              float yh_,
+             int num_conn_movable_nodes_,
              int num_movable_nodes_,
              int num_nodes_,
              float site_width_,
@@ -79,6 +81,7 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
                                                         xh_,
                                                         yl_,
                                                         yh_,
+                                                        num_conn_movable_nodes_,
                                                         num_movable_nodes_,
                                                         num_nodes_,
                                                         site_width_,
@@ -90,9 +93,10 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
     m.def("abacusLegalization", [](std::shared_ptr<dp::DPTorchRawDB> at_db_ptr, int num_bins_x, int num_bins_y) {
         return dp::abacusLegalization(*at_db_ptr, num_bins_x, num_bins_y);
     });
-    m.def("greedyLegalization", [](std::shared_ptr<dp::DPTorchRawDB> at_db_ptr, int num_bins_x, int num_bins_y) {
-        return dp::greedyLegalization(*at_db_ptr, num_bins_x, num_bins_y);
-    });
+    m.def("greedyLegalization",
+          [](std::shared_ptr<dp::DPTorchRawDB> at_db_ptr, int num_bins_x, int num_bins_y, bool legalize_filler) {
+              return dp::greedyLegalization(*at_db_ptr, num_bins_x, num_bins_y, legalize_filler);
+          });
     m.def("kReorder",
           [](std::shared_ptr<dp::DPTorchRawDB> at_db_ptr, int num_bins_x, int num_bins_y, int K, int max_iters) {
               return dp::kReorder(*at_db_ptr, num_bins_x, num_bins_y, K, max_iters);
@@ -114,6 +118,8 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
     m.def("legalityCheck", [](std::shared_ptr<dp::DPTorchRawDB> at_db_ptr, float scale_factor) {
         return dp::legalityCheck(*at_db_ptr, scale_factor);
     });
+    m.def("fillerLegalization",
+          [](std::shared_ptr<dp::DPTorchRawDB> at_db_ptr) { return dp::fillerLegalization(*at_db_ptr); });
 }
 
 }  // namespace Xplace

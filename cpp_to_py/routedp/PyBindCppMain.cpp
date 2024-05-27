@@ -20,7 +20,8 @@ torch::Tensor dp_route_opt(torch::Tensor node_lpos_init_,
                            float site_width,
                            float row_height,
                            std::shared_ptr<db::Database> rawdb_,
-                           std::shared_ptr<gp::GPDatabase> gpdb_) {
+                           std::shared_ptr<gp::GPDatabase> gpdb_,
+                           int K) {
     // We found that placing cells under M2 SNet will easily cause DRVs
     // this function will shift cells outside the SNet within an acceptable range
     db::Database& rawdb = *rawdb_;
@@ -226,7 +227,7 @@ torch::Tensor dp_route_opt(torch::Tensor node_lpos_init_,
                 float displaceL = dieHX;
                 doMoveL = doMoveL && (snetLx > dieLX);
                 if (doMoveL && blank_width_l < src_width_l) {
-                    for (ptrOffsetL = -1; ptrOffsetL >= -5; ptrOffsetL--) {
+                    for (ptrOffsetL = -1; ptrOffsetL >= -K; ptrOffsetL--) {
                         int targetPtr = cellPtrL + ptrOffsetL;
                         if (targetPtr >= 0) {
                             auto [node_id1, node_lx1, node_hx1] = currBin2cells[targetPtr];
@@ -296,7 +297,7 @@ torch::Tensor dp_route_opt(torch::Tensor node_lpos_init_,
                 int ptrOffsetR = 0;
                 doMoveR = doMoveR && (snetHx < dieHX);
                 if (doMoveR && blank_width_r < src_width_r) {
-                    for (ptrOffsetR = 1; ptrOffsetR <= 5; ptrOffsetR++) {
+                    for (ptrOffsetR = 1; ptrOffsetR <= K; ptrOffsetR++) {
                         int targetPtr = cellPtrR + ptrOffsetR;
                         if (targetPtr < currBin2cells.size()) {
                             auto [node_id1, node_lx1, node_hx1] = currBin2cells[targetPtr];

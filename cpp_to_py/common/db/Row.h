@@ -11,6 +11,7 @@ private:
     int _y = 0;
     unsigned _xNum = 0;
     unsigned _yNum = 0;
+    int _orient = 0;   // 0:N, 1:W, 2:S, 3:E, 4:FN, 5:FW, 6:FS, 7:FE, -1:NONE
     bool _flip = false;
     unsigned _xStep = 0;
     unsigned _yStep = 0;
@@ -20,13 +21,14 @@ private:
 public:
     std::vector<RowSegment> segments;
 
-    Row(const string& name, const string& macro, const int x, const int y, const unsigned xNum = 0, const unsigned yNum = 0, const bool flip = false, const unsigned xStep = 0, const unsigned yStep = 0)
+    Row(const string& name, const string& macro, const int x, const int y, const unsigned xNum = 0, const unsigned yNum = 0, const int orient = 0, const bool flip = false, const unsigned xStep = 0, const unsigned yStep = 0)
         : _name(name)
         , _macro(macro)
         , _x(x)
         , _y(y)
         , _xNum(xNum)
         , _yNum(yNum)
+        , _orient(orient)
         , _flip(flip)
         , _xStep(xStep)
         , _yStep(yStep) {}
@@ -46,6 +48,7 @@ public:
     int y() const { return _y; }
     unsigned xNum() const { return _xNum; }
     unsigned yNum() const { return _yNum; }
+    int orient() const { return _orient; }
     bool flip() const { return _flip; }
     unsigned xStep() const { return _xStep; }
     unsigned yStep() const { return _yStep; }
@@ -56,6 +59,7 @@ public:
     void y(const int value) { _y = value; }
     void xNum(const unsigned value) { _xNum = value; }
     void yNum(const unsigned value) { _yNum = value; }
+    void orient(const int value) { _orient = value; }
     void flip(const bool value) { _flip = value; }
     void xStep(const unsigned value) { _xStep = value; }
     void yStep(const unsigned value) { _yStep = value; }

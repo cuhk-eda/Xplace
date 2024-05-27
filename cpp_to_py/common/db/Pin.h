@@ -50,7 +50,7 @@ public:
     string name = "";
     int x = INT_MIN;
     int y = INT_MIN;
-    int _orient = 0;  // 0:N, 1:W, 2:S, 3:E, 4:FN, 5:FW, 6:FS, 7:FE
+    int _orient = -1;  // 0:N, 1:W, 2:S, 3:E, 4:FN, 5:FW, 6:FS, 7:FE, -1:NONE
     PinType* type;
     Pin* pin;
     int gpdb_id = -1;

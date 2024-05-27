@@ -37,19 +37,8 @@ void Cell::ctype(CellType* t) {
 
 int Cell::lx() const { return _lx; }
 int Cell::ly() const { return _ly; }
-bool Cell::flipX() const { return _flipX; }
-bool Cell::flipY() const { return _flipY; }
 int Cell::orient() const {
-    if (!flipX() && !flipY()) {
-        return 0;  // N
-    } else if (flipX() && flipY()) {
-        return 2;  // S
-    } else if (flipX() && !flipY()) {
-        return 4;  // FN
-    } else if (!flipX() && flipY()) {
-        return 6;  // FS
-    }
-    return 0;
+    return _orient;
 }
 
 bool Cell::placed() const { return (lx() != INT_MIN) && (ly() != INT_MIN); }
@@ -70,38 +59,7 @@ void Cell::place(int x, int y, int orient) {
     }
     _lx = x;
     _ly = y;
-    switch (orient) {
-        case 0:
-            _flipX = false;
-            _flipY = false;
-            break;
-        case 2:
-            _flipX = true;
-            _flipY = true;
-            break;
-        case 4:
-            _flipX = true;
-            _flipY = false;
-            break;
-        case 6:
-            _flipX = false;
-            _flipY = true;
-            break;
-        default:
-            _flipX = false;
-            _flipY = false;
-            break;
-    }
-}
-
-void Cell::place(int x, int y, bool flipX, bool flipY) {
-    if (_fixed) {
-        logger.warning("moving fixed cell %s to (%d,%d)", _name.c_str(), x, y);
-    }
-    _lx = x;
-    _ly = y;
-    _flipX = flipX;
-    _flipY = flipY;
+    _orient = orient;
 }
 
 void Cell::unplace() {
@@ -109,7 +67,7 @@ void Cell::unplace() {
         logger.warning("unplace fixed cell %s", _name.c_str());
     }
     _lx = _ly = INT_MIN;
-    _flipX = _flipY = false;
+    _orient = -1;
 }
 
 /***** Cell Type *****/

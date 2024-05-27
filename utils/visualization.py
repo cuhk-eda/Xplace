@@ -10,54 +10,6 @@ matplotlib_logger = logging.getLogger("matplotlib")
 matplotlib_logger.setLevel(logging.INFO)
 
 
-def scatter_drawer(pos: torch.Tensor, fix_mask: torch.Tensor, filename, title, args):
-    res_root = os.path.join(args.result_dir, args.exp_id)
-    png_path = os.path.join(res_root, args.eval_dir, filename)
-    if not os.path.exists(os.path.dirname(png_path)):
-        os.makedirs(os.path.dirname(png_path))
-
-    # pos = pos.cpu().numpy()
-    # pos = pos.T
-    # plt.scatter(pos[0], pos[1])
-    mov_pos = pos[fix_mask.squeeze(1) < 0.5].T.cpu().numpy()
-    fix_pos = pos[fix_mask.squeeze(1) > 0.5].T.cpu().numpy()
-    plt.scatter(mov_pos[0], mov_pos[1], label="mov")
-    plt.scatter(fix_pos[0], fix_pos[1], label="fix")
-    plt.legend()
-    plt.title(title)
-    plt.savefig(png_path)
-    plt.close()
-
-
-def draw_fig(batch, pos, fix_mask, info, args):
-    epoch, idx, iteration, hpwl = info
-    filename = "epoch%d_id%d_iter%d.png" % (epoch, idx, iteration)
-    title = "hpwl %.4f" % hpwl
-    num_items = batch.num_of_graph_nodes[0]
-    scatter_drawer(pos[:num_items], fix_mask[:num_items], filename, title, args)
-
-
-def scatter_drawer_new(pos: torch.Tensor, filename, title, args):
-    res_root = os.path.join(args.result_dir, args.exp_id)
-    png_path = os.path.join(res_root, args.eval_dir, filename)
-    if not os.path.exists(os.path.dirname(png_path)):
-        os.makedirs(os.path.dirname(png_path))
-
-    pos = pos.cpu().numpy()
-    pos = pos.T
-    plt.scatter(pos[0], pos[1])
-    plt.title(title)
-    plt.savefig(png_path)
-    plt.close()
-
-
-def draw_fig_new(pos, info, args):
-    iteration, hpwl, design_name = info
-    filename = "%s_iter%d.png" % (design_name, iteration)
-    title = "hpwl %.4f" % hpwl
-    scatter_drawer_new(pos, filename, title, args)
-
-
 def draw_fig_with_cairo(
     mov_node_pos,
     mov_node_size,
@@ -73,7 +25,7 @@ def draw_fig_with_cairo(
     import cairocffi as cairo
 
     iteration, hpwl, design_name = info
-    filename = "%s_iter%d.png" % (design_name, iteration)
+    filename = "%s_iter%s.png" % (design_name, iteration)
     res_root = os.path.join(args.result_dir, args.exp_id)
     png_path = os.path.join(res_root, args.eval_dir, filename)
     if not os.path.exists(os.path.dirname(png_path)):
@@ -159,7 +111,7 @@ def draw_fig_with_cairo_cpp(node_pos, node_size, data, info, args, base_size=204
     node_name: List[str] = ["%d" % i for i in range(node_pos.shape[0])]
 
     iteration, hpwl, design_name = info
-    filename = "%s_iter%d.png" % (design_name, iteration)
+    filename = "%s_iter%s.png" % (design_name, iteration)
     res_root = os.path.join(args.result_dir, args.exp_id)
     png_path: str = os.path.join(res_root, args.eval_dir, filename)
     if not os.path.exists(os.path.dirname(png_path)):
@@ -175,7 +127,11 @@ def draw_fig_with_cairo_cpp(node_pos, node_size, data, info, args, base_size=204
         ("Bin", 0.1, 0.1, 0.1, 1.0),
         ("Mov", 0.475, 0.706, 0.718, 0.8),
         ("Filler", 0.8, 0.8, 0.8, 0.8),
+        ("Buffer", 0.65, 0.08, 0.9, 0.8),
+        ("FF", 0.65, 0.9, 0.08, 0.7),
     ]
+    
+    node_special_type: List[int] = (data.node_special_type.cpu()).tolist()
     width = base_size
     height = round(width * (hy - ly) / (hx - lx))
     draw_contents: List[str] = ["Nodes", "NodesText"]
@@ -191,6 +147,7 @@ def draw_fig_with_cairo_cpp(node_pos, node_size, data, info, args, base_size=204
         bin_size_info,
         node_type_indices,
         ele_type_to_rgba_vec,
+        node_special_type,
         png_path,
         width,
         height,
@@ -211,7 +168,7 @@ def visualize_electronic_variables(density_map, potential_map, force_map, info, 
         return png_path
 
     # 1) Visualize density_map
-    filename = "%s_iter%d_density.png" % (design_name, iteration)
+    filename = "%s_iter%s_density.png" % (design_name, iteration)
     png_path = get_png_path(filename)
     fig, ax = plt.subplots(figsize=(12, 10))
     im = ax.imshow(density_map.cpu().numpy(), cmap="YlGnBu")
@@ -221,7 +178,7 @@ def visualize_electronic_variables(density_map, potential_map, force_map, info, 
     plt.close()
 
     # 2) Visualize potential_map
-    filename = "%s_iter%d_potential.png" % (design_name, iteration)
+    filename = "%s_iter%s_potential.png" % (design_name, iteration)
     png_path = get_png_path(filename)
     fig, ax = plt.subplots(figsize=(12, 10))
     im = ax.imshow(potential_map.cpu().numpy(), cmap="YlGnBu")
@@ -231,7 +188,7 @@ def visualize_electronic_variables(density_map, potential_map, force_map, info, 
     plt.close()
 
     # 3) Visualize force_map
-    filename = "%s_iter%d_force.png" % (design_name, iteration)
+    filename = "%s_iter%s_force.png" % (design_name, iteration)
     png_path = get_png_path(filename)
     # 3.1) Init background image
     GRID_SIZE = 100
@@ -274,7 +231,7 @@ def draw_grad_abs_mean(
     wl_grads, density_grads, iterations, info, args,
 ):
     iteration, design_name = info
-    filename = "%s_iter%d_grad_magnitude_mean.png" % (design_name, iteration)
+    filename = "%s_iter%s_grad_magnitude_mean.png" % (design_name, iteration)
     res_root = os.path.join(args.result_dir, args.exp_id)
     png_path = os.path.join(res_root, args.eval_dir, filename)
     if not os.path.exists(os.path.dirname(png_path)):

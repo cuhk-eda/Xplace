@@ -26,9 +26,11 @@ class RouteCache:
         self.original_filler_area_total = None
         self.original_pin_rel_cpos: torch.Tensor = None
         self.original_target_density = None
+        self.original_total_mov_area_without_filler = None
         self.original_num_fillers = None
         self.original_mov_node_size: torch.Tensor = None
         self.original_mov_node_size_real: torch.Tensor = None
+        self.original_init_density_map: torch.Tensor = None
 
     def reset(self):
         self.first_run = True
@@ -44,9 +46,11 @@ class RouteCache:
         self.original_filler_area_total = None
         self.original_pin_rel_cpos = None
         self.original_target_density = None
+        self.original_total_mov_area_without_filler = None
         self.original_num_fillers = None
         self.original_mov_node_size = None
         self.original_mov_node_size_real = None
+        self.original_init_density_map = None
 
 
 route_cache = RouteCache()
@@ -255,9 +259,10 @@ def run_gr_and_fft_main(
 
 
 def run_gr_and_fft(args, logger, data, rawdb, gpdb, ps, grdb=None, skip_m1_route=True, run_fft=False, visualize=False, report_gr_metrics_only=False, given_gr_params={}):
-    route_size = 512
+    route_size = min(512, args.num_bin_y)
+    iteration = ps.iter - 1  # ps.iter is increased before running GR optimization
     die_ratio = (data.__ori_die_hx__ - data.__ori_die_lx__) / (data.__ori_die_hy__ - data.__ori_die_ly__)
-    route_xSize = route_size if die_ratio <= 1 else round(route_size / die_ratio)
+    route_xSize = route_size if die_ratio <= 1 else round(route_size * die_ratio)
     route_ySize = route_size if die_ratio >= 1 else round(route_size / die_ratio)
 
     # 1.1) init GRDatabase
@@ -269,7 +274,7 @@ def run_gr_and_fft(args, logger, data, rawdb, gpdb, ps, grdb=None, skip_m1_route
     gpugr.load_gr_params(gr_params)
 
     # 1.2) do GR
-    logger.info("--------- Start GR in Iter: %d ---------" % ps.iter)
+    logger.info("--------- Start GR in Iter: %d ---------" % iteration)
     if grdb is None:
         grdb = gpugr.create_grdatabase(rawdb, gpdb)
     routeforce = gpugr.create_routeforce(grdb)
@@ -371,11 +376,11 @@ def run_gr_and_fft(args, logger, data, rawdb, gpdb, ps, grdb=None, skip_m1_route
         title = "#OvflNets: %.2e, WL: %.2e, #Vias: %.2e\n#Shorts: %.2e, RC Hor: %.3f, RC Ver: %.3f " % (
             numOvflNets, gr_wirelength, gr_numVias, gr_numShorts, rc_hor_mean, rc_ver_mean
         )
-        draw_cg_fig(args, input_mat, (data.design_name, ps.iter, "cg_mapAll"), title)
-        draw_cg_fig(args, cg_mapHV[0], (data.design_name, ps.iter, "cg_mapH"), title)
-        draw_cg_fig(args, cg_mapHV[1], (data.design_name, ps.iter, "cg_mapV"), title)
-        # draw_cg_fig(args, route_gradmat[0], (data.design_name, ps.iter, "route_gradmatX"), title)
-        # draw_cg_fig(args, route_gradmat[1], (data.design_name, ps.iter, "route_gradmatY"), title)
+        draw_cg_fig(args, input_mat, (data.design_name, iteration, "cg_mapAll"), title)
+        draw_cg_fig(args, cg_mapHV[0], (data.design_name, iteration, "cg_mapH"), title)
+        draw_cg_fig(args, cg_mapHV[1], (data.design_name, iteration, "cg_mapV"), title)
+        # draw_cg_fig(args, route_gradmat[0], (data.design_name, iteration, "route_gradmatX"), title)
+        # draw_cg_fig(args, route_gradmat[1], (data.design_name, iteration, "route_gradmatY"), title)
 
     if report_gr_metrics_only:
         return gr_metrics
@@ -470,13 +475,21 @@ def filler_pseudo_wire_force(data, ps, mov_node_pos, mov_node_size, routeforce, 
 def route_inflation(
     args, logger, data, rawdb, gpdb, ps, mov_node_pos, mov_node_size, expand_ratio,
     constraint_fn=None, skip_m1_route=True, use_weighted_inflation=True, hv_same_ratio=True,
-    min_area_inc=0.01, decrease_target_density=False, **kwargs
+    dynamic_target_density=True, **kwargs
 ):
     mov_lhs, mov_rhs = data.movable_index
     fix_lhs, fix_rhs = data.fixed_connected_index
     _, filler_lhs = data.movable_connected_index
     filler_rhs = mov_node_pos.shape[0]
     num_fillers = filler_rhs - filler_lhs
+    decrease_target_density = False
+
+    # FIXME: How can we dynamically set args.min_area_inc according to the congestion map?
+    #        I believe there should be elegant ways to do that like computing local statistics...
+    if args.design_name == "ispd18_test10":
+        # This design is extremely congested in its center.
+        # Temporarily hard coded. This value may not be the best...
+        args.min_area_inc = 0.001
 
     if route_cache.first_run:
         # TODO: check args.target_density should be changed or not?
@@ -499,6 +512,8 @@ def route_inflation(
         route_cache.original_filler_area_total = torch.sum(torch.prod(filler_size, 1)).item()
         route_cache.original_pin_rel_cpos = data.pin_rel_cpos.clone()
         route_cache.original_target_density = copy.deepcopy(args.target_density)
+        route_cache.original_total_mov_area_without_filler = copy.deepcopy(data.__total_mov_area_without_filler__)
+        route_cache.original_init_density_map = data.init_density_map.clone()
 
     ori_mov_node_size = route_cache.original_mov_node_size
     ori_mov_node_size_real = route_cache.original_mov_node_size_real
@@ -507,6 +522,7 @@ def route_inflation(
     # 1) check remain space
     last_mov_area = torch.prod(mov_node_size_real[mov_lhs:filler_lhs], 1)
     last_mov_area_total = last_mov_area.sum().item()
+    last_filler_area_total = torch.sum(torch.prod(mov_node_size_real[filler_lhs:filler_rhs], 1)).item()
     max_inc_area_total = min(0.1 * route_cache.whitespace_area, route_cache.placeable_area - last_mov_area_total) # TODO: tune
     if max_inc_area_total <= 0:
         logger.warning("No space to inflate. Terminate inflation.")
@@ -520,6 +536,7 @@ def route_inflation(
         **kwargs
     )
     grdb, routeforce, input_mat, cg_mapHV, _, _, route_gradmat, gr_metrics = output
+    numOvflNets, gr_wirelength, gr_numVias, gr_numShorts, rc_hor_mean, rc_ver_mean = gr_metrics
 
     num_bin_x, num_bin_y = input_mat.shape[0], input_mat.shape[1]
     unit_len_x, unit_len_y = routeforce.gcell_steps()
@@ -533,6 +550,13 @@ def route_inflation(
         inflate_mat: torch.Tensor = torch.stack((input_mat + 1, input_mat + 1)).contiguous().pow_(2)
     else:
         inflate_mat: torch.Tensor = (cg_mapHV + 1).permute(0, 2, 1).contiguous()
+    if dynamic_target_density and last_filler_area_total / last_mov_area_total > 1.1 and numOvflNets / data.num_nets > 0.04:
+        # filler area too large => low utilization, can adjust size more aggressively to reduce GR overflow
+        max_inc_area_total = route_cache.placeable_area - last_mov_area_total
+        logger.info("Low utilization detect, globally inflate...")
+        global_ratio = (rc_hor_mean + rc_ver_mean) / 2
+        inflate_mat *= global_ratio
+        decrease_target_density = True
     inflate_mat.clamp_(min=1.0, max=2.0)
 
     # NOTE: 1) If use_weighted_inflation == False, use max congestion as inflation ratio.
@@ -555,6 +579,10 @@ def route_inflation(
     inc_mov_area = expect_new_mov_area - last_mov_area
     inc_mov_area_total = inc_mov_area.sum().item()
     inc_area_scale = max_inc_area_total / inc_mov_area_total
+    if inc_mov_area_total <= 0:
+        logger.warning("Negative area increment %.4f. Early terminate cell inflation." % (inc_mov_area_total))
+        ps.use_cell_inflate = False  # not inflation anymore
+        return gr_metrics, None, None
     if inc_area_scale < 1:
         logger.warning("Not enough space to inflate. Scale down.")
         inc_mov_area *= inc_area_scale
@@ -568,10 +596,10 @@ def route_inflation(
     new_mov_node_size_real: torch.Tensor = mov_node_size_real.clone()
     new_mov_node_size_real[mov_lhs:filler_lhs].mul_(this_mov_conn_inflate_ratio)
 
-    if inc_mov_area_total / last_mov_area_total < min_area_inc:
+    if inc_mov_area_total / last_mov_area_total < args.min_area_inc:
         logger.warning(
             "Too small relative area increment (%.4f < %.4f). Early terminate cell inflation." % (
-                inc_mov_area_total / last_mov_area_total, min_area_inc
+                inc_mov_area_total / last_mov_area_total, args.min_area_inc
         ))
         ps.use_cell_inflate = False  # not inflation anymore
         return gr_metrics, None, None
@@ -579,13 +607,13 @@ def route_inflation(
     # 5) update total filler inflation ratio
     new_mov_area_total = last_mov_area_total + inc_mov_area_total
     new_filler_area_total = 0.0
-    last_filler_area_total = torch.sum(torch.prod(mov_node_size_real[filler_lhs:filler_rhs], 1)).item()
     filler_scale = 0.0
     if new_mov_area_total + last_filler_area_total > route_cache.target_area:
         new_filler_area_total = max(route_cache.target_area - new_mov_area_total, 0)
-        if decrease_target_density and new_filler_area_total / route_cache.placeable_area > 0.2:
-            # remove some pre-inserted fillers / FloatMov nodes to decrease the target density
-            new_target_density = max(0.8, 0.85 * 1.0)
+        if decrease_target_density:
+            logger.info("Removing some pre-inserted fillers / FloatMov nodes to decrease the target density...")
+            # standard cell density: 1 / (1 + 1.1) = 0.4762
+            new_target_density = max(0.4762, 0.85 * args.target_density)
             new_target_area = new_target_density * route_cache.placeable_area
             new_filler_area_total = max(new_target_area - new_mov_area_total, 0)
             filler_scale = new_filler_area_total / route_cache.original_filler_area_total
@@ -593,11 +621,9 @@ def route_inflation(
             num_remain_cells = filler_lhs + math.ceil(filler_scale * original_num_fillers)
 
             route_cache.target_area = new_target_area
-            new_mov_node_size_real = new_mov_node_size_real[:num_remain_cells]
-            mov_node_size_real = mov_node_size_real[:num_remain_cells]
-            logger.warning("Remove nodes to reduce target density from %.4f to %.4f. \
-                        This step may remove some FloatMov. #Nodes from %d to %d" % 
-                        (old_target_density, args.target_density, filler_rhs, num_remain_cells))
+            # set filler size as 0 to remove
+            new_mov_node_size_real[num_remain_cells:] = 0
+            mov_node_size_real[num_remain_cells:] = 0
         elif route_cache.original_filler_area_total > 0:
             filler_scale = math.sqrt(new_filler_area_total / route_cache.original_filler_area_total)
             new_mov_node_size_real[filler_lhs:filler_rhs] = filler_scale * ori_mov_node_size_real[filler_lhs:filler_rhs]
@@ -619,7 +645,19 @@ def route_inflation(
     args.target_density = (new_mov_area_total + new_filler_area_total) / route_cache.placeable_area
     logger.info("Update target density from %.4f to %.4f" % (old_target_density, args.target_density))
 
-    logger.info("Relative area | increment: %.4f, mov: %.4f, filler: %.4f, all_cells: %.4f" % (
+    if decrease_target_density:
+        # since we decrease target density, update the init density map correspondingly
+        logger.warning("Remove nodes to reduce target density from %.4f to %.4f. This step may remove some FloatMov. #Nodes from %d to %d" % 
+            (old_target_density, args.target_density, filler_rhs, num_remain_cells))
+        data.init_density_map.clamp_(min=0.0, max=1.0).div_(old_target_density).mul_(args.target_density)
+
+    logger.info("Absolute area (last) | mov: %.4E, filler: %.4E, all_cells: %.4E" % (
+        last_mov_area_total, last_filler_area_total, last_mov_area_total + last_filler_area_total
+    ))
+    logger.info("Absolute area (this) | mov: %.4E, filler: %.4E, all_cells: %.4E" % (
+        new_mov_area_total, new_filler_area_total, new_mov_area_total + new_filler_area_total
+    ))
+    logger.info("Relative area change | increment: %.4f, mov: %.4f, filler: %.4f, all_cells: %.4f" % (
         inc_mov_area_total / last_mov_area_total,
         new_mov_area_total / last_mov_area_total,
         new_filler_area_total / last_filler_area_total if last_filler_area_total > 1e-5 else 0,
@@ -655,6 +693,11 @@ def route_inflation(
         expand_ratio = mov_node_area / clamp_mov_node_area
         mov_node_size = clamp_mov_node_size
 
+    if decrease_target_density:
+        # FIXME: should we update total_mov_area_without_filler when decrease_target_density == False?
+        mov_cell_area = torch.prod(new_mov_node_size_real[mov_lhs:mov_rhs, ...], 1)
+        data.__total_mov_area_without_filler__ = torch.sum(mov_cell_area).item()
+
     ps.use_cell_inflate = True
     return gr_metrics, mov_node_size, expand_ratio
 
@@ -664,5 +707,8 @@ def route_inflation_roll_back(args, logger, data, mov_node_size):
         mov_lhs, mov_rhs = data.movable_index
         mov_node_size[mov_lhs:mov_rhs].copy_(route_cache.original_mov_node_size[mov_lhs:mov_rhs])
         data.pin_rel_cpos.copy_(route_cache.original_pin_rel_cpos)
-        args.target_density = route_cache.original_target_density
+        data.__total_mov_area_without_filler__ = route_cache.original_total_mov_area_without_filler
+        if args.target_density != route_cache.original_target_density:
+            args.target_density = route_cache.original_target_density
+            data.init_density_map.copy_(route_cache.original_init_density_map)
     route_cache.reset()

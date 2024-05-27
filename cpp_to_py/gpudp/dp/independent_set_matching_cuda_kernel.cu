@@ -162,6 +162,10 @@ void construct_spaces(DetailedPlaceData& db,
                     int right_node_id = row2nodes[j + 1];
                     right_bound = min(right_bound, host_x[right_node_id]);
                 }
+                // space.xh = right_bound;
+                // NOTE: some designs' fixed nodes are not placed on site (e.g. mgc_edit_dist_a),
+                //       fix these cases by aligning them to site
+                // FIXME: need regression
                 space.xh = std::floor(right_bound);
                 space.xh = floorDiv(space.xh - db.xl, db.site_width) * db.site_width + db.xl; 
             }

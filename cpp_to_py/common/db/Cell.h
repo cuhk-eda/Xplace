@@ -14,19 +14,19 @@ private:
     char _topPower = 'x';
     vector<Geometry> _obs;
 
-    // _nonRegularRects.size() > 0 implies that this cell is a fixed cell and 
-    // its shape is a polygon. Each rectangle is also appended into 
+    // _nonRegularRects.size() > 0 implies that this cell is a fixed cell and
+    // its shape is a polygon. Each rectangle is also appended into
     // Databased.placeBlockages during parsing the polygon-shape cell.
     // NOTE: We only support this feature for ICCAD/DAC 2012 benchmarks.
-    //     When processing GPDatabase, we will set this kind of cells' width and 
+    //     When processing GPDatabase, we will set this kind of cells' width and
     //     height as 0 and use placeement blockages to represent their shapes.
-    vector<Rectangle> _nonRegularRects; 
+    vector<Rectangle> _nonRegularRects;
 
     int _libcell = -1;
 
 public:
     std::string name = "";
-    char cls = 'x';
+    std::string cls = "x";
     bool stdcell = false;
     int width = 0;
     int height = 0;
@@ -84,8 +84,7 @@ private:
 
     int _lx = INT_MIN;
     int _ly = INT_MIN;
-    bool _flipX = false;
-    bool _flipY = false;
+    int _orient = -1;  // 0:N, 1:W, 2:S, 3:E, 4:FN, 5:FW, 6:FS, 7:FE, -1:NONE
 
 public:
     bool highlighted = false;
@@ -107,8 +106,6 @@ public:
     int hy() const { return ly() + height(); }
     int cx() const { return lx() + width() / 2; }
     int cy() const { return ly() + height() / 2; }
-    bool flipX() const;
-    bool flipY() const;
     int orient() const;
     int width() const { return _type->width + _spaceL + _spaceR; }
     int height() const { return _type->height + _spaceB + _spaceT; }
@@ -119,7 +116,6 @@ public:
     bool placed() const;
     void place(int x, int y);
     void place(int x, int y, int orient);
-    void place(int x, int y, bool flipX, bool flipY);
     void unplace();
     unsigned numPins() const { return _pins.size(); }
 

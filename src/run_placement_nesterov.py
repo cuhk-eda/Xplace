@@ -13,7 +13,8 @@ def get_trunc_node_pos_fn(mov_node_size, data):
 
 def run_placement_main_nesterov(args, logger):
     total_start = time.time()
-    data, data_nn, rawdb, gpdb = load_dataset(args, logger)
+    params = find_design_params(args, logger)
+    data, data_nn, rawdb, gpdb = load_dataset(args, logger, params)
     device = torch.device(
         "cuda:{}".format(args.gpu) if torch.cuda.is_available() else "cpu"
     )
@@ -28,7 +29,7 @@ def run_placement_main_nesterov(args, logger):
     logger.info(data.node_type_indices)
     # args.num_bin_x = args.num_bin_y = 2 ** math.ceil(math.log2(max(data.die_info).item() // 25))
 
-    init_density_map = get_init_density_map(data, args, logger)
+    init_density_map = get_init_density_map(rawdb, gpdb, data, args, logger)
     data.init_filler()
     mov_lhs, mov_rhs = data.movable_index
     mov_node_pos, mov_node_size, expand_ratio = data.get_mov_node_info()
@@ -72,7 +73,7 @@ def run_placement_main_nesterov(args, logger):
     data_nn.__num_bin_y__ = args_nn.num_bin_y
     data_nn = data_nn.to(device)
     data_nn = data_nn.preprocess()
-    init_density_map_nn = get_init_density_map(data_nn, args_nn, logger)
+    init_density_map_nn = get_init_density_map(rawdb, gpdb, data_nn, args_nn, logger)
     data_nn.init_filler()
     if data.filler_size != None:
         data_nn.filler_size = data.filler_size.clone()
@@ -171,7 +172,7 @@ def run_placement_main_nesterov(args, logger):
         if ps.need_to_early_stop():
             terminate_signal = True
 
-        if iteration % args.log_freq == 0 or iteration == args.inner_iter - 1 or ps.rerun_route:
+        if iteration % args.log_freq == 0 or iteration == args.inner_iter - 1 or ps.rerun_route or terminate_signal:
             log_str = (
                 "iter: %d | masked_hpwl: %.2E overflow: %.4f obj: %.4E "
                 "density_weight: %.4E wa_coeff: %.4E"
@@ -252,7 +253,7 @@ def run_placement_main_nesterov(args, logger):
         node_pos, density_map_layer, init_density_map, data, args
     )
     hpwl, overflow = hpwl.item(), overflow.item()
-    info = (iteration + 1, hpwl, data.design_name)
+    info = ("%d_gp" % (iteration + 1), hpwl, data.design_name)
     if args.draw_placement:
         draw_fig_with_cairo_cpp(node_pos, data.node_size, data, info, args)
     logger.info("After GP, best solution eval, exact HPWL: %.4E exact Overflow: %.4f" % (hpwl, overflow))

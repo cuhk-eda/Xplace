@@ -27,6 +27,11 @@ bool loadParams(const py::dict& kwargs) {
     } else if (kwargs.contains("cell_lef") && kwargs.contains("tech_lef")) {
         db::setting.LefCell = kwargs["cell_lef"].cast<std::string>();
         db::setting.LefTech = kwargs["tech_lef"].cast<std::string>();
+    } else if (kwargs.contains("lefs")) {
+        for (auto lef_py : kwargs["lefs"]) {
+            auto lef = lef_py.cast<std::string>();
+            db::setting.LefFiles.emplace_back(lef);
+        }   
     }
 
     if (kwargs.contains("constraints")) {
@@ -42,10 +47,9 @@ bool loadParams(const py::dict& kwargs) {
         return false;
     }
 
-    // verilog is unused now
-    // if (kwargs.contains("verilog")) {
-    //     db::setting.Verilog = kwargs["verilog"].cast<std::string>();
-    // }
+    if (kwargs.contains("verilog")) {
+        db::setting.Verilog = kwargs["verilog"].cast<std::string>();
+    }
 
     // ----- other options -----
 
@@ -64,6 +68,41 @@ bool loadParams(const py::dict& kwargs) {
         utils::verbose_parser_log = kwargs["verbose_parser_log"].cast<bool>();
     } else {
         utils::verbose_parser_log = false;
+    }
+
+    // global logging level, default is LOG_INFO
+    //   need to enable "verbose_parser_log"
+    if (kwargs.contains("global_log_level")) {
+        int log_level = kwargs["global_log_level"].cast<int>();
+        switch (log_level) {
+            case 0:
+                logger.set_global_log_level(utils::log_level::LOG_DEBUG);
+                break;
+            case 1:
+                logger.set_global_log_level(utils::log_level::LOG_VERBOSE);
+                break;
+            case 2:
+                logger.set_global_log_level(utils::log_level::LOG_INFO);
+                break;
+            case 3:
+                logger.set_global_log_level(utils::log_level::LOG_NOTICE);
+                break;
+            case 4:
+                logger.set_global_log_level(utils::log_level::LOG_WARN);
+                break;
+            case 5:
+                logger.set_global_log_level(utils::log_level::LOG_ERROR);
+                break;
+            case 6:
+                logger.set_global_log_level(utils::log_level::LOG_FATAL);
+                break;
+            case 7:
+                logger.set_global_log_level(utils::log_level::LOG_OK);
+                break;
+            default:
+                logger.set_global_log_level(utils::log_level::LOG_INFO);
+                break;
+        }
     }
 
     if (kwargs.contains("num_threads")) {

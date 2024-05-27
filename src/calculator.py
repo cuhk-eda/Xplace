@@ -20,7 +20,6 @@ def apply_precond(mov_node_pos: torch.Tensor, ps: ParamScheduler, args):
     mov_node_pos.grad /= ps.precond_weight
     return mov_node_pos.grad
 
-# For nesterov
 def calc_obj_and_grad(
     mov_node_pos,
     constraint_fn=None,
@@ -59,7 +58,7 @@ def calc_obj_and_grad(
             data.hyperedge_list, data.hyperedge_list_end, data.net_mask, 
             data.hpwl_scale, ps.wa_coeff, args.deterministic
         )
-        mov_node_pos.grad[mov_lhs:mov_rhs] = conn_node_grad_by_wl[mov_lhs:mov_rhs]
+        mov_node_pos.grad[mov_lhs:mov_rhs] += conn_node_grad_by_wl[mov_lhs:mov_rhs]
         if ps.enable_sample_force:
             if ps.iter > 3 and ps.iter % 20 == 0:
                 # ps.iter > 3 for warmup

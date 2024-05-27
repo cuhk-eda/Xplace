@@ -4,6 +4,8 @@
 
 namespace dp {
 
+float floatRound(float a, float prec) { return std::round(a / prec) * prec; }
+
 bool boundaryCheck(const float* x,
                    const float* y,
                    const float* node_size_x,
@@ -49,7 +51,7 @@ bool siteAlignmentCheck(const float* x,
         float node_yl = y[i];
 
         float row_id_f = (node_yl - yl) / row_height;
-        int row_id = floorDiv(node_yl - yl, row_height);
+        int row_id = floorDiv(node_yl - yl, row_height, 1e-3);
         float row_yl = yl + row_height * row_id;
         float row_yh = row_yl + row_height;
 
@@ -94,14 +96,15 @@ bool fenceRegionCheck(const float* x,
                       const int* flat_region_boxes_start,
                       const int* node2fence_region_map,
                       int num_movable_nodes,
-                      int num_regions) {
+                      int num_regions,
+                      float scale_factor) {
     bool legal_flag = true;
     // check fence regions
     for (int i = 0; i < num_movable_nodes; ++i) {
         float node_xl = x[i];
-        float node_yl = y[i];
+        float node_yl = floatRound(y[i], scale_factor);
         float node_xh = node_xl + node_size_x[i];
-        float node_yh = node_yl + node_size_y[i];
+        float node_yh = floatRound(node_yl + node_size_y[i], scale_factor);
 
         int region_id = node2fence_region_map[i];
         if (region_id < num_regions) {
@@ -112,10 +115,12 @@ bool fenceRegionCheck(const float* x,
             // otherwise, preprocessing is required
             for (int box_id = box_bgn; box_id < box_end; ++box_id) {
                 int box_offset = box_id * 4;
+
                 float box_xl = flat_region_boxes[box_offset];
                 float box_xh = flat_region_boxes[box_offset + 1];
-                float box_yl = flat_region_boxes[box_offset + 2];
-                float box_yh = flat_region_boxes[box_offset + 3];
+
+                float box_yl = floatRound(flat_region_boxes[box_offset + 2], scale_factor);
+                float box_yh = floatRound(flat_region_boxes[box_offset + 3], scale_factor);
 
                 float dx = std::max(std::min(node_xh, box_xh) - std::max(node_xl, box_xl), (float)0);
                 float dy = std::max(std::min(node_yh, box_yh) - std::max(node_yl, box_yl), (float)0);
@@ -181,8 +186,8 @@ bool overlapCheck(const float* x,
 
     // add a box to row
     auto addBox2Row = [&](int id, float bxl, float byl, float bxh, float byh) {
-        int row_idxl = floorDiv(byl - yl, row_height);
-        int row_idxh = ceilDiv(byh - yl, row_height);
+        int row_idxl = floorDiv(byl - yl, row_height, 1e-3);
+        int row_idxh = ceilDiv(byh - yl, row_height, 1e-3);
         row_idxl = std::max(row_idxl, 0);
         row_idxh = std::min(row_idxh, num_rows);
 
@@ -221,24 +226,19 @@ bool overlapCheck(const float* x,
         // This will cause failure to detect some overlaps.
         // We need to remove the "small" fixed cell that is inside another.
         if (!nodes_in_row.empty()) {
-            std::vector<int> tmp_nodes;
-            tmp_nodes.reserve(nodes_in_row.size());
-            tmp_nodes.push_back(nodes_in_row.front());
-            for (int j = 1, je = nodes_in_row.size(); j < je; ++j) {
+            for (int j = 1; j < nodes_in_row.size(); ++j) {
                 int node_id1 = nodes_in_row.at(j - 1);
                 int node_id2 = nodes_in_row.at(j);
                 // two fixed cells
                 if (node_id1 >= num_movable_nodes && node_id2 >= num_movable_nodes) {
                     float xh1 = getXH(node_id1);
                     float xh2 = getXH(node_id2);
-                    if (xh1 < xh2) {
-                        tmp_nodes.push_back(node_id2);
+                    if (xh1 >= xh2 && !nodes_in_row.empty()) {
+                        nodes_in_row.erase(nodes_in_row.begin() + j);
+                        --j;
                     }
-                } else {
-                    tmp_nodes.push_back(node_id2);
                 }
             }
-            nodes_in_row.swap(tmp_nodes);
         }
     }
 
@@ -333,8 +333,19 @@ bool legalityCheckKernelCPU(const float* x,
         std::cerr << "site alignment check error!" << std::endl;
     }
 
-    if (!overlapCheck(
-            x, y, node_size_x, node_size_y, site_width, row_height, scale_factor, xl, yl, xh, yh, num_nodes, num_movable_nodes)) {
+    if (!overlapCheck(x,
+                      y,
+                      node_size_x,
+                      node_size_y,
+                      site_width,
+                      row_height,
+                      scale_factor,
+                      xl,
+                      yl,
+                      xh,
+                      yh,
+                      num_nodes,
+                      num_movable_nodes)) {
         legal_flag = false;
         std::cerr << "overlap check error!" << std::endl;
     }
@@ -348,7 +359,8 @@ bool legalityCheckKernelCPU(const float* x,
                           flat_region_boxes_start,
                           node2fence_region_map,
                           num_movable_nodes,
-                          num_regions)) {
+                          num_regions,
+                          scale_factor)) {
         legal_flag = false;
         std::cerr << "fence region check error!" << std::endl;
     }

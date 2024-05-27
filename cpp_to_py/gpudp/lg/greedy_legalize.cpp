@@ -45,10 +45,16 @@ void distributeCells2Bins(const LegalizationData& db,
                           int num_bins_y,
                           int num_nodes,
                           int num_movable_nodes,
-                          std::vector<std::vector<int>>& bin_cells) {
+                          int num_conn_movable_nodes,
+                          std::vector<std::vector<int>>& bin_cells,
+                          bool legalize_filler) {
     // do not handle large macros
     // one cell cannot be distributed to one bin
-    for (int i = 0; i < num_movable_nodes; i += 1) {
+    int num_legalized_nodes = num_conn_movable_nodes;
+    if (legalize_filler) {
+        num_legalized_nodes = num_movable_nodes;
+    }
+    for (int i = 0; i < num_legalized_nodes; i += 1) {
         if (!db.is_dummy_fixed(i)) {
             int bin_id_x = (x[i] + node_size_x[i] / 2 - xl) / bin_size_x;
             int bin_id_y = (y[i] + node_size_y[i] / 2 - yl) / bin_size_y;
@@ -83,10 +89,10 @@ void distributeFixedCells2Bins(const LegalizationData& db,
     for (int i = 0; i < num_nodes; i += 1) {
         if (db.is_dummy_fixed(i) || i >= num_movable_nodes) {
             int node_id = i;
-            int bin_id_xl = std::max((int)floorDiv(x[node_id] - xl, bin_size_x), 0);
-            int bin_id_xh = std::min((int)ceilDiv((x[node_id] + node_size_x[node_id] - xl), bin_size_x), num_bins_x);
-            int bin_id_yl = std::max((int)floorDiv(y[node_id] - yl, bin_size_y), 0);
-            int bin_id_yh = std::min((int)ceilDiv((y[node_id] + node_size_y[node_id] - yl), bin_size_y), num_bins_y);
+            int bin_id_xl = std::max((int)floorDiv(x[node_id] - xl, bin_size_x, 0), 0);
+            int bin_id_xh = std::min((int)ceilDiv((x[node_id] + node_size_x[node_id] - xl), bin_size_x, 0), num_bins_x);
+            int bin_id_yl = std::max((int)floorDiv(y[node_id] - yl, bin_size_y, 0), 0);
+            int bin_id_yh = std::min((int)ceilDiv((y[node_id] + node_size_y[node_id] - yl), bin_size_y, 0), num_bins_y);
 
             for (int bin_id_x = bin_id_xl; bin_id_x < bin_id_xh; ++bin_id_x) {
                 for (int bin_id_y = bin_id_yl; bin_id_y < bin_id_yh; ++bin_id_y) {
@@ -139,40 +145,56 @@ void distributeBlanks2Bins(const float* x,
 
                 bin_blanks.at(blank_bin_id).push_back(blank);
             }
+        }
+    }
 
-            const std::vector<int>& cells = bin_fixed_cells.at(i);
-            std::vector<Blank<float>>& blanks = bin_blanks.at(blank_bin_id);
+    for (int i = 0; i < num_bins_x * num_bins_y; i += 1) {
+        int bin_id_x = i / num_bins_y;
+        int bin_id_y = i - bin_id_x * num_bins_y;
+        int blank_num_bins_per_bin = roundDiv(bin_size_y, blank_bin_size_y);
+        int blank_bin_id_yl = bin_id_y * blank_num_bins_per_bin;
+        int blank_bin_id_yh = std::min(blank_bin_id_yl + blank_num_bins_per_bin, blank_num_bins_y);
+        
+        const std::vector<int>& cells = bin_fixed_cells.at(i);
 
-            for (unsigned int bi = 0; bi < blanks.size(); ++bi) {
-                Blank<float>& blank = blanks.at(bi);
-                for (unsigned int ci = 0; ci < cells.size(); ++ci) {
-                    int node_id = cells.at(ci);
-                    float node_xl = x[node_id];
-                    float node_yl = y[node_id];
-                    float node_xh = node_xl + node_size_x[node_id];
-                    float node_yh = node_yl + node_size_y[node_id];
+        for (unsigned int ci = 0; ci < cells.size(); ++ci) {
+            int node_id = cells.at(ci);
+            float node_xl = x[node_id];
+            float node_yl = y[node_id];
+            float node_xh = node_xl + node_size_x[node_id];
+            float node_yh = node_yl + node_size_y[node_id];
 
-                    if (node_yh > blank.yl && node_yl < blank.yh && node_xh > blank.xl &&
-                        node_xl < blank.xh)  // overlap
+            // int node_2_blank_bin_id_yl = std::max(floorDiv((node_yl - yl), blank_bin_size_y), blank_bin_id_yl);
+            // int node_2_blank_bin_id_yh = std::min(ceilDiv((node_yh - yl), blank_bin_size_y), blank_bin_id_yh);
+
+            int node_2_blank_bin_id_yl = std::max((node_yl - yl) / blank_bin_size_y, (float)blank_bin_id_yl);
+            int node_2_blank_bin_id_yh = std::min((int)ceil((node_yh - yl) / blank_bin_size_y), blank_bin_id_yh);
+
+            for (int blank_bin_id_y = node_2_blank_bin_id_yl; blank_bin_id_y < node_2_blank_bin_id_yh; ++blank_bin_id_y) {
+                int blank_bin_id = bin_id_x * blank_num_bins_y + blank_bin_id_y;
+
+                std::vector<Blank<float>>& blanks = bin_blanks.at(blank_bin_id);
+
+                for (unsigned int bi = 0; bi < blanks.size(); ++bi) {
+                    Blank<float>& blank = blanks.at(bi);
+                    if (blank.xh <= node_xl) continue;
+                    if (blank.xl >= node_xh) break;
+
+                    if (node_xl <= blank.xl && node_xh >= blank.xh)  // erase
                     {
-                        if (node_xl <= blank.xl && node_xh >= blank.xh)  // erase
-                        {
-                            bin_blanks.at(blank_bin_id).erase(bin_blanks.at(blank_bin_id).begin() + bi);
-                            --bi;
-                            break;
-                        } else if (node_xl <= blank.xl) {                                       // one blank
-                            blank.xl = ceilDiv((node_xh - xl), site_width) * site_width + xl;   // align blanks to sites
-                        } else if (node_xh >= blank.xh) {                                       // one blank
-                            blank.xh = floorDiv((node_xl - xl), site_width) * site_width + xl;  // align blanks to sites
-                        } else {                                                                // two blanks
-                            Blank<float> new_blank = blank;
-                            blank.xh = floorDiv((node_xl - xl), site_width) * site_width + xl;  // align blanks to sites
-                            new_blank.xl =
-                                floorDiv((node_xh - xl), site_width) * site_width + xl;  // align blanks to sites
-                            bin_blanks.at(blank_bin_id).insert(bin_blanks.at(blank_bin_id).begin() + bi + 1, new_blank);
-                            --bi;
-                            break;
-                        }
+                        bin_blanks.at(blank_bin_id).erase(bin_blanks.at(blank_bin_id).begin() + bi);
+                        --bi;
+                    } else if (node_xl <= blank.xl) {                                       // one blank
+                        blank.xl = ceilDiv((node_xh - xl), site_width) * site_width + xl;   // align blanks to sites
+                    } else if (node_xh >= blank.xh) {                                       // one blank
+                        blank.xh = floorDiv((node_xl - xl), site_width) * site_width + xl;  // align blanks to sites
+                    } else {                                                                // two blanks
+                        Blank<float> new_blank = blank;
+                        blank.xh = floorDiv((node_xl - xl), site_width) * site_width + xl;  // align blanks to sites
+                        new_blank.xl =
+                            floorDiv((node_xh - xl), site_width) * site_width + xl;  // align blanks to sites
+                        bin_blanks.at(blank_bin_id).insert(bin_blanks.at(blank_bin_id).begin() + bi + 1, new_blank);
+                        --bi;
                     }
                 }
             }
@@ -527,7 +549,7 @@ void minNodeSize(const std::vector<std::vector<int>>& bin_cells,
     }
 }
 
-void greedyLegalization(DPTorchRawDB& at_db, int num_bins_x, int num_bins_y) {
+void greedyLegalization(DPTorchRawDB& at_db, int num_bins_x, int num_bins_y, bool legalize_filler) {
     LegalizationData db(at_db);
     db.set_num_bins(num_bins_x, num_bins_y);
     // first from right to left
@@ -566,7 +588,9 @@ void greedyLegalization(DPTorchRawDB& at_db, int num_bins_x, int num_bins_y) {
                              num_bins_y,
                              db.num_nodes,
                              db.num_movable_nodes,
-                             bin_cells);
+                             db.num_conn_movable_nodes,
+                             bin_cells, 
+                             legalize_filler);
 
         // allocate bin fixed cells
         std::vector<std::vector<int>> bin_fixed_cells(num_bins_x * num_bins_y);

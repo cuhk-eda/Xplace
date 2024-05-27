@@ -10,6 +10,7 @@ void Setting::reset() {
     LefFile = "";
     LefCell = "";
     LefTech = "";
+    LefFiles.clear();
     Constraints = "";
     Verilog = "";
     OutputFile = "";

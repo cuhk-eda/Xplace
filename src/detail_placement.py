@@ -145,14 +145,25 @@ def rearrange_dpdb_node_info(node_pos: torch.Tensor, data: PlaceData):
 
 
 def setup_detailed_rawdb(
-    node_pos: torch.Tensor, use_cpu_db_: bool, data: PlaceData, args, logger
+    node_pos: torch.Tensor, use_cpu_db_: bool, data: PlaceData, args, logger, after_lg=True
 ):
     curr_site_width = 1.0  # prescale_by_site_width
     node_lpos, node_size, node_weight, pin_id2node_id, node2pin_list, node2pin_list_end = rearrange_dpdb_node_info(
         node_pos, data
     )
+    if after_lg:
+        # NOTE: we assume all legalized cells are on integer system
+        # this step can avoid some potential floating-point precision errors
+        _, floatmov_rhs, _ = data.node_type_indices[1]
+        inv_scalar = torch.tensor(
+            [round(1.0 / get_ori_scale_factor(data))],
+            dtype=torch.float32,
+            device=node_lpos.device
+        )
+        node_lpos[:floatmov_rhs].mul_(inv_scalar).round_().div_(inv_scalar)
 
     mov_lhs, mov_rhs = data.movable_index
+    conn_mov_lhs, conn_mov_rhs = data.movable_connected_index
     if args.scale_design:
         # scale back
         die_scale = data.die_scale / data.site_width # assume site width == 1 in dp
@@ -179,12 +190,9 @@ def setup_detailed_rawdb(
     num_iopin = iopin_rhs - fix_rhs
     num_floatiopin = floatiopin_rhs - blkg_rhs
 
-    die_info = die_info.cpu()
-    xl = die_info[0].item()
-    xh = die_info[1].item()
-    yl = die_info[2].item()
-    yh = die_info[3].item()
+    xl, xh, yl, yh = die_info.cpu().numpy()
     num_movable_nodes = mov_rhs - mov_lhs
+    num_conn_movable_nodes = conn_mov_rhs - conn_mov_lhs
     num_nodes = node_lpos.shape[0] - num_iopin - num_floatiopin
     site_width = curr_site_width
     row_height = data.row_height / data.site_width
@@ -213,6 +221,7 @@ def setup_detailed_rawdb(
             xh,
             yl,
             yh,
+            num_conn_movable_nodes,
             num_movable_nodes,
             num_nodes,
             site_width,
@@ -238,6 +247,7 @@ def setup_detailed_rawdb(
             xh,
             yl,
             yh,
+            num_conn_movable_nodes,
             num_movable_nodes,
             num_nodes,
             site_width,
@@ -296,7 +306,7 @@ def commit_to_node_pos(node_pos: torch.Tensor, data:PlaceData, dp_rawdb):
 
 def run_lg(node_pos: torch.Tensor, data: PlaceData, args, logger):
     # CPU legalization
-    lg_rawdb = setup_detailed_rawdb(node_pos, True, data, args, logger)
+    lg_rawdb = setup_detailed_rawdb(node_pos, True, data, args, logger, after_lg=False)
 
     # run LG
     logger.info("Start running Macro Legalization...")
@@ -306,17 +316,45 @@ def run_lg(node_pos: torch.Tensor, data: PlaceData, args, logger):
         lg_rawdb.commit()
     logger.info("Finish Macro Legalization. Time: %.4f" % (time.time() - ml_time))
 
+    total_cell_area = torch.sum(torch.prod(data.node_size, 1)).item()
+    die_area = torch.prod(data.die_ur - data.die_ll).item()
+    is_high_util = (total_cell_area / die_area) > 0.999
+    logger.info("Utilization: %.2f" % (total_cell_area / die_area))
+
     logger.info("Start running Greedy Legalization...")
     gl_time = time.time()
     num_bins_x, num_bins_y = 1, 64
-    gpudp.greedyLegalization(lg_rawdb, num_bins_x, num_bins_y)
-    if not lg_rawdb.check(get_ori_scale_factor(data)):
-        logger.error("Check failed in Greedy Legalization")
-    logger.info("Finish Greedy Legalization. Time: %.4f" % (time.time() - gl_time))
+    if not is_high_util:
+        gpudp.greedyLegalization(lg_rawdb, num_bins_x, num_bins_y, True)
+    logger.info("Start checking...")
+    if is_high_util or not lg_rawdb.check(get_ori_scale_factor(data)):
+        logger.warning("Check failed in Greedy Legalization. Re-try by Greedy + Filler Legalization.")
+
+        # NOTE: this greedy legalization only legalizes movable connected cells
+        logger.info("Start running Greedy Legalization...")
+        gpudp.greedyLegalization(lg_rawdb, num_bins_x, num_bins_y, False)
+        # NOTE: filler legalization only legalizes movable unconnected cells (fillers)
+        logger.info("Start Filler Legalization...")
+        gpudp.fillerLegalization(lg_rawdb)
+        logger.info("Start checking...")
+        if not lg_rawdb.check(get_ori_scale_factor(data)):
+            logger.error("Check failed in Greedy + Filler Legalization.")
+        logger.info("Finish Greedy + Filler Legalization. Time: %.4f" % (time.time() - gl_time))
+    else:
+        logger.info("Finish Greedy Legalization. Time: %.4f" % (time.time() - gl_time))
+
+    # # Commit result
+    # commit_to_node_pos(node_pos, data, lg_rawdb)
+    # torch.cuda.synchronize(node_pos.device)
+    # if args.scale_design:
+    #     node_pos /= data.die_scale
+    # info = (-1, 0, data.design_name)
+    # draw_fig_with_cairo_cpp(node_pos, data.node_size, data, info, args, base_size=4096)
 
     logger.info("Start running Abacus Legalization...")
     al_time = time.time()
     gpudp.abacusLegalization(lg_rawdb, num_bins_x, num_bins_y)
+    logger.info("Start checking...")
     if not lg_rawdb.check(get_ori_scale_factor(data)):
         logger.error("Check failed in Abacus Legalization")
     logger.info("Finish Abacus Legalization. Time: %.4f" % (time.time() - al_time))
@@ -366,8 +404,6 @@ def trace_ops(func, *args):
 def run_dp(node_pos: torch.Tensor, data: PlaceData, args, logger):
     # GPU Detailed Placement
     dp_rawdb = setup_detailed_rawdb(node_pos, False, data, args, logger)
-    # CPU Legality Check
-    check_rawdb = setup_detailed_rawdb(node_pos, True, data, args, logger)
 
     num_bins_x = data.num_bin_x
     num_bins_y = data.num_bin_y
@@ -386,19 +422,21 @@ def run_dp(node_pos: torch.Tensor, data: PlaceData, args, logger):
         logger.info("Start running %s..." % func_name)
         start_time = time.time()
         if scalar != 1.0:
-            logger.info("scale dp_rawdb by %g" % (1.0 / scalar))
-            dp_rawdb.scale(1.0 / scalar, True)
+            # NOTE: we assume site_width is integer, so 1 / scalar should be an integer
+            logger.info("scale dp_rawdb by %g" % round(1.0 / scalar))
+            dp_rawdb.scale(round(1.0 / scalar), True)
         dp_func(dp_rawdb, *func_args)
         if scalar != 1.0:
             logger.info("scale dp_rawdb back by %g" % scalar)
             dp_rawdb.scale(scalar, False)
         # commit lpos for legality check
         torch.cuda.synchronize(node_pos.device)
-        check_rawdb.commit_from(dp_rawdb.get_curr_lposx().cpu(), dp_rawdb.get_curr_lposy().cpu())
-        if not check_rawdb.check(get_ori_scale_factor(data)):
+        logger.info("Start checking...")
+        if not dp_rawdb.check(get_ori_scale_factor(data)):
             dp_rawdb.rollback()
             logger.error("Check failed in %s. Rollback to previous DP iteration." % func_name)
             return
+        logger.info("Check Pass. Commit solution...")
         # update dp_rawdb for next step dp_func and update the final solution
         dp_rawdb.commit()
         commit_to_node_pos(node_pos, data, dp_rawdb)
@@ -414,7 +452,7 @@ def run_dp(node_pos: torch.Tensor, data: PlaceData, args, logger):
     if args.scale_design:
         node_pos /= data.die_scale
 
-    del check_rawdb, dp_rawdb
+    del dp_rawdb
 
     return node_pos
 
@@ -422,7 +460,7 @@ def run_dp(node_pos: torch.Tensor, data: PlaceData, args, logger):
 def run_dp_route_opt(node_pos: torch.Tensor, gpdb, rawdb, ps, data: PlaceData, args, logger):
     # NOTE: we suppose M1's prefer routing direction is 0 (horizontal)
     if ps.enable_route and gpdb.m1direction() == 0:
-        func_name = "routedp"
+        func_name = "PA-Refine"
         logger.info("Start running %s" % func_name)
         start_time = time.time()
         node_pos_bk = node_pos.clone()
@@ -431,6 +469,15 @@ def run_dp_route_opt(node_pos: torch.Tensor, gpdb, rawdb, ps, data: PlaceData, a
             node_pos[:mov_rhs].detach() - data.node_size[:mov_rhs] / 2,
             data.node_lpos[mov_rhs:],
         ), dim=0).cpu()
+        # this step can avoid some potential floating-point precision errors
+        _, floatmov_rhs, _ = data.node_type_indices[1]
+        inv_scalar = torch.tensor(
+            [round(1.0 / get_ori_scale_factor(data))],
+            dtype=torch.float32,
+            device=node_lpos.device
+        )
+        node_lpos[:floatmov_rhs].mul_(inv_scalar).round_().div_(inv_scalar)
+
         node_size = data.node_size.cpu()
         if args.scale_design:
             # scale back
@@ -441,13 +488,11 @@ def run_dp_route_opt(node_pos: torch.Tensor, gpdb, rawdb, ps, data: PlaceData, a
         site_width = 1.0
         row_height = data.row_height / data.site_width
         die_info = data.die_info.cpu()
-        dieLX = die_info[0].item()
-        dieHX = die_info[1].item()
-        dieLY = die_info[2].item()
-        dieHY = die_info[3].item()
+        dieLX, dieHX, dieLY, dieHY = die_info.numpy()
+        K = 5
         new_node_lpos = routedp.dp_route_opt(
             node_lpos, node_size, dieLX, dieHX, dieLY, dieHY, 
-            site_width, row_height, rawdb, gpdb
+            site_width, row_height, rawdb, gpdb, K
         )
         new_mov_cpos = new_node_lpos.to(node_pos.device)[mov_lhs:mov_rhs] + data.node_size[mov_lhs:mov_rhs] / 2
         node_pos[mov_lhs:mov_rhs].data.copy_(new_mov_cpos)
@@ -590,7 +635,8 @@ def external_detail_placement(input_file, data: PlaceData, args, logger, eval_mo
         logger.info("Write detail placement in %s" % dp_out_file)
     # del gpdb, rawdb
     # logger.info("Evaluating detail placement result...")
-    # data, rawdb, gpdb = load_dataset(args, logger, dp_out_file)
+    # params = find_design_params(args, logger, dp_out_file)
+    # data, rawdb, gpdb = load_dataset(args, logger, params)
     # data = data.to(device).preprocess()
     # hpwl = get_obj_hpwl(data.node_pos, data, args).item()
     # info = (iteration + 1, hpwl, data.design_name)
@@ -603,31 +649,34 @@ def external_detail_placement(input_file, data: PlaceData, args, logger, eval_mo
 
 
 def default_detail_placement(node_pos, gpdb, rawdb, ps, data: PlaceData, args, logger):
-    dp_start_time = None
-    dp_end_time = None
-    dp_hpwl = -1
-
     torch.cuda.synchronize(node_pos.device)
-    dp_start_time = time.time()
-    node_pos = run_lg(node_pos, data, args, logger)
+    lg_start_time = time.time()
+    if args.legalization:
+        node_pos = run_lg(node_pos, data, args, logger)
     torch.cuda.synchronize(node_pos.device)
     lg_end_time = time.time()
-    node_pos = run_dp(node_pos, data, args, logger)
+    if args.draw_placement:
+        info = ("%d_lg" % ps.iter, None, data.design_name)
+        draw_fig_with_cairo_cpp(node_pos, data.node_size, data, info, args)
+        torch.cuda.synchronize(node_pos.device)
+    dp_start_time = time.time()
+    if args.detail_placement:
+        node_pos = run_dp(node_pos, data, args, logger)
     torch.cuda.synchronize(node_pos.device)
     node_pos = run_dp_route_opt(node_pos, gpdb, rawdb, ps, data, args, logger)
     dp_end_time = time.time()
     logger.info("Finish detailed placement. LG Time: %.4f DP Time: %.4f LG+DP Time: %.4f" % (
-        lg_end_time - dp_start_time, dp_end_time - lg_end_time, dp_end_time - dp_start_time
+        lg_end_time - lg_start_time, dp_end_time - dp_start_time, dp_end_time - lg_start_time
     ))
     # Evaluate
     dp_hpwl = get_obj_hpwl(node_pos, data, args).item()
-    info = (ps.iter + 1, dp_hpwl, data.design_name)
+    info = ("%d_dp" % (ps.iter + 1), dp_hpwl, data.design_name)
     if args.draw_placement:
         draw_fig_with_cairo_cpp(node_pos, data.node_size, data, info, args)
     logger.info("After DP, HPWL: %.4E" % dp_hpwl)
 
-    lg_time = lg_end_time - dp_start_time
-    dp_time = dp_end_time - lg_end_time
+    lg_time = lg_end_time - lg_start_time
+    dp_time = dp_end_time - dp_start_time
 
     return node_pos, dp_hpwl, lg_time, dp_time
 
@@ -651,8 +700,9 @@ def detail_placement_main(node_pos, gpdb, rawdb, ps, data: PlaceData, args, logg
         gp_out_file = gp_prefix + post_fix
 
     args.write_global_placement = False # we won't write GP solution anymore
+    args.detail_placement = False if args.legalization is False else args.detail_placement
 
-    if args.detail_placement:
+    if args.detail_placement or args.legalization:
         logger.info("------- Start DP -------")
         if args.dp_engine in ["ntuplace3", "ntuplace4dr", "rippledp"]:
             # use external engine to perform lg/dp and write solution

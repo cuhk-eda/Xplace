@@ -5,26 +5,22 @@ import math
 from utils import *
 
 
-def load_dataset(args, logger, placement=None):
+def load_dataset(args, logger, params):
     rawdb, gpdb = None, None
-    if args.custom_path != "":
-        params = get_custom_design_params(args)
-    else:
-        params = get_single_design_params(
-            args.dataset_root, args.dataset, args.design_name, placement
-        )
     parser = IOParser()
     if args.load_from_raw:
         logger.info("loading from original benchmark...")
         rawdb, gpdb = parser.read(
-            params, verbose_log=False, lite_mode=True, random_place=False, num_threads=args.num_threads
+            params, verbose_log=args.verbose_cpp_log, log_level=args.cpp_log_level,
+            lite_mode=True, random_place=False, num_threads=args.num_threads
         )
         design_info = parser.preprocess_design_info(gpdb)
     else:
         logger.info("loading from pt benchmark...")
         design_pt_path = "./data/cad/%s/%s.pt" % (args.dataset, args.design_name)
         parser.load_params(
-            params, verbose_log=False, lite_mode=True, random_place=False, num_threads=args.num_threads
+            params, verbose_log=args.verbose_cpp_log, log_level=args.cpp_log_level,
+            lite_mode=True, random_place=False, num_threads=args.num_threads
         )
         design_info = torch.load(design_pt_path)
         gpdb = None
@@ -79,6 +75,7 @@ class PlaceData(object):
         site_info=None,
         node_type_indices=None,
         node_id2node_name=None,
+        node_id2celltype_name=None,
         movable_index=None,
         connected_index=None,
         fixed_index=None,
@@ -111,6 +108,15 @@ class PlaceData(object):
         self.region_boxes = region_boxes
         self.region_boxes_end = region_boxes_end
 
+        # TODO: more cases, hardcode?
+        self.node_special_type = torch.zeros(len(node_id2celltype_name), dtype=torch.int32)
+        ## too slow...
+        # for node_id, celltype_name in enumerate(node_id2celltype_name):
+        #     if celltype_name.startswith("CORE/BUF"):
+        #         self.node_special_type[node_id] = 1
+        #     if celltype_name.startswith("CORE/DFF"):
+        #         self.node_special_type[node_id] = 2
+
         dataset_format = ""
         if "aux" in dataset_path.keys():
             dataset_format = "bookshelf"
@@ -121,6 +127,7 @@ class PlaceData(object):
         self.__design_name__ = benchmark + "/" + dataset_path["design_name"]
 
         self.__node_id2node_name__ = node_id2node_name
+        self.__node_id2celltype_name__ = node_id2celltype_name
 
         # NOTE: we set float movable node as connected node for convenience purposes
         self.__node_type_indices__ = node_type_indices
@@ -141,15 +148,27 @@ class PlaceData(object):
         self.__site_height__ = site_info[1]
         self.__row_height__ = site_info[1]  # the same as site height
 
-        self.__ori_die_lx__ = die_info[0].item()
-        self.__ori_die_hx__ = die_info[1].item()
-        self.__ori_die_ly__ = die_info[2].item()
-        self.__ori_die_hy__ = die_info[3].item()
+        lx, hx, ly, hy = die_info.cpu().numpy()
+        self.__ori_die_lx__ = lx
+        self.__ori_die_hx__ = hx
+        self.__ori_die_ly__ = ly
+        self.__ori_die_hy__ = hy
 
         self.__num_nodes__ = node_pos.shape[0]
         self.__num_pins__ = pin_id2node_id.shape[0]
         self.__num_nets__ = hyperedge_list_end.shape[0]
 
+        if self.__ori_die_hy__ / self.__row_height__ < args.num_bin_y:
+            num_rows = math.floor(self.__ori_die_hy__ / self.__row_height__)
+            new_num_bin_y = int(2 ** math.floor(math.log2(num_rows)))
+            new_num_bin_x = int(round(args.num_bin_x / args.num_bin_y * new_num_bin_y))
+            logger.warning(
+                "Given num_bin_y %d is larger than num_rows %d. "
+                "Use (num_bin_x=%d, num_bin_y=%d) instead" %
+                (args.num_bin_y, num_rows, new_num_bin_x, new_num_bin_y)
+            )
+            args.num_bin_x = new_num_bin_x
+            args.num_bin_y = new_num_bin_y
         self.__num_bin_x__ = args.num_bin_x
         self.__num_bin_y__ = args.num_bin_y
 
@@ -193,6 +212,11 @@ class PlaceData(object):
     def node_id2node_name(self):
         if hasattr(self, "__node_id2node_name__"):
             return self.__node_id2node_name__
+
+    @property
+    def node_id2celltype_name(self):
+        if hasattr(self, "__node_id2celltype_name__"):
+            return self.__node_id2celltype_name__
 
     @property
     def node_type_indices(self):
@@ -420,6 +444,7 @@ class PlaceData(object):
         :obj:`*keys`.
         If :obj:`*keys` is not given, the conversion is applied to all present
         attributes."""
+        self.device = device
         return self.apply(lambda x: x.to(device, **kwargs), *keys)
 
     def cpu(self, *keys):
@@ -490,7 +515,7 @@ class PlaceData(object):
 
     def preshift(self):
         # shift die info to (0.0, hx, 0.0, hy)
-        die_lx, _, die_ly, _ = self.die_info.tolist()
+        die_lx, _, die_ly, _ = self.die_info.cpu().numpy()
         die_shift = torch.tensor(
             [die_lx, die_ly], dtype=self.die_info.dtype, device=self.die_info.device,
         )
@@ -520,7 +545,7 @@ class PlaceData(object):
 
     def prescale(self):
         # scale die info to (0.0, 1.0, 0.0, 1.0)
-        die_lx, die_hx, die_ly, die_hy = self.die_info.tolist()
+        die_lx, die_hx, die_ly, die_hy = self.die_info.cpu().numpy()
         die_scale = torch.tensor(
             [die_hx - die_lx, die_hy - die_ly],
             dtype=self.die_info.dtype,
@@ -544,10 +569,11 @@ class PlaceData(object):
     def pre_compute_var(self):
         args = self.__args__
         device = self.node_size.get_device()
+        dtype = self.node_size.dtype
         # die related
-        lx, hx, ly, hy = self.die_info.tolist()
+        lx, hx, ly, hy = self.die_info.cpu().numpy()
         self.unit_len = torch.tensor(
-            [(hx - lx) / self.num_bin_x, (hy - ly) / self.num_bin_y], device=device
+            [(hx - lx) / self.num_bin_x, (hy - ly) / self.num_bin_y], device=device, dtype=dtype
         )
         self.die_ur = self.die_info.reshape(2, 2).t()[1].clone()
         self.die_ll = self.die_info.reshape(2, 2).t()[0].clone()
@@ -743,7 +769,7 @@ class PlaceData(object):
                 num_fltiopin,
             )
         )
-        content += "Core Info " + str(self.die_info.tolist()) + "\n"
+        content += "Core Info " + str([i for i in self.die_info.cpu().numpy()]) + "\n"
         content += "Site Width = %d, Row Height = %d\n" % (
             self.site_width,
             self.site_height,

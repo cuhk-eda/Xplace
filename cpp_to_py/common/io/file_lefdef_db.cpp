@@ -22,6 +22,7 @@ bool isFlipX(int orient) {
     }
     return false;
 }
+
 bool isFlipY(int orient) {
     switch (orient) {
         case 0:
@@ -36,7 +37,7 @@ bool isFlipY(int orient) {
     return false;
 }
 
-string getOrient(bool flipX, bool flipY) {
+string getRowOrient(bool flipX, bool flipY) {
     if (flipX) {
         if (flipY) {
             return "S";
@@ -49,6 +50,32 @@ string getOrient(bool flipX, bool flipY) {
         } else {
             return "N";
         }
+    }
+}
+
+string getOrient(int orient) {
+    // 0:N, 1:W, 2:S, 3:E, 4:FN, 5:FW, 6:FS, 7:FE, -1:NONE
+    switch (orient) {
+        case 0:
+            return "N";
+        case 1:
+            return "W";
+        case 2:
+            return "S";
+        case 3:
+            return "E";
+        case 4:
+            return "FN";
+        case 5:
+            return "FW";
+        case 6:
+            return "FS";
+        case 7:
+            return "FE";
+        case -1:
+            return "NONE";
+        default:
+            return "N";
     }
 }
 
@@ -360,16 +387,16 @@ bool Database::writeComponents(ofstream& ofs) {
         oss << "   - " << cell->name() << " " << cell->ctype()->name << endl;
         // ofs << "   - " << cell->name() << " " << cell->ctype()->name << endl;
         if (cell->fixed()) {
-            oss << "      + FIXED ( " << cell->lx() << " " << cell->ly() << " ) "
-                << getOrient(cell->flipX(), cell->flipY()) << " ;" << endl;
+            oss << "      + FIXED ( " << cell->lx() << " " << cell->ly() << " ) " << getOrient(cell->orient()) << " ;"
+                << endl;
             // ofs << "      + FIXED ( " << cell->lx() << " " << cell->ly() << " ) "
-            //    << getOrient(cell->flipX(), cell->flipY())
+            //    << getOrient(cell->orient())
             //    << " ;" << endl;
         } else if (cell->placed()) {
-            oss << "      + PLACED ( " << cell->lx() << " " << cell->ly() << " ) "
-                << getOrient(cell->flipX(), cell->flipY()) << " ;" << endl;
+            oss << "      + PLACED ( " << cell->lx() << " " << cell->ly() << " ) " << getOrient(cell->orient()) << " ;"
+                << endl;
             // ofs << "      + PLACED ( " << cell->lx() << " " << cell->ly() << " ) "
-            //    << getOrient(cell->flipX(), cell->flipY())
+            //    << getOrient(cell->orient())
             //    << " ;" << endl;
         } else {
             oss << "      + UNPLACED ;" << endl;
@@ -461,7 +488,7 @@ bool Database::writeDEF(const string& file) {
 
     for (Row* row : rows) {
         ofs << "ROW " << row->name() << ' ' << row->macro() << ' ' << row->x() << ' ' << row->y() << ' ';
-        ofs << getOrient(false, row->flip());
+        ofs << getRowOrient(false, row->flip());
         ofs << " DO " << row->xNum() << " BY " << row->yNum() << " STEP " << row->xStep() << ' ' << row->yStep()
             << " ;\n";
     }
@@ -1158,19 +1185,18 @@ int readLefMacro(lefrCallbackType_e c, lefiMacro* macro, lefiUserData ud) {
     celltype->height = round(macro->sizeY() * convertFactor);
 
     if (macro->lefiMacro::hasClass()) {
-        char clsname[64] = {0};
-        strcpy(clsname, macro->macroClass());
-        if (!strcmp(clsname, "CORE")) {
-            celltype->cls = 'c';
+        std::string clsname(macro->macroClass());
+        if (clsname == "CORE") {
+            celltype->cls = clsname;
             celltype->stdcell = true;
-        } else if (!strcmp(clsname, "BLOCK")) {
-            celltype->cls = 'b';
+        } else if (clsname == "BLOCK") {
+            celltype->cls = clsname;
         } else {
-            celltype->cls = clsname[0];
-            logger.warning("Class type is not defined: %s", clsname);
+            celltype->cls = clsname;
+            logger.warning("Class type is not defined: %s", celltype->cls.c_str());
         }
     } else {
-        celltype->cls = 'c';
+        celltype->cls = "CORE";  // default value
     }
 
     if (macro->lefiMacro::hasOrigin()) {
@@ -1273,6 +1299,7 @@ int readDefRow(defrCallbackType_e c, defiRow* drow, defiUserData ud) {
                  drow->y(),
                  drow->xNum(),
                  drow->yNum(),
+                 drow->orient(),
                  isFlipY(drow->orient()),
                  drow->xStep(),
                  drow->yStep());
@@ -1298,11 +1325,11 @@ int readDefTrack(defrCallbackType_e c, defiTrack* dtrack, defiUserData ud) {
         Layer* layer = db->getLayer(layername);
         if (layer) {
             if (track->direction == 'x' || layer->direction == 'x') {
-                layer->track = *track;
+                layer->tracks.push_back(*track);
             } else if (layer->direction == track->direction) {
-                layer->track = *track;
+                layer->tracks.push_back(*track);
             } else if (layer->direction != track->direction) {
-                layer->nonPreferDirTrack = *track;
+                layer->nonPreferDirTracks.push_back(*track);
             } else {
                 logger.error("wrong definition of tracks for layer %s", layername.c_str());
             }
@@ -1442,27 +1469,36 @@ int readDefComponentStart(defrCallbackType_e c, int num, defiUserData ud) {
 
 int readDefComponent(defrCallbackType_e c, defiComponent* co, defiUserData ud) {
     Database* db = (Database*)ud;
-
-    Cell* cell = db->addCell(co->id(), db->getCellType(co->name()));
+    CellType* celltype = db->getCellType(co->name());
+    Cell* cell = db->addCell(co->id(), celltype);
 
     if (co->isUnplaced()) {
         cell->fixed(false);
         cell->unplace();
     } else if (co->isPlaced()) {
-        cell->place(co->placementX(), co->placementY(), isFlipX(co->placementOrient()), isFlipY(co->placementOrient()));
-        cell->fixed(false);
+        cell->place(co->placementX(), co->placementY(), co->placementOrient());
+        if (celltype->cls == "CORE") {
+            cell->fixed(false);
+        } else {
+            // Set all non-CORE cells as fixed cells
+            cell->fixed(true);
+        }
         if (co->placementOrient() % 2 == 1) {
-            // 0:N, 1:W, 2:S, 3:E, 4:FN, 5:FW, 6:FS, 7:FE
-            logger.warning(
-                "Cell [%s]'s placementOrient [%d] is not supported.", cell->name().c_str(), co->placementOrient());
+            // 0:N, 1:W, 2:S, 3:E, 4:FN, 5:FW, 6:FS, 7:FE, -1:NONE
+            logger.warning("Cell [%s]'s placementOrient [%s] is not supported, CLASS: %s.",
+                           cell->name().c_str(),
+                           getOrient(co->placementOrient()).c_str(),
+                           celltype->cls.c_str());
         }
     } else if (co->isFixed()) {
-        cell->place(co->placementX(), co->placementY(), isFlipX(co->placementOrient()), isFlipY(co->placementOrient()));
+        cell->place(co->placementX(), co->placementY(), co->placementOrient());
         cell->fixed(true);
         if (co->placementOrient() % 2 == 1) {
-            // 0:N, 1:W, 2:S, 3:E, 4:FN, 5:FW, 6:FS, 7:FE
-            logger.warning(
-                "Cell [%s]'s placementOrient [%d] is not supported.", cell->name().c_str(), co->placementOrient());
+            // 0:N, 1:W, 2:S, 3:E, 4:FN, 5:FW, 6:FS, 7:FE, -1:NONE
+            logger.warning("Fixed Cell [%s]'s placementOrient [%s] is not supported, CLASS: %s.",
+                           cell->name().c_str(),
+                           getOrient(co->placementOrient()).c_str(),
+                           celltype->cls.c_str());
         }
     }
     return 0;
@@ -1502,6 +1538,31 @@ int readDefPin(defrCallbackType_e c, defiPin* dpin, defiUserData ud) {
             int lx, ly, hx, hy;
             dpin->bounds(i, &lx, &ly, &hx, &hy);
             iopin->type->addShape(*layer, lx, ly, hx, hy);
+        }
+    }
+
+    if (dpin->hasPort()) {
+        for (int j = 0; j < dpin->numPorts(); j++) {
+            if (j > 1) {
+                string pinName(dpin->pinName());
+                logger.warning("DefPin %s has multiple ports. We currently only support single port definition",
+                               pinName.c_str());
+                break;
+            }
+            defiPinPort* port = dpin->pinPort(j);
+
+            if (port->hasPlacement()) {
+                iopin->x = port->placementX();
+                iopin->y = port->placementY();
+                iopin->_orient = port->orient();
+            }
+
+            for (int i = 0; i < port->numLayer(); i++) {
+                Layer* layer = db->getLayer(string(port->layer(i)));
+                int lx, ly, hx, hy;
+                port->bounds(i, &lx, &ly, &hx, &hy);
+                iopin->type->addShape(*layer, lx, ly, hx, hy);
+            }
         }
     }
 

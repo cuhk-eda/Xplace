@@ -911,7 +911,8 @@ void globalSwapCUDA(DPTorchRawDB& at_db, int num_bins_x, int num_bins_y, int bat
                                      host_node_size_y.data(),
                                      host_row2node_map,
                                      host_node2row_map,
-                                     host_spaces);
+                                     host_spaces,
+                                     1);
     // distribute movable cells to bins on host, bin map is column-major
     std::vector<std::vector<int>> host_bin2node_map(db.num_bins_x * db.num_bins_y);
     std::vector<BinMapIndex> host_node2bin_map(db.num_movable_nodes);

@@ -32,6 +32,11 @@ void Database::load() {
         setting.Format = "lefdef";
         readLEF(setting.LefTech);
         readLEF(setting.LefCell);
+    } else if (setting.LefFiles.size() > 0) {
+        setting.Format = "lefdef";
+        for (auto lef : setting.LefFiles) {
+            readLEF(lef);
+        }
     }
 
     if (setting.DefFile != "") {
@@ -48,10 +53,10 @@ void Database::load() {
         readConstraints(setting.Constraints);
     }
 
-    // verilog is unused now
-    // if (setting.Verilog != "") {
-    //     readVerilog(setting.Verilog);
-    // }
+    if (setting.Verilog != "") {
+        readVerilog(setting.Verilog);
+    }
+
     logger.info("Finish loading rawdb");
 }
 
@@ -490,9 +495,11 @@ void Database::SetupRows() {
     // verify row flipping conflict
     bool flipCheckPass = true;
     std::vector<char> flip(nSitesY, 0);
+    std::vector<int> orients(nSitesY, -1);
     for (Row* row : rows) {
         char isFlip = (row->flip() ? 1 : 2);
         int y = (row->y() - coreLY) / siteH;
+        orients[y] = row->orient();  // TODO: how to handle multiple ROW definitions on same y?
         if (flip[y] == 0) {
             flip[y] = isFlip;
         } else if (flip[y] != isFlip) {
@@ -525,6 +532,7 @@ void Database::SetupRows() {
         rows[y]->xNum(nSitesX);
         rows[y]->yNum(1);
         rows[y]->flip(flip[y] == 1);
+        rows[y]->orient(orients[y]);
     }
 
     // set row power-rail
@@ -722,10 +730,11 @@ Row* Database::addRow(const string& name,
                       const int y,
                       const unsigned xNum,
                       const unsigned yNum,
+                      const int orient,
                       const bool flip,
                       const unsigned xStep,
                       const unsigned yStep) {
-    Row* newrow = new Row(name, macro, x, y, xNum, yNum, flip, xStep, yStep);
+    Row* newrow = new Row(name, macro, x, y, xNum, yNum, orient, flip, xStep, yStep);
     rows.push_back(newrow);
     return newrow;
 }

@@ -25,6 +25,7 @@ public:
                  float xh_,
                  float yl_,
                  float yh_,
+                 int num_conn_movable_nodes_,
                  int num_movable_nodes_,
                  int num_nodes_,
                  float site_width_,
@@ -88,6 +89,7 @@ public:
     int num_nets;
     int num_nodes;
     int num_movable_nodes;
+    int num_conn_movable_nodes;
     int num_regions;
 
     float site_width;
@@ -100,7 +102,8 @@ public:
 // Legalization
 bool macroLegalization(DPTorchRawDB& at_db, int num_bins_x, int num_bins_y);
 void abacusLegalization(DPTorchRawDB& at_db, int num_bins_x, int num_bins_y);
-void greedyLegalization(DPTorchRawDB& at_db, int num_bins_x, int num_bins_y);
+void greedyLegalization(DPTorchRawDB& at_db, int num_bins_x, int num_bins_y, bool legalize_filler);
+void fillerLegalization(DPTorchRawDB& at_db);
 
 // Detailed Placement
 void kReorder(DPTorchRawDB& at_db, int num_bins_x, int num_bins_y, int K, int max_iters);

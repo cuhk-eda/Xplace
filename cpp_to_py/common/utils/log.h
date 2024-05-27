@@ -63,6 +63,7 @@ class PrintfLogger {
     static constexpr bool write_log = false;
     FILE* f;
     bool tmp_verbose_parser_log = false;
+    int _global_log_level = LOG_INFO;
 
 public:
     // void setup_logger(argparse::ArgumentParser parser);
@@ -84,12 +85,16 @@ public:
         verbose_parser_log = tmp_verbose_parser_log;
     }
 
+    void set_global_log_level(int value) {
+        _global_log_level = value;
+    }
+
     template <typename... Args>
     void log(int log_level, const char* format, Args&&... args) {
         if (!verbose_parser_log) {
             return;
         }
-        if (log_level >= GLOBAL_LOG_LEVEL) {
+        if (log_level >= _global_log_level) {
             std::string curr_log = tstamp.get_time_stamp();
             if (log_level > LOG_INFO) {
                 curr_log += log_level_ANSI_color(log_level);
@@ -111,7 +116,7 @@ public:
         if (!verbose_parser_log) {
             return;
         }
-        if (log_level >= GLOBAL_LOG_LEVEL) {
+        if (log_level >= _global_log_level) {
             std::string curr_log = tstamp.get_time_stamp();
             if (log_level > LOG_INFO) {
                 curr_log += log_level_ANSI_color(log_level);

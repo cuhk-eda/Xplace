@@ -65,6 +65,7 @@ message(STATUS TORCH_VERSION=${TORCH_VERSION_MAJOR}.${TORCH_VERSION_MINOR})
 # find CUDA
 if (TORCH_ENABLE_CUDA)
   find_package(CUDA 11.4)
+  find_package(CUDAToolkit)
   if (NOT CUDA_FOUND)
     set(TORCH_ENABLE_CUDA 0 CACHE BOOL "Whether enable CUDA" FORCE)
     message(FATAL_ERROR "Xplace only supports CUDA mode, CMake will exit." )
@@ -75,7 +76,7 @@ message(STATUS TORCH_ENABLE_CUDA=${TORCH_ENABLE_CUDA})
 # set cuda arch and nvcc flags
 if (CUDA_FOUND)
   if (NOT CUDA_ARCH_LIST)
-    set(CUDA_ARCH_LIST 8.0 8.6)
+    set(CUDA_ARCH_LIST 6.0 6.1 7.0 7.5 8.0 8.6)
   endif(NOT CUDA_ARCH_LIST)
   # for cuda_add_library
   cuda_select_nvcc_arch_flags(CUDA_ARCH_FLAGS ${CUDA_ARCH_LIST})
