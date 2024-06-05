@@ -54,7 +54,7 @@ public:
     int tileH;
     double blockagePorosity;
     vector<int> IOPinRouteLayer;
-    vector<pair<int, vector<int>>> routeBlkgs;  // cellID, BlockedLayers
+    vector<std::pair<int, vector<int>>> routeBlkgs;  // cellID, BlockedLayers
 
     BookshelfData() {
         nCells = 0;
@@ -163,8 +163,8 @@ public:
     }
 
     void estimateSiteSize() {
-        set<int> sizeSet;
-        set<int> heightSet;
+        std::set<int> sizeSet;
+        std::set<int> heightSet;
 
         for (int i = 0; i < nCells; i++) {
             if (!typeStdCell[i]) {
@@ -186,8 +186,8 @@ public:
 
         vector<int> sizes;
         vector<int> heights;
-        set<int>::iterator ii = sizeSet.begin();
-        set<int>::iterator ie = sizeSet.end();
+        std::set<int>::iterator ii = sizeSet.begin();
+        std::set<int>::iterator ie = sizeSet.end();
         for (; ii != ie; ++ii) {
             sizes.push_back(*ii);
         }
@@ -273,7 +273,7 @@ bool isBookshelfSymbol(unsigned char c) {
     return symbols[(int)c] != 0;
 }
 
-bool readBSLine(istream& is, vector<string>& tokens) {
+bool readBSLine(std::istream& is, vector<string>& tokens) {
     tokens.clear();
     string line;
     while (is && tokens.empty()) {
@@ -332,7 +332,7 @@ bool Database::readBSAux(const std::string& auxFile, const std::string& plFile) 
     }
     logger.info("dir = %s", directory.c_str());
 
-    ifstream fs(auxFile.c_str());
+    std::ifstream fs(auxFile.c_str());
     if (!fs.good()) {
         logger.error("cannot open file: %s", auxFile.c_str());
         return false;
@@ -440,7 +440,7 @@ bool Database::readBSAux(const std::string& auxFile, const std::string& plFile) 
     this->dieHY = INT_MIN;
     unsigned int minRowXStep = INT_MAX;
     for (int i = 0; i < bsData.nRows; i++) {
-        Row* row = this->addRow("core_SITE_ROW_" + to_string(i), "core", bsData.rowX[i], bsData.rowY[i]);
+        Row* row = this->addRow("core_SITE_ROW_" + std::to_string(i), "core", bsData.rowX[i], bsData.rowY[i]);
         row->xStep(bsData.rowXStep[i]);
         row->yStep(bsData.rowHeight[i]);
         row->xNum(bsData.rowSites[i]);
@@ -523,7 +523,7 @@ bool Database::readBSAux(const std::string& auxFile, const std::string& plFile) 
         m2direction = (this->bsRouteInfo.capV[1] > 0) ? 'v' : 'h';
     }
     for (unsigned i = 0; i != nLayers; ++i) {
-        Layer& layer = this->addLayer(string("M").append(to_string(i + 1)), 'r');
+        Layer& layer = this->addLayer(string("M").append(std::to_string(i + 1)), 'r');
         // if (!i) {
         //     layer.direction = 'x';
         //     layer.track.direction = 'x';
@@ -558,7 +558,7 @@ bool Database::readBSAux(const std::string& auxFile, const std::string& plFile) 
         if (i + 1 == nLayers) {
             break;
         } else {
-            this->addLayer(string("N").append(to_string(i + 1)), 'c');
+            this->addLayer(string("N").append(std::to_string(i + 1)), 'c');
         }
     }
 
@@ -690,7 +690,7 @@ bool Database::readBSAux(const std::string& auxFile, const std::string& plFile) 
 }
 bool Database::readBSNodes(const std::string& file) {
     logger.info("reading nodes");
-    ifstream fs(file.c_str());
+    std::ifstream fs(file.c_str());
     if (!fs.good()) {
         logger.error("cannot open file: %s", file.c_str());
         return false;
@@ -768,7 +768,7 @@ bool Database::readBSNodes(const std::string& file) {
 
 bool Database::readBSNets(const std::string& file) {
     logger.info("reading net");
-    ifstream fs(file.c_str());
+    std::ifstream fs(file.c_str());
     if (!fs.good()) {
         logger.error("cannot open file: %s", file.c_str());
         return false;
@@ -821,7 +821,7 @@ bool Database::readBSNets(const std::string& file) {
 
                 string tpName;
                 if (pinName == "" && typeID >= 0) {
-                    stringstream ss;
+                    std::stringstream ss;
                     ss << bsData.typeNPins[typeID];
                     pinName = ss.str();
                     // logger.info("pinname = %s", pinName.c_str());
@@ -865,7 +865,7 @@ bool Database::readBSNets(const std::string& file) {
 
 bool Database::readBSScl(const std::string& file) {
     logger.info("reading scl");
-    ifstream fs(file.c_str());
+    std::ifstream fs(file.c_str());
     if (!fs.good()) {
         logger.error("cannot open file: %s", file.c_str());
         return false;
@@ -909,7 +909,7 @@ bool Database::readBSScl(const std::string& file) {
 
 bool Database::readBSRoute(const std::string& file) {
     logger.info("reading route");
-    ifstream fs(file.c_str());
+    std::ifstream fs(file.c_str());
     if (!fs.good()) {
         logger.error("cannot open file: %s", file.c_str());
         return false;
@@ -1004,7 +1004,7 @@ bool Database::readBSRoute(const std::string& file) {
 
 bool Database::readBSShapes(const std::string& file) {
     logger.info("reading shapes");
-    ifstream fs(file.c_str());
+    std::ifstream fs(file.c_str());
     if (!fs.good()) {
         logger.error("cannot open file: %s", file.c_str());
         return false;
@@ -1039,7 +1039,7 @@ bool Database::readBSShapes(const std::string& file) {
 
 bool Database::readBSWts(const std::string& file) {
     logger.info("reading weights");
-    ifstream fs(file.c_str());
+    std::ifstream fs(file.c_str());
     if (!fs.good()) {
         logger.error("cannot open file: %s", file.c_str());
         return false;
@@ -1051,7 +1051,7 @@ bool Database::readBSWts(const std::string& file) {
 
 bool Database::readBSPl(const std::string& file) {
     logger.info("reading placement");
-    ifstream fs(file.c_str());
+    std::ifstream fs(file.c_str());
     if (!fs.good()) {
         logger.error("cannot open file: %s", file.c_str());
         return false;
@@ -1085,7 +1085,7 @@ bool Database::readBSPl(const std::string& file) {
 }
 
 bool Database::writeBSPl(const std::string& file) {
-    ofstream fs(file.c_str());
+    std::ofstream fs(file.c_str());
     if (!fs.good()) {
         logger.error("cannot open file: %s", file.c_str());
         return false;
@@ -1093,8 +1093,8 @@ bool Database::writeBSPl(const std::string& file) {
     fs << "UCLA pl 1.0\n";
     fs << "# User   : Chinese University of Hong Kong\n\n";
     for (auto cell : this->cells) {
-        fs << '\t' << left << setw(60) << cell->name() << right << setw(8) << cell->lx() / siteW << setw(8)
-           << cell->ly() / siteW << " : N";
+        fs << '\t' << std::left << std::setw(60) << cell->name() << std::right << std::setw(8) << cell->lx() / siteW
+           << std::setw(8) << cell->ly() / siteW << " : N";
         if (cell->fixed()) {
             if (cell->width() / siteW == 1 && cell->height() / siteW == 1) {
                 fs << " /FIXED_NI";
@@ -1102,7 +1102,7 @@ bool Database::writeBSPl(const std::string& file) {
                 fs << " /FIXED";
             }
         }
-        fs << endl;
+        fs << std::endl;
     }
     fs.close();
     return true;

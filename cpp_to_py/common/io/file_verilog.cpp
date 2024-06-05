@@ -30,7 +30,7 @@ bool isVerilogSymbol(unsigned char c) {
     }
     return symbols[(int)c] != 0;
 }
-bool readVerilogLine(istream &is, vector<string> &tokens) {
+bool readVerilogLine(std::istream &is, vector<string> &tokens) {
     tokens.clear();
     string line;
     while (is && tokens.empty()) {
@@ -73,7 +73,7 @@ bool readVerilogLine(istream &is, vector<string> &tokens) {
 
 bool Database::readVerilog(const std::string &file) {
     logger.info("Reading verilog...");
-    ifstream fs(file.c_str());
+    std::ifstream fs(file.c_str());
     if (!fs.good()) {
         logger.error("cannot open verilog file: %s", file.c_str());
         return false;

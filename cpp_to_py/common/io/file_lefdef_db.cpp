@@ -261,7 +261,7 @@ bool Database::readDEF(const std::string& file) {
 bool Database::readDEFPG(const std::string& file) {
     //  shape of pre-routed PG mesh is not supported by the reader
     string buffer;
-    ifstream ifs(file.c_str());
+    std::ifstream ifs(file.c_str());
     if (!ifs.good()) {
         logger.error("Unable to open DEF PG file: %s", file.c_str());
         return false;
@@ -373,34 +373,34 @@ bool Database::readDEFPG(const std::string& file) {
     return true;
 }
 
-bool Database::writeComponents(ofstream& ofs) {
+bool Database::writeComponents(std::ofstream& ofs) {
     int nCells = cells.size();
-    ofs << "COMPONENTS " << nCells << " ;" << endl;
-    // ofs << "COMPONENTS " << nCells << " ;" << endl;
+    ofs << "COMPONENTS " << nCells << " ;" << std::endl;
+    // ofs << "COMPONENTS " << nCells << " ;" << std::endl;
     for (int i = 0; i < nCells; i++) {
         Cell* cell = cells[i];
 #ifdef WRITE_BUFFER
-        ostringstream oss;
+        std::ostringstream oss;
 #else
-        ofstream& oss = ofs;
+        std::ofstream& oss = ofs;
 #endif
-        oss << "   - " << cell->name() << " " << cell->ctype()->name << endl;
-        // ofs << "   - " << cell->name() << " " << cell->ctype()->name << endl;
+        oss << "   - " << cell->name() << " " << cell->ctype()->name << std::endl;
+        // ofs << "   - " << cell->name() << " " << cell->ctype()->name << std::endl;
         if (cell->fixed()) {
             oss << "      + FIXED ( " << cell->lx() << " " << cell->ly() << " ) " << getOrient(cell->orient()) << " ;"
-                << endl;
+                << std::endl;
             // ofs << "      + FIXED ( " << cell->lx() << " " << cell->ly() << " ) "
             //    << getOrient(cell->orient())
-            //    << " ;" << endl;
+            //    << " ;" << std::endl;
         } else if (cell->placed()) {
             oss << "      + PLACED ( " << cell->lx() << " " << cell->ly() << " ) " << getOrient(cell->orient()) << " ;"
-                << endl;
+                << std::endl;
             // ofs << "      + PLACED ( " << cell->lx() << " " << cell->ly() << " ) "
             //    << getOrient(cell->orient())
-            //    << " ;" << endl;
+            //    << " ;" << std::endl;
         } else {
-            oss << "      + UNPLACED ;" << endl;
-            // ofs << "      + UNPLACED ;" << endl;
+            oss << "      + UNPLACED ;" << std::endl;
+            // ofs << "      + UNPLACED ;" << std::endl;
         }
 #ifdef WRITE_BUFFER
         string lines = oss.str();
@@ -415,7 +415,7 @@ bool Database::writeComponents(ofstream& ofs) {
 }
 
 bool Database::writeICCAD2017(const string& inputDef, const string& outputDef) {
-    ifstream ifs(inputDef.c_str());
+    std::ifstream ifs(inputDef.c_str());
     if (!ifs.good()) {
         logger.error("Unable to create/open DEF: %s", inputDef.c_str());
         return false;
@@ -425,7 +425,7 @@ bool Database::writeICCAD2017(const string& inputDef, const string& outputDef) {
     logger.info("reading %s", inputDef.c_str());
 #endif
 
-    ofstream ofs(outputDef.c_str());
+    std::ofstream ofs(outputDef.c_str());
     if (!ofs.good()) {
         logger.error("Unable to create/open DEF: %s", outputDef.c_str());
         return false;
@@ -434,18 +434,18 @@ bool Database::writeICCAD2017(const string& inputDef, const string& outputDef) {
 
     string line;
     while (getline(ifs, line)) {
-        istringstream iss(line);
+        std::istringstream iss(line);
         string s;
         if (!(iss >> s)) {
-            ofs << line << endl;
+            ofs << line << std::endl;
             continue;
         } else if (s != "COMPONENTS") {
-            ofs << line << endl;
+            ofs << line << std::endl;
             continue;
         }
         writeComponents(ofs);
         while (getline(ifs, line)) {
-            istringstream iss(line);
+            std::istringstream iss(line);
             if (iss >> s && s == "END") {
                 break;
             }
@@ -456,7 +456,7 @@ bool Database::writeICCAD2017(const string& inputDef, const string& outputDef) {
 }
 
 bool Database::writeICCAD2017(const string& outputDef) {
-    ofstream ofs(outputDef.c_str(), ios::app);
+    std::ofstream ofs(outputDef.c_str(), std::ios::app);
     if (!ofs.good()) {
         logger.error("Unable to create/open DEF: %s", outputDef.c_str());
         return false;
@@ -465,24 +465,24 @@ bool Database::writeICCAD2017(const string& outputDef) {
 
     writeComponents(ofs);  // just replace the information of components, while others keep remain.
 
-    ofs << "END DESIGN\n\n" << endl;
+    ofs << "END DESIGN\n\n" << std::endl;
 
     ofs.close();
     return true;
 }
 
 bool Database::writeDEF(const string& file) {
-    ofstream ofs(file.c_str());
+    std::ofstream ofs(file.c_str());
     if (!ofs.good()) {
         logger.error("Unable to create/open DEF: %s", file.c_str());
         return false;
     }
     logger.info("writing %s", file.c_str());
 
-    ofs << "VERSION 5.8 ;" << endl;
-    ofs << "DIVIDERCHAR \"/\" ;" << endl;
-    ofs << "BUSBITCHARS \"[]\" ;" << endl;
-    ofs << "DESIGN " << designName << " ;" << endl;
+    ofs << "VERSION 5.8 ;" << std::endl;
+    ofs << "DIVIDERCHAR \"/\" ;" << std::endl;
+    ofs << "BUSBITCHARS \"[]\" ;" << std::endl;
+    ofs << "DESIGN " << designName << " ;" << std::endl;
     ofs << "UNITS DISTANCE MICRONS " << (int)DBU_Micron << " ; \n\n";
     ofs << "DIEAREA ( " << dieLX << ' ' << dieLY << " ) ( " << dieHX << ' ' << dieHY << " ) ;\n\n";
 
@@ -492,7 +492,7 @@ bool Database::writeDEF(const string& file) {
         ofs << " DO " << row->xNum() << " BY " << row->yNum() << " STEP " << row->xStep() << ' ' << row->yStep()
             << " ;\n";
     }
-    ofs << endl;
+    ofs << std::endl;
 
     for (Track* track : tracks) {
         ofs << "TRACKS " << track->macro() << ' ' << track->start << " DO " << track->num << " STEP " << track->step
@@ -502,9 +502,9 @@ bool Database::writeDEF(const string& file) {
         }
         ofs << ";\n";
     }
-    ofs << endl;
+    ofs << std::endl;
 
-    ostringstream ossv;
+    std::ostringstream ossv;
     unsigned nVias = 0;
     for (ViaType* via : viatypes) {
         if (!via->isDef()) {
@@ -542,7 +542,7 @@ bool Database::writeDEF(const string& file) {
     }
     ofs << "END NONDEFAULTRULES\n\n";
 
-    ostringstream ossr;
+    std::ostringstream ossr;
     unsigned nRegions = 0;
     for (Region* region : regions) {
         if (region->name() == "default") {
@@ -597,7 +597,7 @@ bool Database::writeDEF(const string& file) {
         }
     }
 
-    ofs << "END DESIGN" << endl;
+    ofs << "END DESIGN" << std::endl;
 
     ofs.close();
     return true;
@@ -608,7 +608,7 @@ bool Database::writeDEF(const string& file) {
 /***********************************/
 
 /// a buffered writing scheme
-bool Database::writeBuffer(ofstream& ofs, const string& line) {
+bool Database::writeBuffer(std::ofstream& ofs, const string& line) {
     const char* b = line.c_str();
     size_t n = line.size();
     while (_bufferSize + n > _bufferCapacity)  // output exceeds the capacity
@@ -633,7 +633,7 @@ bool Database::writeBuffer(ofstream& ofs, const string& line) {
     return true;
 }
 
-void Database::writeBufferFlush(ofstream& ofs) {
+void Database::writeBufferFlush(std::ofstream& ofs) {
     if (_bufferSize)  // remember to write the rest content in the buffer
     {
         ofs.write(_buffer, _bufferSize);
@@ -679,7 +679,7 @@ int readLefUnits(lefrCallbackType_e c, lefiUnits* unit, lefiUserData ud) {
 int readLefProp(lefrCallbackType_e c, lefiProp* prop, lefiUserData ud) {
     Database* db = (Database*)ud;
     if (prop->lefiProp::hasString() && !strcmp(prop->lefiProp::propName(), "LEF58_CELLEDGESPACINGTABLE")) {
-        stringstream sstable(prop->lefiProp::string());
+        std::stringstream sstable(prop->lefiProp::string());
         string buffer;
 
         while (!sstable.eof()) {
@@ -1021,12 +1021,12 @@ int readLefPin(lefrCallbackType_e c, lefiPin* pin, lefiUserData ud) {
 
     PinType* pintype = celltype->addPin(name, direction, type);
 
-    set<Point> nodes;
+    std::set<Point> nodes;
     Layer* layer = nullptr;
     lefiGeomRect* rect = nullptr;
     lefiGeomPolygon* polygon = nullptr;
     lefiGeometries* geom = pin->port(0);
-    vector<pair<int, int>> poly;
+    vector<std::pair<int, int>> poly;
     unsigned bj = 0;
     bool has45 = false;
     for (unsigned i = 0; i != (unsigned)geom->numItems(); ++i) {
@@ -1095,10 +1095,10 @@ int readLefPin(lefrCallbackType_e c, lefiPin* pin, lefiUserData ud) {
                     nodes.emplace(poly[j].first, poly[j].second, dir);
                 }
                 while (nodes.size()) {
-                    set<Point>::iterator pk;
-                    set<Point>::iterator pl;
-                    set<Point>::iterator pm;
-                    set<Point>::iterator pn;
+                    std::set<Point>::iterator pk;
+                    std::set<Point>::iterator pl;
+                    std::set<Point>::iterator pm;
+                    std::set<Point>::iterator pn;
 
                     while (nodes.size()) {
                         pk = nodes.begin();
@@ -1118,12 +1118,12 @@ int readLefPin(lefrCallbackType_e c, lefiPin* pin, lefiUserData ud) {
                     }
 
                     if (nodes.size() < 4) {
-                        cout << "Error when partitioning rectangles." << endl;
-                        cout << "Remaining points: ";
+                        std::cout << "Error when partitioning rectangles." << std::endl;
+                        std::cout << "Remaining points: ";
                         for (const Point& p : nodes) {
                             printf("(%d, %d), ", p.x, p.y);
                         }
-                        cout << endl;
+                        std::cout << std::endl;
                         break;
                     }
 
@@ -1219,7 +1219,7 @@ int readLefMacro(lefrCallbackType_e c, lefiMacro* macro, lefiUserData ud) {
 
     for (int i = 0; i < macro->numProperties(); ++i) {
         if (!strcmp(macro->propName(i), "LEF58_EDGETYPE")) {
-            stringstream ssedgetype(macro->propValue(i));
+            std::stringstream ssedgetype(macro->propValue(i));
             string buffer;
             while (!ssedgetype.eof()) {
                 ssedgetype >> buffer;

@@ -1,9 +1,13 @@
 #pragma once
 
-#include "common/common.h"
 #include "Setting.h"
+#include "common/common.h"
 
 namespace db {
+
+using std::string;
+using std::vector;
+
 class Rectangle;
 class Geometry;
 class GeoMap;
@@ -31,20 +35,20 @@ class GCellGrid;
 class BsRouteInfo;
 }  // namespace db
 
+#include "BsRouteInfo.h"
 #include "Cell.h"
 #include "DesignRule.h"
+#include "GCellGrid.h"
 #include "Geometry.h"
 #include "Layer.h"
-#include "SiteMap.h"
 #include "Net.h"
 #include "Pin.h"
 #include "Region.h"
-#include "GCellGrid.h"
 #include "Row.h"
-#include "Site.h"
 #include "SNet.h"
+#include "Site.h"
+#include "SiteMap.h"
 #include "Via.h"
-#include "BsRouteInfo.h"
 
 namespace db {
 
@@ -91,7 +95,7 @@ public:
     vector<Net*> nets;
     vector<Row*> rows;
     vector<Region*> regions;
-    map<string, NDR*> ndrs;
+    std::map<string, NDR*> ndrs;
     vector<SNet*> snets;
     vector<Track*> tracks;
 
@@ -220,9 +224,9 @@ public:
     bool writeDEF(const std::string& file);
     bool writeICCAD2017(const string& inputDef, const string& outputDef);
     bool writeICCAD2017(const string& outputDef);
-    bool writeComponents(ofstream& ofs);
-    bool writeBuffer(ofstream& ofs, const string& line);
-    void writeBufferFlush(ofstream& ofs);
+    bool writeComponents(std::ofstream& ofs);
+    bool writeBuffer(std::ofstream& ofs, const string& line);
+    void writeBufferFlush(std::ofstream& ofs);
 
     bool readBSAux(const std::string& auxFile, const std::string& plFile);
     bool readBSNodes(const std::string& file);

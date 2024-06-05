@@ -347,9 +347,9 @@ int prepare(double &count,
             */
         } else {
             if (x1 == x2)
-                for (int t = min(y1, y2); t < max(y1, y2); t++) cnty[x1][t]++;
+                for (int t = std::min(y1, y2); t < std::max(y1, y2); t++) cnty[x1][t]++;
             else
-                for (int t = min(x1, x2); t < max(x1, x2); t++) cntx[t][y2]++;
+                for (int t = std::min(x1, x2); t < std::max(x1, x2); t++) cntx[t][y2]++;
         }
     }
     free(flutetree.branch);

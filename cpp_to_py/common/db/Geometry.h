@@ -34,7 +34,7 @@ public:
     static void sliceH(vector<Rectangle>& rects);
     static void sliceV(vector<Rectangle>& rects);
 
-    friend ostream& operator<<(ostream& os, const Rectangle& r) {
+    friend std::ostream& operator<<(std::ostream& os, const Rectangle& r) {
         return os << '(' << r.lx << ", " << r.ly << ")\t(" << r.hx << ", " << r.hy << ')';
     }
 };
@@ -52,7 +52,7 @@ public:
 
 class GeoMap : public Rectangle {
 private:
-    map<int, Geometry> _map;
+    std::map<int, Geometry> _map;
 
 public:
     bool empty() const noexcept { return _map.empty(); }
@@ -60,9 +60,9 @@ public:
     const Geometry& front() const { return _map.begin()->second; }
     const Geometry& front2() const { return (++_map.begin())->second; }
     const Geometry& back() const { return _map.rbegin()->second; }
-    map<int, Geometry>::const_iterator begin() const noexcept { return _map.begin(); }
-    map<int, Geometry>::const_iterator end() const noexcept { return _map.end(); }
-    map<int, Geometry>::const_iterator find(const int k) const { return _map.find(k); }
+    std::map<int, Geometry>::const_iterator begin() const noexcept { return _map.begin(); }
+    std::map<int, Geometry>::const_iterator end() const noexcept { return _map.end(); }
+    std::map<int, Geometry>::const_iterator find(const int k) const { return _map.find(k); }
 
     const Geometry& at(const int k) const { return _map.at(k); }
 

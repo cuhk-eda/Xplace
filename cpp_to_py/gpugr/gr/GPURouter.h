@@ -2,6 +2,7 @@
 #include "MazeRoute.h"
 #include "PatternRoute.h"
 #include "common/common.h"
+#include <torch/extension.h>
 #include "gpugr/db/GrNet.h"
 
 namespace gr {
@@ -20,15 +21,15 @@ public:
     void initialize(
         int device_id, int layer, int x, int y, int N_, int cgxsize_, int cgysize_, int direction, int csrn_scale);
 
-    void setMap(const vector<float> &cap,
-                const vector<float> &wir,
-                const vector<float> &fixedL,
-                const vector<float> &fix);
-    void setFromNets(vector<GrNet> &nets, int numPlPin_);
-    void setToNets(vector<GrNet> &nets);
-    void route(vector<GrNet> &nets, int iterleft);
+    void setMap(const std::vector<float> &cap,
+                const std::vector<float> &wir,
+                const std::vector<float> &fixedL,
+                const std::vector<float> &fix);
+    void setFromNets(std::vector<GrNet> &nets, int numPlPin_);
+    void setToNets(std::vector<GrNet> &nets);
+    void route(std::vector<GrNet> &nets, int iterleft);
     void setUnitViaMultiplier(float w);
-    void setUnitVioCost(vector<float>& cost, float discount);
+    void setUnitVioCost(std::vector<float>& cost, float discount);
     void setLogisticSlope(float value);
     void setUnitViaCost(float value);
     void query();

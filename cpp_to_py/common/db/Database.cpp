@@ -526,7 +526,7 @@ void Database::SetupRows() {
     // NOTE: currently we only support horizontal row
 
     for (unsigned y = 0; y != nSitesY; ++y) {
-        rows[y] = new Row("core_SITE_ROW_" + to_string(y), "core", coreLX, coreLY + y * siteH);
+        rows[y] = new Row("core_SITE_ROW_" + std::to_string(y), "core", coreLX, coreLY + y * siteH);
         rows[y]->xStep(stepX);
         rows[y]->yStep(0);
         rows[y]->xNum(nSitesX);
@@ -814,10 +814,10 @@ long long Database::getHPWL() {
             Pin* pin = nets[i]->pins[j];
             int x, y;
             pin->getPinCenter(x, y);
-            lx = min(lx, x);
-            ly = min(ly, y);
-            hx = max(hx, x);
-            hy = max(hy, y);
+            lx = std::min(lx, x);
+            ly = std::min(ly, y);
+            hx = std::max(hx, x);
+            hy = std::max(hy, y);
         }
         hpwl += (hx - lx) + (hy - ly);
     }
@@ -896,7 +896,7 @@ Region* Database::getRegion(const unsigned char id) {
 }
 
 NDR* Database::getNDR(const string& name) const {
-    map<string, NDR*>::const_iterator mi = ndrs.find(name);
+    std::map<string, NDR*>::const_iterator mi = ndrs.find(name);
     if (mi == ndrs.end()) {
         return nullptr;
     }

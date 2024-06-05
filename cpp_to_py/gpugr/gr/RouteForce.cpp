@@ -44,7 +44,7 @@ void RouteForce::run_ggr() {
         if (iter == 0) {
             router.setUnitViaMultiplier(1);
         } else {
-            router.setUnitViaMultiplier(max(100 / pow(5, iter - 1), 4.0));
+            router.setUnitViaMultiplier(std::max(100 / pow(5, iter - 1), 4.0));
             router.setUnitVioCost(_unitShortVioCost,
                                   rrrInitVioCostDiscount + (1.0 - rrrInitVioCostDiscount) / (rrrIterLimit - 1) * iter);
         }

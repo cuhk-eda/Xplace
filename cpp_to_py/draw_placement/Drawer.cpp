@@ -2,6 +2,10 @@
 // Adapt from https://github.com/limbo018/DREAMPlace/blob/master/dreamplace/ops/draw_place/src/PlaceDrawer.h
 
 #include "Drawer.h"
+#include <cairo-pdf.h>
+#include <cairo-ps.h>
+#include <cairo-svg.h>
+#include <cairo.h>
 
 Drawer::Drawer(const std::vector<std::tuple<std::string, double, double, double, double>>& ele_type_to_rgba_vec,
                const std::string& filename_,

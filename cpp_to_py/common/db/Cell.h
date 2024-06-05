@@ -119,7 +119,7 @@ public:
     void unplace();
     unsigned numPins() const { return _pins.size(); }
 
-    friend ostream& operator<<(ostream& os, const Cell& c) {
+    friend std::ostream& operator<<(std::ostream& os, const Cell& c) {
         return os << c._name << "\t(" << c.lx() << ", " << c.ly() << ')';
     }
 };

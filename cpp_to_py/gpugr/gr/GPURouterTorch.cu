@@ -1,5 +1,6 @@
 #include "GPURouter.h"
 #include "InCellUsage.cuh"
+#include <torch/extension.h>
 
 namespace gr {
 
@@ -126,7 +127,7 @@ __global__ void compGcellRouteForce(
                     }
                     // TODO: 1) should we also consider X direction? 
                     //       2) consider via cost?
-                    float cost = unit_wire_cost / min(cap_map_2d[j][ly], 0.2);
+                    float cost = unit_wire_cost / min(cap_map_2d[j][ly], (float)0.2);
                     grad += cost * route_gradmat[1][j][ly] * mask_map[j][ly] * cur_dist_weight;
                     total_weight += cur_dist_weight;
                 }
@@ -141,7 +142,7 @@ __global__ void compGcellRouteForce(
                     } else {
                         cur_dist_weight = dist_weights[j - ly];
                     }
-                    float cost = unit_wire_cost / min(cap_map_2d[lx][j], 0.2);
+                    float cost = unit_wire_cost / min(cap_map_2d[lx][j], (float)0.2);
                     grad += cost * route_gradmat[0][lx][j] * mask_map[lx][j] * cur_dist_weight;
                     total_weight += cur_dist_weight;
                 }

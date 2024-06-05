@@ -361,7 +361,7 @@ def macro_legalization_main(node_pos: torch.Tensor, data: PlaceData, args, logge
     # Commit result
     commit_to_node_pos(node_pos, data, lg_rawdb)
     torch.cuda.synchronize(node_pos.device)
-    logger.info("***** Finish Macro Legalization, HPWL: %.4E Time: %.4f *****" % (
+    logger.info("***** Finish Macro Legalization, HPWL: %.6E Time: %.4f *****" % (
         get_obj_hpwl(node_pos, data, args).item(), time.time() - ml_time
     ))
 
@@ -419,7 +419,7 @@ def run_lg(node_pos: torch.Tensor, data: PlaceData, args, logger):
     # Commit result
     commit_to_node_pos(node_pos, data, lg_rawdb)
     torch.cuda.synchronize(node_pos.device)
-    logger.info("***** Finish Legalization, HPWL: %.4E Time: %.4f *****" % (
+    logger.info("***** Finish Legalization, HPWL: %.6E Time: %.4f *****" % (
         get_obj_hpwl(node_pos, data, args).item(), time.time() - gl_time
     ))
 
@@ -492,7 +492,7 @@ def run_dp(node_pos: torch.Tensor, data: PlaceData, args, logger):
         # update dp_rawdb for next step dp_func and update the final solution
         dp_rawdb.commit()
         commit_to_node_pos(node_pos, data, dp_rawdb)
-        logger.info("***** Finish %s, HPWL: %.4E Time: %.4f *****" % (
+        logger.info("***** Finish %s, HPWL: %.6E Time: %.4f *****" % (
             func_name, get_obj_hpwl(node_pos, data, args).item(), time.time() - start_time
         ))
     
@@ -545,7 +545,7 @@ def run_dp_route_opt(node_pos: torch.Tensor, gpdb, rawdb, ps, data: PlaceData, a
             logger.error("Check failed in %s. Rollback to previous DP iteration." % func_name)
             node_pos[mov_lhs:mov_rhs].data.copy_(node_pos_bk[mov_lhs:mov_rhs])
 
-        logger.info("***** Finish %s, HPWL: %.4E Time: %.4f *****" % (
+        logger.info("***** Finish %s, HPWL: %.6E Time: %.4f *****" % (
             func_name, get_obj_hpwl(node_pos, data, args).item(), time.time() - start_time
         ))
 
@@ -674,7 +674,7 @@ def external_detail_placement(input_file, data: PlaceData, args, logger, eval_mo
     else:
         logger.info("Finish external detailed placement. LG+DP Time: %.2f seconds" %
                         (dp_end_time - dp_start_time))
-        logger.info("After DP, HPWL: %.4E" % dp_hpwl)
+        logger.info("After DP, HPWL: %.6E" % dp_hpwl)
         logger.info("Write detail placement in %s" % dp_out_file)
     # del gpdb, rawdb
     # logger.info("Evaluating detail placement result...")
@@ -684,7 +684,7 @@ def external_detail_placement(input_file, data: PlaceData, args, logger, eval_mo
     # hpwl = get_obj_hpwl(data.node_pos, data, args).item()
     # info = (iteration + 1, hpwl, data.design_name)
     # draw_fig_with_cairo_cpp(data.node_pos, data.node_size, data, info, args)
-    # logger.info("After DP, HPWL: %.4E" % hpwl)
+    # logger.info("After DP, HPWL: %.6E" % hpwl)
 
     dp_time = dp_end_time - dp_start_time if dp_end_time is not None else 0.0
 
@@ -716,7 +716,7 @@ def default_detail_placement(node_pos, gpdb, rawdb, ps, data: PlaceData, args, l
     info = ("%d_dp" % (ps.iter + 1), dp_hpwl, data.design_name)
     if args.draw_placement:
         draw_fig_with_cairo_cpp(node_pos, data.node_size, data, info, args)
-    logger.info("After DP, HPWL: %.4E" % dp_hpwl)
+    logger.info("After DP, HPWL: %.6E" % dp_hpwl)
 
     lg_time = lg_end_time - lg_start_time
     dp_time = dp_end_time - dp_start_time
@@ -769,7 +769,7 @@ def detail_placement_main(node_pos, gpdb, rawdb, ps, data: PlaceData, args, logg
                     ext_dp_hpwl, top5overflow, _ = external_detail_placement(
                         dp_out_file, data, args, logger, eval_mode=True, dp_engine_name=args.eval_engine
                     )
-                    logger.info("External engine evaluated DP HPWL: %.4E Top-5 OVFL: %.2f" % 
+                    logger.info("External engine evaluated DP HPWL: %.6E Top-5 OVFL: %.2f" % 
                         (ext_dp_hpwl, top5overflow))
                     dp_hpwl = ext_dp_hpwl
         else:

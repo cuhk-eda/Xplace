@@ -1,4 +1,5 @@
 #include "Drawer.h"
+#include <pybind11/pybind11.h>
 
 bool DrawGlobalPlacement(
     const std::vector<double>& node_pos_x,

@@ -30,19 +30,8 @@
 
 #include <thread>
 
-// Torch library
-#include <torch/extension.h>
-
 // utils
 #include "common/utils/utils.h"
-
-// Pybind11
-#include <pybind11/pybind11.h>
-#include <pybind11/stl.h>
-#include <pybind11/stl_bind.h>
-#include <pybind11/numpy.h>
-
-using namespace std;
 
 using utils::assert_msg;
 using utils::logger;

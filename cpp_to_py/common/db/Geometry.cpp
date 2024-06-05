@@ -4,10 +4,10 @@ using namespace db;
 /***** Rectangle *****/
 
 Rectangle& Rectangle::operator+=(const Rectangle& geo) {
-    lx = min(lx, geo.lx);
-    ly = min(ly, geo.ly);
-    hx = max(hx, geo.hx);
-    hy = max(hy, geo.hy);
+    lx = std::min(lx, geo.lx);
+    ly = std::min(ly, geo.ly);
+    hx = std::max(hx, geo.hx);
+    hy = std::max(hy, geo.hy);
     return *this;
 }
 
@@ -45,8 +45,8 @@ void Rectangle::sliceH(vector<Rectangle>& rects) {
             continue;
         }
         if (L.hx >= R.lx) {
-            R.lx = min(L.lx, R.lx);
-            R.hx = max(L.hx, R.hx);
+            R.lx = std::min(L.lx, R.lx);
+            R.hx = std::max(L.hx, R.hx);
             L.hx = L.lx;
         }
     }
@@ -92,8 +92,8 @@ void Rectangle::sliceV(vector<Rectangle>& rects) {
             continue;
         }
         if (L.hy >= R.ly) {
-            R.ly = min(L.ly, R.ly);
-            R.hy = max(L.hy, R.hy);
+            R.ly = std::min(L.ly, R.ly);
+            R.hy = std::max(L.hy, R.hy);
             L.hy = L.ly;
         }
     }

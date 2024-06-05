@@ -4,7 +4,7 @@ using namespace db;
 
 bool Database::readConstraints(const std::string& file) {
     string buffer;
-    ifstream ifs(file.c_str());
+    std::ifstream ifs(file.c_str());
     if (!ifs.good()) {
         logger.error("cannot open constraint file: %s", file.c_str());
         return false;
@@ -35,7 +35,7 @@ bool Database::readConstraints(const std::string& file) {
 }
 
 bool Database::readSize(const std::string& file) {
-    ifstream fs(file.c_str());
+    std::ifstream fs(file.c_str());
     if (!fs.good()) {
         logger.error("cannot open size file: %s", file.c_str());
         return false;

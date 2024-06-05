@@ -26,7 +26,7 @@ public:
     unsigned toNode;
     //  path = [<direction,len>]
     //  direction : N,S,E,W,U,D
-    vector<pair<char, int>> path;
+    vector<std::pair<char, int>> path;
 
     NetRouteSegment(const unsigned fromi = 0, const unsigned toi = 0, const char dir = '\0', const unsigned len = 0);
 

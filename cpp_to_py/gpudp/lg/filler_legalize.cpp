@@ -206,7 +206,7 @@ void fillerLegalization(DPTorchRawDB& at_db) {
 
     // sort all blanks and create blank bucket list
     int maxDegree = 0;
-    robin_hood::unordered_map<int, vector<FillerBlank<float>>> blank_bucket_list;
+    robin_hood::unordered_map<int, std::vector<FillerBlank<float>>> blank_bucket_list;
     for (int i = 0; i < num_blanks_x * num_blanks_y; i += 1) {
         std::vector<FillerBlank<float>>& blanks = bin_blanks.at(i);
         for (unsigned int j = 0; j < blanks.size(); ++j) {
@@ -219,7 +219,7 @@ void fillerLegalization(DPTorchRawDB& at_db) {
     logger.info("%s maxDegree = %d", "Blanks", maxDegree);
 
     // sorted filler cell id
-    vector<int> fillers_to_blank(db.num_movable_nodes - db.num_conn_movable_nodes);
+    std::vector<int> fillers_to_blank(db.num_movable_nodes - db.num_conn_movable_nodes);
     for (int i = 0; i < db.num_movable_nodes - db.num_conn_movable_nodes; i += 1) {
         fillers_to_blank[i] = db.num_conn_movable_nodes + i;
     }

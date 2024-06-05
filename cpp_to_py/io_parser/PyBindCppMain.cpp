@@ -2,7 +2,7 @@
 
 namespace Xplace {
 
-bool loadParams(const py::dict& kwargs) {
+bool loadParams(const pybind11::dict& kwargs) {
     db::setting.reset();
     // ----- design related options -----
 
@@ -31,7 +31,7 @@ bool loadParams(const py::dict& kwargs) {
         for (auto lef_py : kwargs["lefs"]) {
             auto lef = lef_py.cast<std::string>();
             db::setting.LefFiles.emplace_back(lef);
-        }   
+        }
     }
 
     if (kwargs.contains("constraints")) {
@@ -112,7 +112,7 @@ bool loadParams(const py::dict& kwargs) {
     return true;
 }
 
-std::tuple<std::shared_ptr<db::Database>, std::shared_ptr<gp::GPDatabase>> start_all(const py::dict& kwargs) {
+std::tuple<std::shared_ptr<db::Database>, std::shared_ptr<gp::GPDatabase>> start_all(const pybind11::dict& kwargs) {
     bool load_status = loadParams(kwargs);
     if (!load_status) {
         throw std::invalid_argument("Received invalid params. Please check!");

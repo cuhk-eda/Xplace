@@ -164,7 +164,7 @@ def run_placement_main_nesterov(args, logger):
             if args.draw_placement:
                 info = ("%d_mixed_gp" % (iteration + 1), hpwl, data.design_name)
                 draw_fig_with_cairo_cpp(node_pos, data.node_size, data, info, args)
-            logger.info("After Mixed-GP, best solution eval, exact HPWL: %.4E exact Overflow: %.4f" % (hpwl, overflow))
+            logger.info("After Mixed-GP, best solution eval, exact HPWL: %.6E exact Overflow: %.4f" % (hpwl, overflow))
             # Run macro legalization to change node_pos inplace
             macro_legalization_main(node_pos, data, args, logger)
             if args.draw_placement:
@@ -375,7 +375,7 @@ def run_placement_main_nesterov(args, logger):
     gp_end_time = time.time()
     gp_time = gp_end_time - gp_start_time
     gp_per_iter = gp_time / (iteration + 1)
-    logger.info("GP Stop! #Iters %d masked_hpwl: %.4E overflow: %.4f GP Time: %.4fs perIterTime: %.6fs" % 
+    logger.info("GP Stop! #Iters %d masked_hpwl: %.6E overflow: %.4f GP Time: %.4fs perIterTime: %.6fs" % 
         (iteration, hpwl, overflow, gp_time, gp_time / (iteration + 1))
     )
 
@@ -385,7 +385,7 @@ def run_placement_main_nesterov(args, logger):
     info = ("%d_gp" % (iteration + 1), hpwl, data.design_name)
     if args.draw_placement:
         draw_fig_with_cairo_cpp(node_pos, data.node_size, data, info, args)
-    logger.info("After GP, best solution eval, exact HPWL: %.4E exact Overflow: %.4f" % (hpwl, overflow))
+    logger.info("After GP, best solution eval, exact HPWL: %.6E exact Overflow: %.4f" % (hpwl, overflow))
     ps.visualize(args, logger)
     gp_hpwl = hpwl
     gp_time = gp_end_time - gp_start_time

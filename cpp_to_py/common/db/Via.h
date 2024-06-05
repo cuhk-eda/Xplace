@@ -44,7 +44,7 @@ private:
 
 public:
     string name = "";
-    set<Geometry> rects;
+    std::set<Geometry> rects;
     ViaRule rule;
 
     ViaType(const string& name = "", const bool isDef = false) : isDef_(isDef), name(name) {}

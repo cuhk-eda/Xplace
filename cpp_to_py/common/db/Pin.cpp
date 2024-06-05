@@ -104,10 +104,10 @@ utils::PointT<int> Pin::getPinParentCenter() const {
 /***** Pin Type *****/
 
 void PinType::addShape(const Layer& layer, const int lx, const int ly, const int hx, const int hy) {
-    boundLX = min(boundLX, lx);
-    boundLY = min(boundLY, ly);
-    boundHX = max(boundHX, hx);
-    boundHY = max(boundHY, hy);
+    boundLX = std::min(boundLX, lx);
+    boundLY = std::min(boundLY, ly);
+    boundHX = std::max(boundHX, hx);
+    boundHY = std::max(boundHY, hy);
     shapes.emplace_back(layer, lx, ly, hx, hy);
 }
 

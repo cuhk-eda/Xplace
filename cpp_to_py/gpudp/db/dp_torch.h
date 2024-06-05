@@ -1,5 +1,6 @@
 #pragma once
 
+#include <torch/extension.h>
 #include "common/common.h"
 #include "common/db/Database.h"
 

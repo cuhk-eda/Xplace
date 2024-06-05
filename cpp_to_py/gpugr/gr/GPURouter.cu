@@ -90,7 +90,7 @@ void GPURouter::setUnitViaMultiplier(float value) {
     unitViaMultiplier = value;
 }
 
-void GPURouter::setUnitVioCost(vector<float>& values, float discount) {
+void GPURouter::setUnitVioCost(std::vector<float>& values, float discount) {
     //printf("??? setUnitVioCost %.2f\n", discount);
     float temp[100];
     for(int i = 0; i < LAYER; i++)
@@ -106,9 +106,9 @@ void GPURouter::setUnitViaCost(float value) {
     unitViaCost = value;
 }
 
-void GPURouter::setMap(const vector<float> &cap, const vector<float> &wir, const vector<float> &fixedL, const vector<float> &fix) {
+void GPURouter::setMap(const std::vector<float> &cap, const std::vector<float> &wir, const std::vector<float> &fixedL, const std::vector<float> &fix) {
     int gridGraphSize = LAYER * N * N;
-    auto copy = [&] (const vector<float> &vec, float *target) {
+    auto copy = [&] (const std::vector<float> &vec, float *target) {
         cudaMemcpy(target, vec.data(), gridGraphSize * sizeof(float), cudaMemcpyHostToDevice);
     };
     copy(cap, capacity);
@@ -187,7 +187,7 @@ __global__ void calculateCoarseVia(float *cell_resource, int *coarseVia, int *wi
                 else
                     sum += cell_resource[layer * N * N + j * N + i];
 
-        ans += 1.0 / max(0.1, sum / (maxx - minx + 1) / (maxy - miny + 1));    
+        ans += 1.0 / max((float)0.1, sum / (maxx - minx + 1) / (maxy - miny + 1));    
         sum = 0;
         for(int i = minx; i <= maxx; i++)
             for(int j = miny; j <= maxy; j++)
@@ -195,7 +195,7 @@ __global__ void calculateCoarseVia(float *cell_resource, int *coarseVia, int *wi
                     sum += cell_resource[(layer + 1) * N * N + i * N + j];
                 else
                     sum += cell_resource[(layer + 1) * N * N + j * N + i];
-        ans += 1.0 / max(0.1, sum / (maxx - minx + 1) / (maxy - miny + 1));   
+        ans += 1.0 / max((float)0.1, sum / (maxx - minx + 1) / (maxy - miny + 1));   
         coarseVia[layer * xsize * ysize + x * ysize + y] = 100 * ans;
     }
 }
@@ -243,7 +243,7 @@ __global__ void traceBack(int *modifiedWire, int *modifiedVia, dtype *dist, int 
     }
     //if(netId == debug)
     //    printf("Start tracing result: %d %d %d\n", p / N / N, p % (N * N) / N, p % N);
-    maxval = max(maxval, 1.0 * dist[p]);
+    maxval = std::max(maxval, 1.0 * dist[p]);
     int expected = p;
     while(dist[expected] > 0)
         expected = prev[expected];
@@ -554,12 +554,12 @@ __global__ void generateBatch(int n, int *minx, int *maxx, int *miny, int *maxy,
     }
 }
 
-void GPURouter::route(vector<GrNet> &nets, int iter) {
+void GPURouter::route(std::vector<GrNet> &nets, int iter) {
     logger.info("GPU Routing start... DIRECTION: %d", DIRECTION);
 
     double prtime = 0, prpreparetime = 0, batchgentime = 0, timer2 = 0;
 
-    vector<int> netsToRoute;
+    std::vector<int> netsToRoute;
     if(iter > 0) {
         logger.info("Maze Routing...");
         ripupOverflowNets<<<BLOCK_NUMBER(NET_NUM), BLOCK_SIZE>>> (isOverflowNet, routes, routesOffset, wires, vias, NET_NUM);
@@ -584,7 +584,7 @@ void GPURouter::route(vector<GrNet> &nets, int iter) {
         markUnrouteUsage<<<BLOCK_NUMBER(cnt), BLOCK_SIZE>>> (allpins, vias, cnt);
         cudaDeviceSynchronize();*/
     }
-    vector<int> batchSizes;
+    std::vector<int> batchSizes;
     {
         double t = clock();
         constexpr bool check_vis_correctness = false;
@@ -674,8 +674,8 @@ void GPURouter::route(vector<GrNet> &nets, int iter) {
                 // for(int i = net.lowerx; i <= net.upperx; i++) 
                 //     for(int j = net.lowery; j <= net.uppery; j++)
                 //         if(vis[i][j]) return false;
-                for(int i = max(0, net.lowerx - margin); i <= net.upperx + margin; i++) 
-                    for(int j = max(0, net.lowery - margin); j <= net.uppery + margin; j++)
+                for(int i = std::max(0, net.lowerx - margin); i <= net.upperx + margin; i++) 
+                    for(int j = std::max(0, net.lowery - margin); j <= net.uppery + margin; j++)
                         if(vis[i][j]) return false;
             /*} else {
                 for(int i = net.lowerx; i <= net.upperx; i++) {
@@ -689,8 +689,8 @@ void GPURouter::route(vector<GrNet> &nets, int iter) {
         auto insert = [&] (int netId) {
             //double t = clock();
             const auto &net = nets[netId];           
-            int xl = max(0, net.lowerx - margin), xr = net.upperx + margin;
-            int yl = max(0, net.lowery - margin), yr = net.uppery + margin;
+            int xl = std::max(0, net.lowerx - margin), xr = net.upperx + margin;
+            int yl = std::max(0, net.lowery - margin), yr = net.uppery + margin;
             //int blockL = yl / LEN - (yl % LEN == 0), blockR = yr / LEN + (yr % LEN == 0);
             for(int i = xl; i <= xr; i++) {
                 for(int j = yl; j <= yr; j++) {
@@ -709,8 +709,8 @@ void GPURouter::route(vector<GrNet> &nets, int iter) {
         };        
         auto remove = [&] (int netId) {
             const auto &net = nets[netId];           
-            int xl = max(0, net.lowerx - margin), xr = net.upperx + margin;
-            int yl = max(0, net.lowery - margin), yr = net.uppery + margin;
+            int xl = std::max(0, net.lowerx - margin), xr = net.upperx + margin;
+            int yl = std::max(0, net.lowery - margin), yr = net.uppery + margin;
             //int blockL = yl / LEN - (yl % LEN == 0), blockR = yr / LEN + (yr % LEN == 0);
             for(int i = xl; i <= xr; i++) {
                 for(int j = yl; j <= yr; j++) {
@@ -880,7 +880,7 @@ void GPURouter::route(vector<GrNet> &nets, int iter) {
     }
 }
 
-void GPURouter::setFromNets(vector<GrNet> &nets, int numPlPin_) {
+void GPURouter::setFromNets(std::vector<GrNet> &nets, int numPlPin_) {
     NET_NUM = nets.size();
     pinNumCPU = new int[NET_NUM];
     routesOffsetCPU = new int[NET_NUM + 1];
@@ -929,15 +929,15 @@ void GPURouter::setFromNets(vector<GrNet> &nets, int numPlPin_) {
     cudaDeviceSynchronize();
 }
 
-void GPURouter::setToNets(vector<GrNet> &nets) {
+void GPURouter::setToNets(std::vector<GrNet> &nets) {
     int *routesCPU = new int[routesOffsetCPU[NET_NUM]];
     int mx = 0;
     cudaMemcpy(routesCPU, routes, sizeof(int) * routesOffsetCPU[NET_NUM], cudaMemcpyDeviceToHost);
     int num_net_use_too_many_route = 0;
     for(size_t netId = 0; netId < nets.size(); netId++) {
-        vector<int> wires, vias;
+        std::vector<int> wires, vias;
         int *routesSub = routesCPU + routesOffsetCPU[netId];
-        mx = max(mx, routesSub[0] / pinNumCPU[netId]);
+        mx = std::max(mx, routesSub[0] / pinNumCPU[netId]);
         if(routesSub[0] > routesOffsetCPU[netId + 1] - routesOffsetCPU[netId]) {
             num_net_use_too_many_route++;
             // std::cerr << "ERROR: too many routesSub! Please set MAX_ROUTE_LEN_PER_PIN larger than " << routesSub[0] / pinNumCPU[netId] << std::endl;

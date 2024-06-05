@@ -109,7 +109,7 @@ void Net::addPin(Pin* pin) {
 /***** PowerNet *****/
 
 void PowerNet::addRail(SNet* snet, int lx, int hx, int y) {
-    map<int, SNet*>::iterator rail = rails.find(y);
+    std::map<int, SNet*>::iterator rail = rails.find(y);
     if (rail != rails.end() && rail->second != snet) {
         logger.error("rail %s already exists at y=%d , new rail %s is from %d to %d", rail->second->name.c_str(),
                  y, snet->name.c_str(),
@@ -125,13 +125,13 @@ bool PowerNet::getRowPower(int ly, int hy, char& topPower, char& botPower) {
     bool valid = true;
     topPower = 'x';
     botPower = 'x';
-    map<int, SNet*>::iterator topRail = rails.find(hy);
+    std::map<int, SNet*>::iterator topRail = rails.find(hy);
     if (topRail != rails.end()) {
         topPower = topRail->second->type;
     } else {
         valid = false;
     }
-    map<int, SNet*>::iterator botRail = rails.find(ly);
+    std::map<int, SNet*>::iterator botRail = rails.find(ly);
     if (botRail != rails.end()) {
         botPower = botRail->second->type;
     } else {

@@ -3,6 +3,9 @@
 #include "gpugr/db/GRDatabase.h"
 #include "gpugr/gr/RouteForce.h"
 #include "flute.h"
+#include <pybind11/pybind11.h>
+#include <pybind11/stl.h>
+#include <pybind11/stl_bind.h>
 
 namespace Xplace {
 
