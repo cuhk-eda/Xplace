@@ -1,24 +1,28 @@
 import torch
 from .database import PlaceData
 from cpp_to_py import density_map_cuda
-from .core import WAWirelengthLossAndHPWL
-from .calculator import calc_grad
+from .core import merged_wl_loss_grad
 
 
-def get_init_density_map(rawdb, gpdb, data: PlaceData, args, logger):
+def get_init_density_map(rawdb, gpdb, data: PlaceData, args, logger, ps=None):
     lhs, rhs = data.fixed_index
     device = data.node_size.get_device()
     dtype = data.node_size.dtype
     zeros_density_map = torch.zeros(
         (data.num_bin_x, data.num_bin_y), device=device, dtype=dtype,
     )
-    if lhs == rhs:
+    if lhs == rhs and (ps is None or not ps.zero_macro_grad):
         data.init_density_map = zeros_density_map
         return zeros_density_map
     # get fix nodes which are located inside die
     node_pos = data.node_pos[lhs:rhs]
     node_size = data.node_size[lhs:rhs]
     node_weight = node_size.new_ones(node_size.shape[0])
+    if ps is not None and ps.zero_macro_grad:
+        # compute the mov + fixed macro density map
+        node_pos = torch.cat([data.node_pos[data.is_mov_macro].contiguous(), node_pos])
+        node_size = torch.cat([data.node_size[data.is_mov_macro].contiguous(), node_size])
+        node_weight = node_size.new_ones(node_size.shape[0])
     init_density_map = density_map_cuda.forward_naive(
         node_pos, node_size, node_weight, data.unit_len, zeros_density_map,
         data.num_bin_x, data.num_bin_y, node_pos.shape[0], -1.0, -1.0, 1e-4, False,
@@ -105,22 +109,27 @@ def init_params(
     conn_node_pos = torch.cat(
         [conn_node_pos, conn_fix_node_pos], dim=0
     )
-    wl_loss, hpwl = WAWirelengthLossAndHPWL.apply(
+    _, conn_node_grad = merged_wl_loss_grad(
         conn_node_pos, data.pin_id2node_id, data.pin_rel_cpos,
         data.node2pin_list, data.node2pin_list_end,
         data.hyperedge_list, data.hyperedge_list_end, data.net_mask, 
-        ps.wa_coeff, data.hpwl_scale, args.deterministic
+        data.hpwl_scale, ps.wa_coeff, args.deterministic
     )
-    density_loss, overflow = density_map_layer(
+    wl_grad = torch.zeros_like(mov_node_pos).detach()
+    wl_grad[mov_lhs:mov_rhs] = conn_node_grad[mov_lhs:mov_rhs]
+    _, _, density_grad = density_map_layer.merged_density_loss_grad(
         mov_node_pos, mov_node_size, init_density_map
     )
-    wl_grad, density_grad = calc_grad(
-        optimizer, mov_node_pos, wl_loss, density_loss
-    )
+    if ps.zero_macro_grad:
+        wl_grad[mov_lhs:mov_rhs].masked_fill_(data.is_mov_macro[mov_lhs:mov_rhs].unsqueeze(1), 0)
+        density_grad[mov_lhs:mov_rhs].masked_fill_(data.is_mov_macro[mov_lhs:mov_rhs].unsqueeze(1), 0)
+    (mov_node_pos * 0.0).sum().backward()
+    optimizer.zero_grad(set_to_none=False)
+
     if not ps.rerun_route or route_fn is None:
         init_density_weight = (wl_grad.norm(p=1) / density_grad.norm(p=1)).detach()
         # init_density_weight = (wl_grad.norm(p=1) / grad_mat.norm(p=1)).detach()
-        ps.set_init_param(init_density_weight, data, density_loss)
+        ps.set_init_param(init_density_weight, data)
     else:
         _, filler_lhs = data.movable_connected_index
         filler_rhs = mov_node_pos.shape[0]

@@ -20,9 +20,6 @@ def run_placement_main_nesterov(args, logger):
     assert args.use_eplace_nesterov
     logger.info("Start place %s/%s" % (args.dataset , args.design_name))
     logger.info("Use Nesterov optimizer!")
-    if args.scale_design:
-        logger.warning("Eplace's nesterov optimizer cannot support normalized die. Disable scale_design.")
-        args.scale_design = False
     data = data.to(device)
     data = data.preprocess()
     logger.info(data)
@@ -140,6 +137,7 @@ def run_placement_main_nesterov(args, logger):
     # exit(0)
     terminate_signal = False
     route_early_terminate_signal = False
+    log_info = False
     for iteration in range(args.inner_iter):
         # optimizer.zero_grad() # zero grad inside obj_and_grad_fn
         obj = optimizer.step(obj_and_grad_fn)
@@ -148,6 +146,68 @@ def run_placement_main_nesterov(args, logger):
         ps.step(hpwl, overflow, mov_node_pos, data)
         if ps.need_to_early_stop():
             terminate_signal = True
+            log_info = True
+
+        if ps.enable_mixed_size and not ps.zero_macro_grad and terminate_signal:
+            ps.zero_macro_grad = True
+            # Find best gp node_pos (including macros and std cells)
+            best_res = ps.get_best_solution()
+            if best_res[0] is not None:
+                best_sol, hpwl, overflow = best_res
+                # fillers are unused from now, we don't copy there data
+                mov_node_pos[mov_lhs:mov_rhs].data.copy_(best_sol[mov_lhs:mov_rhs])
+            node_pos = mov_node_pos[mov_lhs:mov_rhs]
+            node_pos = torch.cat([node_pos, data.node_pos[mov_rhs:]], dim=0)
+            # Evaluate the mixed placement solution
+            hpwl, overflow = evaluate_placement(node_pos, init_density_map, ps, data, args)
+            hpwl, overflow = hpwl.item(), overflow.item()
+            if args.draw_placement:
+                info = ("%d_mixed_gp" % (iteration + 1), hpwl, data.design_name)
+                draw_fig_with_cairo_cpp(node_pos, data.node_size, data, info, args)
+            logger.info("After Mixed-GP, best solution eval, exact HPWL: %.4E exact Overflow: %.4f" % (hpwl, overflow))
+            # Run macro legalization to change node_pos inplace
+            macro_legalization_main(node_pos, data, args, logger)
+            if args.draw_placement:
+                info = ("%d_mixed_gp_ml" % (iteration + 1), hpwl, data.design_name)
+                draw_fig_with_cairo_cpp(node_pos, data.node_size, data, info, args)
+            # Write node_pos into database to provide an initial solution for std cell placement
+            data.node_pos[mov_lhs:mov_rhs].data.copy_(node_pos[mov_lhs:mov_rhs])
+            # Prepare for std cell placement
+            init_density_map = get_init_density_map(rawdb, gpdb, data, args, logger, ps=ps)
+            data.__total_mov_area_without_filler__ = torch.sum(data.node_area[mov_lhs:mov_rhs][torch.logical_not(data.is_mov_macro[mov_lhs:mov_rhs])]).item()
+            mov_node_pos, mov_node_size, expand_ratio = data.get_mov_node_info(init_method="randn_center")
+            mov_macros_idx = data.is_mov_macro[mov_lhs:mov_rhs]
+            mov_node_pos[mov_lhs:mov_rhs][mov_macros_idx] = data.node_pos[mov_lhs:mov_rhs][mov_macros_idx]
+            mov_node_pos = mov_node_pos.requires_grad_(True)
+            trunc_node_pos_fn = get_trunc_node_pos_fn(mov_node_size, data)
+            density_map_layer.expand_ratio = expand_ratio
+            density_map_layer.sorted_maps = data.sorted_maps
+            # ignore the density and grad computation of macros by node_weight
+            density_map_layer.cache_node_weight[mov_lhs:mov_rhs][mov_macros_idx] = -1.0
+            # update partial function correspondingly
+            obj_and_grad_fn.keywords["constraint_fn"] = trunc_node_pos_fn
+            obj_and_grad_fn.keywords["mov_node_size"] = mov_node_size
+            obj_and_grad_fn.keywords["expand_ratio"] = expand_ratio
+            obj_and_grad_fn.keywords["init_density_map"] = init_density_map
+            evaluator_fn.keywords["constraint_fn"] = trunc_node_pos_fn
+            evaluator_fn.keywords["mov_node_size"] = mov_node_size
+            evaluator_fn.keywords["init_density_map"] = init_density_map
+            # reset nesterov optimizer
+            logger.info("Reset optimizer...")
+            optimizer = NesterovOptimizer([mov_node_pos], lr=0)
+            # initialization
+            init_params(
+                mov_node_pos, trunc_node_pos_fn, mov_lhs, mov_rhs, conn_fix_node_pos, 
+                density_map_layer, mov_node_size, expand_ratio, init_density_map, optimizer, 
+                ps, data, args, route_fn=calc_route_force
+            )
+            # init learnig rate
+            cur_lr = estimate_initial_learning_rate(obj_and_grad_fn, trunc_node_pos_fn, mov_node_pos, args.lr)
+            for param_group in optimizer.param_groups:
+                param_group["lr"] = cur_lr.item()
+            ps.reset_best_sol()
+            terminate_signal = False  # reset signal
+            logger.info("Re-run std cell placement with fixed macros.")
 
         if ps.use_cell_inflate and ps.curr_optimizer_cnt < ps.max_route_opt and terminate_signal:
             terminate_signal = False  # reset signal
@@ -185,6 +245,7 @@ def run_placement_main_nesterov(args, logger):
             ps.rerun_route = False
 
         if ps.rerun_route:
+            log_info = True
             new_mov_node_size, new_expand_ratio = None, None
             if ps.use_cell_inflate:
                 output = route_inflation(
@@ -245,7 +306,8 @@ def run_placement_main_nesterov(args, logger):
                 )
                 ps.reset_best_sol()
 
-        if iteration % args.log_freq == 0 or iteration == args.inner_iter - 1 or ps.rerun_route or terminate_signal:
+        if iteration % args.log_freq == 0 or iteration == args.inner_iter - 1 or log_info:
+            log_info = False
             log_str = (
                 "iter: %d | masked_hpwl: %.2E overflow: %.4f obj: %.4E "
                 "density_weight: %.4E wa_coeff: %.4E"
@@ -290,6 +352,10 @@ def run_placement_main_nesterov(args, logger):
         best_sol, hpwl, overflow = best_res
         # fillers are unused from now, we don't copy there data
         mov_node_pos[mov_lhs:mov_rhs].data.copy_(best_sol[mov_lhs:mov_rhs])
+    if ps.enable_mixed_size and ps.zero_macro_grad:
+        # rollback macro_pos to previous legalized results since trunc_node_pos_fn may change them
+        mov_macros_idx = data.is_mov_macro[mov_lhs:mov_rhs]
+        mov_node_pos.data[mov_lhs:mov_rhs][mov_macros_idx] = data.node_pos[mov_lhs:mov_rhs][mov_macros_idx]
     if ps.enable_route:
         route_inflation_roll_back(args, logger, data, mov_node_size)
         if not route_early_terminate_signal:
@@ -314,9 +380,7 @@ def run_placement_main_nesterov(args, logger):
     )
 
     # Eval
-    hpwl, overflow = evaluate_placement(
-        node_pos, density_map_layer, init_density_map, data, args
-    )
+    hpwl, overflow = evaluate_placement(node_pos, init_density_map, ps, data, args)
     hpwl, overflow = hpwl.item(), overflow.item()
     info = ("%d_gp" % (iteration + 1), hpwl, data.design_name)
     if args.draw_placement:

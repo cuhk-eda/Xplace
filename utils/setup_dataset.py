@@ -44,6 +44,30 @@ def setup_design_args(args):
     elif args.design_name in ["bigblue3", "bigblue4"]:
         args.num_bin_x = args.num_bin_y = 2048
         args.target_density = 1.0
+    elif args.design_name in ["adaptec5"]:
+        args.target_density = 0.5
+        args.num_bin_x = args.num_bin_y = 1024
+    elif args.design_name in ["newblue1"]:
+        args.target_density = 0.8
+        args.num_bin_x = args.num_bin_y = 512
+    elif args.design_name in ["newblue2"]:
+        args.target_density = 0.9
+        args.num_bin_x = args.num_bin_y = 1024
+    elif args.design_name in ["newblue3"]:
+        args.target_density = 0.8
+        args.num_bin_x = args.num_bin_y = 2048
+    elif args.design_name in ["newblue4"]:
+        args.target_density = 0.5
+        args.num_bin_x = args.num_bin_y = 1024
+    elif args.design_name in ["newblue5"]:
+        args.target_density = 0.5
+        args.num_bin_x = args.num_bin_y = 1024
+    elif args.design_name in ["newblue6"]:
+        args.target_density = 0.8
+        args.num_bin_x = args.num_bin_y = 2048
+    elif args.design_name in ["newblue7"]:
+        args.target_density = 0.8
+        args.num_bin_x = args.num_bin_y = 2048
     elif args.design_name in ["mgc_des_perf_1"]:
         args.num_bin_x = args.num_bin_y = 512
         args.target_density = 0.91

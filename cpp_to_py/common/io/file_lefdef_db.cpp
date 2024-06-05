@@ -1477,10 +1477,10 @@ int readDefComponent(defrCallbackType_e c, defiComponent* co, defiUserData ud) {
         cell->unplace();
     } else if (co->isPlaced()) {
         cell->place(co->placementX(), co->placementY(), co->placementOrient());
-        if (celltype->cls == "CORE") {
+        if (celltype->cls == "CORE" || celltype->cls == "BLOCK") {
             cell->fixed(false);
         } else {
-            // Set all non-CORE cells as fixed cells
+            // Set all non-CORE yet non-BLOCK cells as fixed cells
             cell->fixed(true);
         }
         if (co->placementOrient() % 2 == 1) {

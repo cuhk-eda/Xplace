@@ -71,6 +71,7 @@ public:
           node2fence_region_map(at_db.node2fence_region_map.data_ptr<int>()),
           net_mask(at_db.net_mask.data_ptr<bool>()),
           node_weight(at_db.node_weight.data_ptr<float>()),
+          is_macro(at_db.is_macro.data_ptr<bool>()),
           xl(at_db.xl),
           xh(at_db.xh),
           yl(at_db.yl),
@@ -95,6 +96,9 @@ public:
     const float* node_size_x;
     const float* node_size_y;
 
+    const float* node_weight;
+    const bool* is_macro;
+
     const float* pin_offset_x;
     const float* pin_offset_y;
 
@@ -111,7 +115,6 @@ public:
     const int* node2fence_region_map;
 
     const bool* net_mask;
-    const float* node_weight;
 
     /* chip info */
     float xl;
@@ -146,9 +149,8 @@ public:
         bin_size_x = (xh - xl) / num_bins_x_;
         bin_size_y = (yh - yl) / num_bins_y_;
     }
-    inline bool is_dummy_fixed(int node_id) const {
-        // DUMMY_FIXED_NUM_ROWS == 2
-        return (node_id < num_movable_nodes && node_size_y[node_id] > (row_height * 2));
+    inline bool is_mov_macro(int node_id) const {
+        return (node_id < num_movable_nodes && is_macro[node_id]);
     }
 
     inline float align2row(float y, float height) const {

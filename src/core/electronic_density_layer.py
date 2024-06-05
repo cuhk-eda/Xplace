@@ -262,35 +262,6 @@ class ElectronicDensityLayer(torch.nn.Module):
         
         return node_weight
 
-    def get_density_map_naive(
-        self,
-        node_pos,
-        node_size,
-        init_density_map=None,
-    ):
-        node_weight = node_size.new_ones(node_pos.shape[0])
-        if init_density_map is None:
-            node_pos.new_zeros(self.num_bin_x, self.num_bin_y)
-        aux_mat = init_density_map.clone()
-        num_nodes = node_pos.shape[0]
-        density_map = density_map_cuda.forward_naive(
-            node_pos,
-            node_size,
-            node_weight,
-            self.unit_len, 
-            aux_mat,
-            self.num_bin_x,
-            self.num_bin_y,
-            num_nodes,
-            -1.0,
-            -1.0,
-            1e-4,
-            False,
-            self.deterministic,
-        )
-
-        return density_map
-
     def direct_calc_overflow(
         self,
         node_pos,

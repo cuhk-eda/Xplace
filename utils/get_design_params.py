@@ -4,6 +4,8 @@ import os
 def find_benchmark(dataset_root, benchmark):
     bm_to_root = {
         "ispd2005": os.path.join(dataset_root, "ispd2005"),
+        "ispd2006": os.path.join(dataset_root, "ispd2006"),
+        "mms": os.path.join(dataset_root, "mms"),
         "dac2012": os.path.join(dataset_root, "iccad2012dac2012"),
         "ispd2015": os.path.join(dataset_root, "ispd2015"),
         "ispd2015_fix": os.path.join(dataset_root, "ispd2015_fix"),
@@ -11,6 +13,7 @@ def find_benchmark(dataset_root, benchmark):
         "ispd2019_no_fence": os.path.join(dataset_root, "ispd2019_no_fence"),
         "iccad2019": os.path.join(dataset_root, "iccad2019"),
         "ispd2018": os.path.join(dataset_root, "ispd2018"),
+        "iccad2015": os.path.join(dataset_root, "iccad2015"),
     }
     root = bm_to_root[benchmark]
     all_designs = [i for i in os.listdir(root) if os.path.isdir(os.path.join(root, i))]
@@ -18,8 +21,8 @@ def find_benchmark(dataset_root, benchmark):
 
 
 def get_single_design_params(dataset_root, benchmark, design_name, placement=None):
-    if benchmark == "ispd2005":
-        return single_ispd2005(dataset_root, design_name, placement)
+    if benchmark in ["ispd2005", "ispd2006", "mms"]:
+        return single_ispd2005(dataset_root, design_name, benchmark, placement)
     elif benchmark == "dac2012":
         return single_dac2012(dataset_root, design_name, placement)
     elif benchmark == "ispd2015":
@@ -34,6 +37,8 @@ def get_single_design_params(dataset_root, benchmark, design_name, placement=Non
         return single_iccad2019(dataset_root, design_name, placement)
     elif benchmark == "ispd2018":
         return single_ispd2018(dataset_root, design_name, placement)
+    elif benchmark.startswith("iccad2015"):
+        return single_iccad2015(dataset_root, benchmark, design_name, placement)
     else:
         raise NotImplementedError("benchmark %s is not found" % benchmark)
 
@@ -47,8 +52,8 @@ def get_multiple_design_params(dataset_root, benchmark):
     return params_mul
 
 
-def single_ispd2005(dataset_root, design_name, placement=None):
-    benchmark = "ispd2005"
+def single_ispd2005(dataset_root, design_name, benchmark, placement=None):
+    benchmark = benchmark
     root, all_designs = find_benchmark(dataset_root, benchmark)
     if design_name not in all_designs:
         raise ValueError("Design Name %s should in %s" % (design_name, all_designs))
@@ -56,9 +61,10 @@ def single_ispd2005(dataset_root, design_name, placement=None):
         "benchmark": benchmark,
         "bookshelf_variety": "ispd2005",
         "aux": "%s/%s/%s.aux" % (root, design_name, design_name),
-        "pl": "%s/%s/%s.pl" % (root, design_name, design_name) if placement is None else placement,
         "design_name": design_name,
     }
+    if placement is not None:
+        params["pl"] = placement
     return params
 
 
@@ -71,9 +77,10 @@ def single_dac2012(dataset_root, design_name, placement=None):
         "benchmark": benchmark,
         "bookshelf_variety": "dac2012",
         "aux": "%s/%s/%s.aux" % (root, design_name, design_name),
-        "pl": "%s/%s/%s.pl" % (root, design_name, design_name) if placement is None else placement,
         "design_name": design_name,
     }
+    if placement is not None:
+        params["pl"] = placement
     return params
 
 
@@ -165,6 +172,23 @@ def single_ispd2018(dataset_root, design_name, placement=None):
         "def": "%s/%s/%s.input.def" % (root, design_name, design_name)
         if placement is None
         else placement,
+        "design_name": design_name,
+    }
+    return params
+
+
+def single_iccad2015(dataset_root, benchmark, design_name, placement=None):
+    # configuration
+    # benchmark = "iccad2015"
+    root, all_designs = find_benchmark(dataset_root, benchmark)
+    if design_name not in all_designs:
+        raise ValueError("Design Name %s should in %s" % (design_name, all_designs))
+    params = {
+        "benchmark": benchmark,
+        "tech_lef": "%s/tech.lef" % (root),
+        "cell_lef": "%s/%s/%s.lef" % (root, design_name, design_name),
+        "def": "%s/%s/%s.def" % (root, design_name, design_name) if placement is None else placement,
+        "verilog": "%s/%s/%s.v" % (root, design_name, design_name),
         "design_name": design_name,
     }
     return params

@@ -342,6 +342,12 @@ bool Database::readBSAux(const std::string& auxFile, const std::string& plFile) 
     readBSLine(fs, tokens);
     fs.close();
 
+    bool includePl = true;
+    if (plFile == "") {
+        logger.warning("No pl file specified. Try to find pl in aux file.");
+        includePl = false;
+    }
+
     std::string fileNodes;
     std::string fileNets;
     std::string fileScl;
@@ -376,6 +382,10 @@ bool Database::readBSAux(const std::string& auxFile, const std::string& plFile) 
             logger.error("unrecognized file extension: %s", ext.c_str());
         }
     }
+    if (includePl) {
+        logger.info("pl file %s is given.", plFile.c_str());
+        filePl = plFile;
+    }
     // step 1: read floorplan, rows from:
     //  scl - rows
     // step 2: read cell types from:
@@ -399,16 +409,12 @@ bool Database::readBSAux(const std::string& auxFile, const std::string& plFile) 
         readBSRoute(fileRoute);
         readBSShapes(fileShapes);
         readBSWts(fileWts);
-        // readBSPl    ( filePl    );
-        readBSPl(plFile);
+        readBSPl(filePl);
         readBSScl(fileScl);
     } else if (bsData.format == "ispd2005") {
         readBSNets(fileNets);
-        // readBSRoute ( fileRoute );
-        // readBSShapes( fileShapes);
         readBSWts(fileWts);
-        // readBSPl    ( filePl    );
-        readBSPl(plFile);
+        readBSPl(filePl);
         readBSScl(fileScl);
     }
 

@@ -20,6 +20,7 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
                             torch::Tensor,
                             torch::Tensor,
                             torch::Tensor,
+                            torch::Tensor,
                             float,
                             float,
                             float,
@@ -34,6 +35,7 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
         .def("commit", &dp::DPTorchRawDB::commit)
         .def("rollback", &dp::DPTorchRawDB::rollback)
         .def("commit_from", &dp::DPTorchRawDB::commit_from)
+        .def("commit_from_partial", &dp::DPTorchRawDB::commit_from_partial)
         .def("get_curr_cposx", &dp::DPTorchRawDB::get_curr_cposx, py::return_value_policy::move)
         .def("get_curr_cposy", &dp::DPTorchRawDB::get_curr_cposy, py::return_value_policy::move)
         .def("get_curr_lposx", &dp::DPTorchRawDB::get_curr_lposx, py::return_value_policy::move)
@@ -43,6 +45,7 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
           [](torch::Tensor node_lpos_init_,
              torch::Tensor node_size_,
              torch::Tensor node_weight_,
+             torch::Tensor is_macro_,
              torch::Tensor pin_rel_lpos_,
              torch::Tensor pin_id2node_id_,
              torch::Tensor pin_id2net_id_,
@@ -66,6 +69,7 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
               return std::make_shared<dp::DPTorchRawDB>(node_lpos_init_,
                                                         node_size_,
                                                         node_weight_,
+                                                        is_macro_,
                                                         pin_rel_lpos_,
                                                         pin_id2node_id_,
                                                         pin_id2net_id_,

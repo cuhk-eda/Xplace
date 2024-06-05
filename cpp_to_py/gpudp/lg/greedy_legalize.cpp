@@ -55,7 +55,7 @@ void distributeCells2Bins(const LegalizationData& db,
         num_legalized_nodes = num_movable_nodes;
     }
     for (int i = 0; i < num_legalized_nodes; i += 1) {
-        if (!db.is_dummy_fixed(i)) {
+        if (!db.is_mov_macro(i)) {
             int bin_id_x = (x[i] + node_size_x[i] / 2 - xl) / bin_size_x;
             int bin_id_y = (y[i] + node_size_y[i] / 2 - yl) / bin_size_y;
 
@@ -87,7 +87,7 @@ void distributeFixedCells2Bins(const LegalizationData& db,
                                std::vector<std::vector<int>>& bin_cells) {
     // one cell can be assigned to multiple bins
     for (int i = 0; i < num_nodes; i += 1) {
-        if (db.is_dummy_fixed(i) || i >= num_movable_nodes) {
+        if (db.is_mov_macro(i) || i >= num_movable_nodes) {
             int node_id = i;
             int bin_id_xl = std::max((int)floorDiv(x[node_id] - xl, bin_size_x, 0), 0);
             int bin_id_xh = std::min((int)ceilDiv((x[node_id] + node_size_x[node_id] - xl), bin_size_x, 0), num_bins_x);

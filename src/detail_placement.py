@@ -1,10 +1,10 @@
 import torch
 from .database import PlaceData
 from .evaluator import get_obj_hpwl
+from .core.macro_legalization import macro_legalization_multi
 from utils.visualization import draw_fig_with_cairo_cpp
 from cpp_to_py import gpudp, routedp
 import numba as nb
-import numpy as np
 import os
 import time
 
@@ -13,6 +13,7 @@ class PreprocessDatabaseCache:
     def __init__(self) -> None:
         self.node_size = None
         self.node_weight = None
+        self.is_macro = None
         self.pin_id2node_id = None
         self.node2pin_list = None
         self.node2pin_list_end = None
@@ -20,6 +21,7 @@ class PreprocessDatabaseCache:
     def reset(self):
         self.node_size = None
         self.node_weight = None
+        self.is_macro = None
         self.pin_id2node_id = None
         self.node2pin_list = None
         self.node2pin_list_end = None
@@ -76,10 +78,11 @@ def rearrange_dpdb_node_info(node_pos: torch.Tensor, data: PlaceData):
     if preprocess_db_cache.node_size is not None:
         node_size = preprocess_db_cache.node_size.clone()
         node_weight = preprocess_db_cache.node_weight
+        is_macro = preprocess_db_cache.is_macro
         pin_id2node_id = preprocess_db_cache.pin_id2node_id
         node2pin_list = preprocess_db_cache.node2pin_list
         node2pin_list_end = preprocess_db_cache.node2pin_list_end
-        return node_lpos, node_size, node_weight, pin_id2node_id, node2pin_list, node2pin_list_end
+        return node_lpos, node_size, node_weight, is_macro, pin_id2node_id, node2pin_list, node2pin_list_end
 
     pin_id2node_id: torch.Tensor = data.pin_id2node_id.clone().int().cpu().numpy()
 
@@ -98,6 +101,14 @@ def rearrange_dpdb_node_info(node_pos: torch.Tensor, data: PlaceData):
         node_weight_ori[floatiopin_rhs:floatfix_rhs],
         node_weight_ori[fix_rhs:iopin_rhs],
         node_weight_ori[blkg_rhs:floatiopin_rhs]
+    ), dim=0)
+
+    is_macro = torch.cat((
+        data.is_macro[:fix_rhs],
+        data.is_macro[iopin_rhs:blkg_rhs],
+        data.is_macro[floatiopin_rhs:floatfix_rhs],
+        data.is_macro[fix_rhs:iopin_rhs],
+        data.is_macro[blkg_rhs:floatiopin_rhs]
     ), dim=0)
 
     old_node2pin_list_end: torch.Tensor = data.node2pin_list_end.int()
@@ -137,18 +148,19 @@ def rearrange_dpdb_node_info(node_pos: torch.Tensor, data: PlaceData):
     if preprocess_db_cache.node_size is None:
         preprocess_db_cache.node_size = node_size
         preprocess_db_cache.node_weight = node_weight
+        preprocess_db_cache.is_macro = is_macro
         preprocess_db_cache.pin_id2node_id = pin_id2node_id
         preprocess_db_cache.node2pin_list = node2pin_list
         preprocess_db_cache.node2pin_list_end = node2pin_list_end
 
-    return node_lpos, node_size, node_weight, pin_id2node_id, node2pin_list, node2pin_list_end
+    return node_lpos, node_size, node_weight, is_macro, pin_id2node_id, node2pin_list, node2pin_list_end
 
 
 def setup_detailed_rawdb(
     node_pos: torch.Tensor, use_cpu_db_: bool, data: PlaceData, args, logger, after_lg=True
 ):
     curr_site_width = 1.0  # prescale_by_site_width
-    node_lpos, node_size, node_weight, pin_id2node_id, node2pin_list, node2pin_list_end = rearrange_dpdb_node_info(
+    node_lpos, node_size, node_weight, is_macro, pin_id2node_id, node2pin_list, node2pin_list_end = rearrange_dpdb_node_info(
         node_pos, data
     )
     if after_lg:
@@ -164,22 +176,9 @@ def setup_detailed_rawdb(
 
     mov_lhs, mov_rhs = data.movable_index
     conn_mov_lhs, conn_mov_rhs = data.movable_connected_index
-    if args.scale_design:
-        # scale back
-        die_scale = data.die_scale / data.site_width # assume site width == 1 in dp
-        node_lpos = node_lpos * die_scale
-        node_size = node_size * die_scale
-        pin_rel_lpos = data.pin_rel_lpos * die_scale
-        die_info = (data.die_info.reshape(2, 2).t() * die_scale).t().reshape(-1)
-        region_boxes = (
-            (data.region_boxes.reshape(-1, 2, 2).permute(0, 2, 1) * die_scale)
-            .permute(0, 2, 1)
-            .reshape(-1, 4)
-        ) # [:, 0] -> lx, [:, 1] -> hx, [:, 2] -> ly, [:, 3] -> hy
-    else:
-        pin_rel_lpos = data.pin_rel_lpos
-        die_info = data.die_info
-        region_boxes = data.region_boxes 
+    pin_rel_lpos = data.pin_rel_lpos
+    die_info = data.die_info
+    region_boxes = data.region_boxes 
 
     _, floatmov_rhs, _ = data.node_type_indices[1]
     _, fix_rhs, _ = data.node_type_indices[2]
@@ -206,6 +205,7 @@ def setup_detailed_rawdb(
             node_lpos.cpu(),
             node_size.cpu(),
             node_weight.cpu(),
+            is_macro.cpu(),
             pin_rel_lpos.cpu(),
             pin_id2node_id.cpu(),
             data.pin_id2net_id.int().cpu(),
@@ -232,6 +232,7 @@ def setup_detailed_rawdb(
             node_lpos,
             node_size,
             node_weight,
+            is_macro.cpu(),
             pin_rel_lpos,
             pin_id2node_id,
             data.pin_id2net_id.int(),
@@ -304,17 +305,73 @@ def commit_to_node_pos(node_pos: torch.Tensor, data:PlaceData, dp_rawdb):
     return node_pos
 
 
+def run_macro_legalization(node_pos, data: PlaceData, lg_rawdb, args, logger):
+    if data.num_movable_macros == 0 or (data.num_movable_macros == 1 and data.num_fixed_macros == 0):
+        return True
+    if data.num_fixed_macros != 0:
+        logger.warning("Including fixed macros. LP formula may be infeasible.")
+    # Pre-process: get macro info
+    mov_lhs, mov_rhs = data.movable_index
+    macro_size = data.node_size[data.is_macro].contiguous()
+    macro_pos = node_pos[data.is_macro].detach().contiguous()
+    macro_fixed = (torch.cat([
+        torch.zeros(mov_rhs - mov_lhs, dtype=torch.bool, device=node_pos.device),
+        torch.ones(node_pos.shape[0] - mov_rhs, dtype=torch.bool, device=node_pos.device)
+    ])[data.is_macro]).contiguous()
+    macro_weights = torch.ones_like(macro_pos)
+    # macro_id = torch.zeros_like(data.is_macro, dtype=torch.long)
+    # macro_id[data.is_macro] = torch.cumsum(data.is_macro, 0)[data.is_macro]
+    inv_scalar = torch.tensor(
+        [round(1.0 / get_ori_scale_factor(data))], dtype=torch.float32, device=node_pos.device
+    )
+    macro_info = (
+        macro_pos, macro_size, macro_fixed, macro_weights,
+        data.die_ll, data.die_ur, data.die_info, inv_scalar
+    )
+    # Macro legalization
+    macro_pos, solve_success = macro_legalization_multi(macro_info, args, logger)
+    node_pos_cache = node_pos.clone()
+    node_pos_cache[data.is_macro] = torch.from_numpy(macro_pos).to(node_pos.device)
+    node_pos[mov_lhs:mov_rhs] = node_pos_cache[mov_lhs:mov_rhs]
+    # Post-process: round to integer and commit to lg_rawdb
+    node_lpos, _, _, _, _, _, _ = rearrange_dpdb_node_info(node_pos, data)
+    _, floatmov_rhs, _ = data.node_type_indices[1]
+    node_lpos[:floatmov_rhs][data.is_macro[:floatmov_rhs]] = node_lpos[:floatmov_rhs][
+        data.is_macro[:floatmov_rhs]].contiguous().mul_(inv_scalar).round_().div_(inv_scalar)
+
+    lg_rawdb.commit_from_partial(node_lpos[:, 0], node_lpos[:, 1])
+
+    return solve_success
+
+
+def macro_legalization_main(node_pos: torch.Tensor, data: PlaceData, args, logger, lg_rawdb=None):
+    if lg_rawdb is None:
+        lg_rawdb = setup_detailed_rawdb(node_pos, True, data, args, logger, after_lg=False)
+    logger.info("Start running Macro Legalization... #Macros: %d, #MovMacros: %d." % (
+        data.num_macros, data.num_movable_macros
+    ))
+    ml_time = time.time()
+    run_macro_legalization(node_pos, data, lg_rawdb, args, logger)
+    # align to site/row and check
+    if gpudp.macroLegalization(lg_rawdb, data.num_bin_x, data.num_bin_y):
+        lg_rawdb.commit()
+        logger.info("Check Pass in Macro Legalization")
+    else:
+        logger.error("Check failed in Macro Legalization.")
+    # Commit result
+    commit_to_node_pos(node_pos, data, lg_rawdb)
+    torch.cuda.synchronize(node_pos.device)
+    logger.info("***** Finish Macro Legalization, HPWL: %.4E Time: %.4f *****" % (
+        get_obj_hpwl(node_pos, data, args).item(), time.time() - ml_time
+    ))
+
+
 def run_lg(node_pos: torch.Tensor, data: PlaceData, args, logger):
     # CPU legalization
     lg_rawdb = setup_detailed_rawdb(node_pos, True, data, args, logger, after_lg=False)
 
     # run LG
-    logger.info("Start running Macro Legalization...")
-    ml_time = time.time()
-    num_bins_x, num_bins_y = data.num_bin_x, data.num_bin_y
-    if gpudp.macroLegalization(lg_rawdb, num_bins_x, num_bins_y):
-        lg_rawdb.commit()
-    logger.info("Finish Macro Legalization. Time: %.4f" % (time.time() - ml_time))
+    macro_legalization_main(node_pos, data, args, logger, lg_rawdb)
 
     total_cell_area = torch.sum(torch.prod(data.node_size, 1)).item()
     die_area = torch.prod(data.die_ur - data.die_ll).item()
@@ -346,8 +403,6 @@ def run_lg(node_pos: torch.Tensor, data: PlaceData, args, logger):
     # # Commit result
     # commit_to_node_pos(node_pos, data, lg_rawdb)
     # torch.cuda.synchronize(node_pos.device)
-    # if args.scale_design:
-    #     node_pos /= data.die_scale
     # info = (-1, 0, data.design_name)
     # draw_fig_with_cairo_cpp(node_pos, data.node_size, data, info, args, base_size=4096)
 
@@ -367,9 +422,6 @@ def run_lg(node_pos: torch.Tensor, data: PlaceData, args, logger):
     logger.info("***** Finish Legalization, HPWL: %.4E Time: %.4f *****" % (
         get_obj_hpwl(node_pos, data, args).item(), time.time() - gl_time
     ))
-
-    if args.scale_design:
-        node_pos /= data.die_scale
 
     del lg_rawdb
 
@@ -449,9 +501,6 @@ def run_dp(node_pos: torch.Tensor, data: PlaceData, args, logger):
     dp_handler(gpudp.globalSwap, "Global Swap", num_bins_x // 2, num_bins_y // 2, gs_bs, gs_iter)
     dp_handler(gpudp.kReorder, "K-Reorder 2", num_bins_x, num_bins_y, kr_K, kr_iter)
 
-    if args.scale_design:
-        node_pos /= data.die_scale
-
     del dp_rawdb
 
     return node_pos
@@ -479,12 +528,6 @@ def run_dp_route_opt(node_pos: torch.Tensor, gpdb, rawdb, ps, data: PlaceData, a
         node_lpos[:floatmov_rhs].mul_(inv_scalar).round_().div_(inv_scalar)
 
         node_size = data.node_size.cpu()
-        if args.scale_design:
-            # scale back
-            die_scale = data.die_scale / data.site_width # assume site width == 1 in dp
-            node_lpos = node_lpos * die_scale
-            node_size = node_size * die_scale
-            die_info = (data.die_info.reshape(2, 2).t() * die_scale).t().reshape(-1)
         site_width = 1.0
         row_height = data.row_height / data.site_width
         die_info = data.die_info.cpu()

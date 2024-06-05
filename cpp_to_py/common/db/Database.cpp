@@ -20,7 +20,7 @@ Database::~Database() {
 void Database::load() {
     // ----- design related options -----
 
-    if (setting.BookshelfAux != "" && setting.BookshelfPl != "") {
+    if (setting.BookshelfAux != "") {
         setting.Format = "bookshelf";
         readBSAux(setting.BookshelfAux, setting.BookshelfPl);
     }

@@ -7,6 +7,18 @@ tar xvzf ispd2005.tar.gz
 rm -rf ispd2005.tar.gz
 mv ispd2005/ raw/
 
+echo "=== Downloading ispd2006"
+wget --no-check-certificate "https://mycuhk-my.sharepoint.com/:u:/g/personal/1155136644_link_cuhk_edu_hk/EYBauANXekFAn1nlKRtec8YBecrfXNmocajWhqNfKWhRvA?e=wL1Z5z&download=1" -O ispd2006.tar.gz
+tar xvzf ispd2006.tar.gz
+rm -rf ispd2006.tar.gz
+mv ispd2006/ raw/
+
+echo "=== Downloading mms"
+wget --no-check-certificate "https://mycuhk-my.sharepoint.com/:u:/g/personal/1155136644_link_cuhk_edu_hk/EQpwvzotaWBGlIm9zpOfIL4B_DRFb5jNOQ5mKHLd7yrByw?e=ovrb3e&download=1" -O mms.tar.gz
+tar xvzf mms.tar.gz
+rm -rf mms.tar.gz
+mv mms/ raw/
+
 echo "=== Downloading ispd2015 ==="
 wget --no-check-certificate "https://mycuhk-my.sharepoint.com/:u:/g/personal/1155136644_link_cuhk_edu_hk/Ea4YjKNvi-9CnekS41Pw-GgBEhIRNnp6AhMDU9_xElLjNA?e=YSUMhQ&download=1" -O ispd2015.tar.gz
 tar xvzf ispd2015.tar.gz

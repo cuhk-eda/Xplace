@@ -70,6 +70,7 @@ class MetricRecorder:
 class ParamScheduler:
     def __init__(self, data: PlaceData, args, logger) -> None:
         self.__logger__ = logger
+        self.__args__ = args
         self.data = data
         self.iter = 0
         self.init_iter = 0
@@ -97,7 +98,7 @@ class ParamScheduler:
         self.best_sol_rollback: torch.Tensor = None
         self.best_metric_rollback = {"overflow": float("inf"), "hpwl": float("inf")}
 
-        # params
+        # global place params
         self.precond_coef = 1.0
         self.precond_weight = None
         self.density_weight_start = args.density_weight
@@ -113,13 +114,15 @@ class ParamScheduler:
         self.life = self.max_life
         self.stop_overflow = args.stop_overflow
         self.skip_update = False if args.enable_skip_update else None
-        self.enable_fence = data.enable_fence
         self.min_enlarge_density_interval = 1000
         self.last_enlarge_density_iter = -self.min_enlarge_density_interval
         # skip density force
-        self.enable_sample_force = True
+        self.enable_sample_force = args.enable_sample_force
         self.force_ratio = 0.0
 
+        self.enable_fence = data.enable_fence
+
+        # routability parameter
         self.enable_route = args.use_route_force or args.use_cell_inflate
         self.use_cell_inflate = args.use_cell_inflate
         self.use_route_force = args.use_route_force
@@ -140,14 +143,21 @@ class ParamScheduler:
         self.max_route_opt = 5
         self.gr_sol_recorder = []
 
-    def set_init_param(self, init_density_weight, data: PlaceData, init_density_loss):
+        # mixed size parameter
+        self.enable_mixed_size = args.mixed_size
+        self.include_macros = args.include_macros
+        self.zero_macro_grad = False
+
+    def set_init_param(self, init_density_weight, data: PlaceData):
         # init_density_weight
         self.init_iter = self.iter
         self.all_init_iters.append(self.init_iter)
         self.precond_coef = 1.0
+        self.mu = 1.0
         self.density_weight = copy.deepcopy(self.density_weight_start) * init_density_weight
         self.wa_coeff = copy.deepcopy(self.wa_coeff_start)
         self.update_precond_weight(data)
+        self.set_mixsize_init_param()
 
     def set_route_init_param(
         self, init_density_weight, init_route_weight, init_congest_weight, data: PlaceData, args
@@ -157,12 +167,38 @@ class ParamScheduler:
         self.init_iter = self.iter
         self.all_init_iters.append(self.init_iter)
         self.precond_coef = 1.0
+        self.mu = 1.0
         self.base_route_weight = init_route_weight * args.route_weight
         self.base_congest_weight = init_congest_weight * args.congest_weight
         self.route_weight = copy.deepcopy(self.density_weight) * self.base_route_weight
         self.congest_weight = copy.deepcopy(self.density_weight) * self.base_congest_weight
         self.pseudo_weight = args.pseudo_weight # same scale as wirelength weight
         self.update_precond_weight(data)
+        self.set_mixsize_init_param()
+
+    def set_mixsize_init_param(self):
+        args = self.__args__
+        if self.include_macros:
+            self.skip_update = None
+            self.enable_sample_force = False
+        if self.enable_mixed_size:
+            if not self.zero_macro_grad:
+                # simultaneously place macro and std cells
+                self.include_macros = True
+                self.stop_overflow = args.stop_overflow * 2.0
+                self.enable_sample_force = False
+                self.skip_update = None
+                self.enable_route = False
+                self.use_cell_inflate = False
+                self.use_route_force = False
+            else:
+                self.include_macros = False
+                self.stop_overflow = args.stop_overflow
+                self.enable_sample_force = args.enable_sample_force
+                self.skip_update = False if args.enable_skip_update else None
+                self.enable_route = args.use_route_force or args.use_cell_inflate
+                self.use_cell_inflate = args.use_cell_inflate
+                self.use_route_force = args.use_route_force
 
     def reset_best_sol(self):
         # best solution
@@ -384,6 +420,7 @@ class ParamScheduler:
         if (
             self.recorder.overflow[ptr] < self.stop_overflow * 5
             and self.recorder.overflow[ptr] >= self.stop_overflow
+            and not self.include_macros
         ):
             if self.check_plateau(self.recorder.overflow, window=50, threshold=0.05):
                 # kill the program since it has converged

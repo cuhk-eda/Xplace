@@ -24,7 +24,7 @@ bool check_macro_legality(LegalizationData& db, const std::vector<int>& macros, 
         float yh1 = yl1 + height1;
         float xh2 = xl2 + width2;
         float yh2 = yl2 + height2;
-        if (std::min(xh1, xh2) > std::max(xl1, xl2) && std::min(yh1, yh2) > std::max(yl1, yl2)) {
+        if (std::min(xh1, xh2) - std::max(xl1, xl2) > 1e-3 && std::min(yh1, yh2) - std::max(yl1, yl2) > 1e-3) {
             logger.error(
                 "macro %d (%g, %g, %g, %g) var %d overlaps with macro %d "
                 "(%g, %g, %g, %g) var %d, fixed: %d",
@@ -273,7 +273,7 @@ bool macroLegalization(DPTorchRawDB& at_db, int num_bins_x, int num_bins_y) {
     // collect macros
     std::vector<int> macros;
     for (int i = 0; i < db.num_movable_nodes; ++i) {
-        if (db.is_dummy_fixed(i)) {
+        if (db.is_mov_macro(i)) {
             // in some extreme case, some macros with 0 area should be ignored
             float area = db.node_size_x[i] * db.node_size_y[i];
             if (area > 0) {
@@ -281,7 +281,7 @@ bool macroLegalization(DPTorchRawDB& at_db, int num_bins_x, int num_bins_y) {
             }
         }
     }
-    logger.info("Macro legalization: regard %lu cells as dummy fixed (movable macros)", macros.size());
+    logger.info("Macro legalization: regard %lu cells as movable macros", macros.size());
 
     // in case there is no movable macros
     if (macros.empty()) {
@@ -320,10 +320,7 @@ bool macroLegalization(DPTorchRawDB& at_db, int num_bins_x, int num_bins_y) {
         }
     };
 
-    // first round rough legalization with Hannan grid for clusters
-    bool small_clusters_flag = true;
-    bool blocked_macros_flag = false;
-    roughLegalize(db, macros, fixed_macros, small_clusters_flag, blocked_macros_flag);
+    // 1) LP legalization, check displacement and legality
     auto displace = compute_displace(db, macros);
     logger.info("Macro displacement total %g, max %g, weighted total %g, max %g",
                 displace.total_displace,
@@ -331,9 +328,27 @@ bool macroLegalization(DPTorchRawDB& at_db, int num_bins_x, int num_bins_y) {
                 displace.total_weighted_displace,
                 displace.max_weighted_displace);
     bool legal = check_macro_legality(db, macros, true);
+    update_best(legal, displace);
 
-    // try Hannan grid legalization if still not legal
+    // 2) rough legalization with Hannan grid for clusters
     if (!legal) {
+        logger.warning("LP not legal, try roughLegalize.");
+        bool small_clusters_flag = true;
+        bool blocked_macros_flag = false;
+        roughLegalize(db, macros, fixed_macros, small_clusters_flag, blocked_macros_flag);
+        auto displace = compute_displace(db, macros);
+        logger.info("Macro displacement total %g, max %g, weighted total %g, max %g",
+                    displace.total_displace,
+                    displace.max_displace,
+                    displace.total_weighted_displace,
+                    displace.max_weighted_displace);
+        legal = check_macro_legality(db, macros, true);
+        update_best(legal, displace);
+    }
+
+    // 3) try Hannan grid legalization if still not legal
+    if (!legal) {
+        logger.warning("Not legal, try hannanLegalize.");
         legal = hannanLegalize(db, macros, fixed_macros, 10);
         auto displace = compute_displace(db, macros);
         logger.info("Macro displacement total %g, max %g, weighted total %g, max %g",
@@ -361,15 +376,22 @@ bool macroLegalization(DPTorchRawDB& at_db, int num_bins_x, int num_bins_y) {
         }
     }
 
-    logger.info("Align macros to site and rows");
-    // align the lower left corner to row and site
-    for (unsigned int i = 0, ie = macros.size(); i < ie; ++i) {
-        int node_id = macros[i];
-        db.x[node_id] = db.align2site(db.x[node_id], db.node_size_x[node_id]);
-        db.y[node_id] = db.align2row(db.y[node_id], db.node_size_y[node_id]);
-    }
+    if (legal) {
+        logger.info("Align macros to site and rows");
+        // align the lower left corner to row and site
+        for (unsigned int i = 0, ie = macros.size(); i < ie; ++i) {
+            int node_id = macros[i];
+            db.x[node_id] = db.align2site(db.x[node_id], db.node_size_x[node_id]);
+            db.y[node_id] = db.align2row(db.y[node_id], db.node_size_y[node_id]);
+        }
 
-    legal = check_macro_legality(db, macros, false);
+        legal = check_macro_legality(db, macros, false);
+        if (!legal) {
+            logger.error("Macro legalization failed after aligning to site and row");
+        }
+    } else {
+        logger.error("Macro legalization failed");
+    }
 
     return legal;
 }

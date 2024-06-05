@@ -71,19 +71,16 @@ class IOParser(object):
                 print("def %s not exists." % params["def"])
                 return False
         if "aux" in params.keys():
-            if "pl" not in params.keys():
-                print("pl is not found!")
+            if not os.path.exists(params["aux"]):
+                print("aux %s not exists." % params["aux"])
+                return False
+            if "pl" in params.keys() and not os.path.exists(params["pl"]):
+                print("pl %s not exists." % params["pl"])
                 return False
             if "output" in params.keys():
                 if "pl" != params["output"].split(".")[-1]:
                     print("output format should be .pl")
                     return False
-            if not os.path.exists(params["aux"]):
-                print("aux %s not exists." % params["aux"])
-                return False
-            if not os.path.exists(params["pl"]):
-                print("pl %s not exists." % params["pl"])
-                return False
         self.params = params
 
         if verbose_log:

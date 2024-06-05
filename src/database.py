@@ -318,6 +318,21 @@ class PlaceData(object):
             return self.__num_fillers__
 
     @property
+    def num_macros(self):
+        if hasattr(self, "__num_macros__"):
+            return self.__num_macros__
+
+    @property
+    def num_movable_macros(self):
+        if hasattr(self, "__num_movable_macros__"):
+            return self.__num_movable_macros__
+
+    @property
+    def num_fixed_macros(self):
+        if hasattr(self, "__num_fixed_macros__"):
+            return self.__num_fixed_macros__
+
+    @property
     def num_bin_x(self):
         if hasattr(self, "__num_bin_x__"):
             return self.__num_bin_x__
@@ -540,7 +555,7 @@ class PlaceData(object):
         self.pin_rel_cpos /= scalar_at
         self.pin_rel_lpos /= scalar_at
         self.pin_size /= scalar_at
-        self.__die_scale__ *= self.site_width
+        self.__die_scale__ *= scalar_at
         return self
 
     def prescale(self):
@@ -591,10 +606,28 @@ class PlaceData(object):
         self.net_mask = torch.logical_and(
             self.net_to_num_pins <= args.ignore_net_degree, self.net_to_num_pins >= 2
         )  # 0: ignore, 1: consider in wirelength calculation
-        # obj related
+        # macros -> all mov nodes has ultra-large areas with >= 3 row height and all fixed nodes
+        # But nodes with zero width or zero height are not considered as macros
         mov_lhs, mov_rhs = self.movable_index
-        mov_cell_area = torch.prod(self.node_size[mov_lhs:mov_rhs, ...], 1)
-        self.__total_mov_area_without_filler__ = torch.sum(mov_cell_area).item()
+        num_movable_nodes = mov_rhs - mov_lhs
+        self.is_macro: torch.Tensor = self.node_size[:,1] * self.die_scale[1] / self.row_height > 2.01
+        mov_node_area = torch.prod(self.node_size[mov_lhs:mov_rhs, ...], 1)
+        mov_node_area_order = torch.argsort(mov_node_area)
+        macro_area_threshold = 10 * torch.mean(mov_node_area[
+            mov_node_area_order[:int(num_movable_nodes * 0.999)]
+        ])
+        self.is_macro.logical_and_((self.node_area > macro_area_threshold).squeeze(1))
+        self.is_macro[mov_rhs:] = True
+        self.is_macro.logical_and_((self.node_size * self.die_scale > 1e-4).all(dim=1))
+
+        self.is_mov_macro = self.is_macro.clone()
+        self.is_mov_macro[mov_rhs:] = False
+
+        self.__num_macros__ = torch.sum(self.is_macro).item()
+        self.__num_movable_macros__ = torch.sum(self.is_mov_macro).item()
+        self.__num_fixed_macros__ = self.__num_macros__ - self.__num_movable_macros__
+        # obj related
+        self.__total_mov_area_without_filler__ = torch.sum(mov_node_area).item()
         self.__bin_area__ = torch.prod(self.unit_len).item()
         return self
 
@@ -630,42 +663,46 @@ class PlaceData(object):
             # init_density_map are all normalized to (0.0, 1.0)
             fixed_node_area = ori_dmap * self.bin_area
             placeable_area = die_area - fixed_node_area
-            if True:
-                mov_cell_area = torch.prod(mov_node_size, 1)
-                num_movable_nodes = mov_rhs - mov_lhs
-                mov_node_xsize_order = torch.argsort(mov_node_size[:, 0])
-                filler_size_x = torch.mean(
-                    mov_node_size[:, 0][
-                        mov_node_xsize_order[
-                            int(num_movable_nodes * 0.05) : int(
-                                num_movable_nodes * 0.95
-                            )
-                        ]
-                    ]
-                )
-                filler_size_y = self.site_height / self.die_scale[1]
-                total_filler_area = max(
-                    args.target_density * placeable_area - torch.sum(mov_cell_area),
-                    0.0,
-                )
-                single_filler_size = torch.tensor(
-                    [filler_size_x, filler_size_y],
-                    device=mov_node_size.device,
-                    dtype=mov_node_size.dtype,
-                )
-                self.__num_fillers__ = int(
-                    torch.round(total_filler_area / (filler_size_x * filler_size_y))
-                )
+            mov_node_area = torch.prod(mov_node_size, 1).sum()
+            mov_macro_area = self.node_area[self.is_mov_macro].sum()
+            mov_stdcell_area = mov_node_area - mov_macro_area
+            stdcell_placeable_area = placeable_area - mov_macro_area
+            stdcell_util = mov_stdcell_area / stdcell_placeable_area
+            if stdcell_util.item() > args.target_density:
+                logger.warning("Stdcell util %.2f is larger than target density %.2f. Increase target density to %.2f." % (
+                    stdcell_util, args.target_density, stdcell_util))
+                args.target_density = stdcell_util
+            if self.is_mov_macro.sum().item() <= 1:
+                mov_node_xsize = mov_node_size[:, 0]
             else:
-                mov_cell_area = torch.prod(mov_node_size, 1)
-                total_filler_area = max(
-                    args.target_density * placeable_area
-                    - torch.sum(mov_cell_area).item(),
-                    0.0,
-                )
-                single_filler_area = torch.mean(mov_cell_area)
-                single_filler_size = single_filler_area.sqrt().repeat(2)
-                self.__num_fillers__ = int(total_filler_area / single_filler_area)
+                mov_node_xsize = mov_node_size[:, 0][
+                    torch.logical_not(self.is_mov_macro[mov_lhs:mov_rhs])
+                ].contiguous()
+            num_movable_nodes = mov_node_xsize.shape[0]
+            mov_node_xsize_order = torch.argsort(mov_node_xsize)
+            filler_size_x = torch.mean(
+                mov_node_xsize[
+                    mov_node_xsize_order[
+                        int(num_movable_nodes * 0.05) : int(
+                            num_movable_nodes * 0.95
+                        )
+                    ]
+                ]
+            )
+            filler_size_y = self.site_height / self.die_scale[1]
+            total_filler_area = max(
+                args.target_density * stdcell_placeable_area - mov_stdcell_area,
+                0.0,
+            )
+            single_filler_size = torch.tensor(
+                [filler_size_x, filler_size_y],
+                device=mov_node_size.device,
+                dtype=mov_node_size.dtype,
+            )
+            self.__num_fillers__ = int(
+                torch.round(total_filler_area / (filler_size_x * filler_size_y))
+            )
+
             if self.num_fillers > 0:
                 self.filler_size = single_filler_size.repeat(self.num_fillers, 1)
                 logger.info(
@@ -689,18 +726,24 @@ class PlaceData(object):
                 args.use_filler = False
 
             die_area, placeable_area = die_area.item(), placeable_area.item()
-            fixed_node_area, mov_cell_area = fixed_node_area.item(), torch.sum(mov_cell_area).item()
+            fixed_node_area, mov_node_area = fixed_node_area.item(), mov_node_area.item()
+            mov_macro_area, mov_stdcell_area = mov_macro_area.item(), mov_stdcell_area.item()
             total_filler_area = float(total_filler_area)
             logger.info(
-                "DieArea: %.3E FixArea: %.3E (%.1f%%) PlaceableArea: %.3E (%.1f%%) MovArea: %.3E (%.1f%%) FillerArea: %.3E (%.1f%%)"
+                "DieArea: %.3E FixArea: %.3E (%.1f%%) PlaceableArea: %.3E (%.1f%%) MovArea: %.3E (%.1f%%) FillerArea: %.3E (%.1f%%) "
+                "MovMacroArea: %.3E (%.1f%%) MovStdCellArea: %.3E (%.1f%%)"
                 % (
                     die_area,
                     fixed_node_area, fixed_node_area / die_area * 100,
                     placeable_area, placeable_area / die_area * 100,
-                    mov_cell_area, mov_cell_area / die_area * 100,
+                    mov_node_area, mov_node_area / die_area * 100,
                     total_filler_area, total_filler_area / die_area * 100,
+                    mov_macro_area, mov_macro_area / die_area * 100,
+                    mov_stdcell_area, mov_stdcell_area / die_area * 100,
                 )
             )
+            if mov_node_area > placeable_area:
+                logger.warning("MovArea > PlaceableArea. Not enough olaceblae area to place all movable nodes.")
 
         return self
 
@@ -769,6 +812,11 @@ class PlaceData(object):
                 num_fltiopin,
             )
         )
+        content += (
+            "#Macros = %d, #MovMacros = %d, #FixMacros = %d\n" % (
+                self.num_macros, self.num_movable_macros, self.num_fixed_macros
+            )
+        )
         content += "Core Info " + str([i for i in self.die_info.cpu().numpy()]) + "\n"
         content += "Site Width = %d, Row Height = %d\n" % (
             self.site_width,
@@ -783,6 +831,12 @@ class PlaceData(object):
         content += "target density = %.2f\n" % (args.target_density)
         content += "==================="
         logger.info(content)
+        args.include_macros = True if self.num_movable_macros > 10 else False
+        if args.include_macros and not args.mixed_size:
+            logger.warning("Detect many macros. Suggest to turn on mixed_size in cmd args.")
+        if self.num_movable_macros == 0 and args.mixed_size:
+            logger.warning("#MovMacros is 0. Turn off mixed size mode.")
+            args.mixed_size = False
         return self
 
     def preprocess(self):
@@ -790,8 +844,8 @@ class PlaceData(object):
         self.backup_ori_var()
         self.preshift()
         self.prescale_by_site_width()
-        if args.scale_design:
-            self.prescale()
+        # if args.scale_design:
+        #     self.prescale()
         self.pre_compute_var()
         self.init_fence_region()
         self.logging_statistics()
@@ -803,6 +857,21 @@ class PlaceData(object):
         self.compute_sorted_node_map()
         return self
 
+    def get_filler_pos(self):
+        if self.num_fillers > 0:
+            if self.enable_fence:
+                raise NotImplementedError("We haven't yet supported fence region.")
+            else:
+                filler_pos = torch.rand(
+                    (self.num_fillers, 2),
+                    dtype=self.node_size.dtype,
+                    device=self.node_size.device,
+                )
+                scale = self.die_ur - self.die_ll
+                shift = self.die_ll
+                filler_pos = filler_pos * scale + shift
+            return filler_pos
+
     def get_mov_node_info(self, init_method="randn_center"):
         args = self.__args__
         mov_lhs, mov_rhs = self.movable_index
@@ -813,19 +882,15 @@ class PlaceData(object):
             scale = (self.die_ur - self.die_ll) * 0.001
             loc = (self.die_ur + self.die_ll) * 0.5
             mov_node_pos = torch.randn_like(mov_node_pos) * scale + loc
+        elif init_method == "randn_center_lxly":
+            # TODO: Mixed-size placement is very sensitive to the initial location.
+            #       An elegant yet effective initialization may be needed.
+            scale = (self.die_ur - self.die_ll) * 0.001
+            loc = (self.die_ur + self.die_ll) * 0.5
+            mov_node_pos = torch.randn_like(mov_node_pos) * scale + loc + mov_node_size / 2
 
         if self.num_fillers > 0:
-            if self.enable_fence:
-                raise NotImplementedError("We haven't yet supported fence region.")
-            else:
-                filler_pos = torch.rand(
-                    (self.num_fillers, 2),
-                    dtype=mov_node_size.dtype,
-                    device=mov_node_size.device,
-                )
-                scale = self.die_ur - self.die_ll
-                shift = self.die_ll
-                filler_pos = filler_pos * scale + shift
+            filler_pos = self.get_filler_pos()
             mov_node_pos = torch.cat([mov_node_pos, filler_pos], dim=0)
             mov_node_size = torch.cat([mov_node_size, self.filler_size], dim=0)
 
@@ -843,6 +908,10 @@ class PlaceData(object):
             # update
             expand_ratio = mov_node_area / clamp_mov_node_area
             mov_node_size = clamp_mov_node_size
+
+        if args.target_density < 1.0:
+            expand_ratio[mov_lhs:mov_rhs].masked_fill_(
+                self.is_mov_macro[mov_lhs:mov_rhs], args.target_density)
 
         return mov_node_pos, mov_node_size, expand_ratio
 

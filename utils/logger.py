@@ -16,7 +16,7 @@ class CustomFormatter(logging.Formatter):
     # FIXME: An elapsed time gap exists between the C++ Timer and Python Timer,
     #        but I don't know how to resolve it...
     time_format = "[%(relativeCreatedSecond)4d.%(relativeCreatedMSecond)03d] "
-    debug_msg = " (%(module)s.py Line%(lineno)d) %(msg)s"
+    debug_msg = " (%(module)s.py L%(lineno)d) %(msg)s"
     FORMATS = {
         logging.DEBUG: time_format + blue + "DEBUG" + reset + debug_msg,
         logging.INFO: time_format + "%(msg)s",
@@ -47,7 +47,9 @@ def setup_logger(args, sys_argv) -> logging.Logger:
     screen_handler = logging.StreamHandler(stream=sys.stdout)
     screen_handler.setFormatter(formatter)
     logger = logging.getLogger()
-    logger.setLevel(logging.DEBUG)
+    logger.setLevel(logging.INFO)
+    if args.cpp_log_level == 0 or args.verbose_cpp_log:
+        logger.setLevel(logging.DEBUG)
     logger.addHandler(file_handler)
     logger.addHandler(screen_handler)
 

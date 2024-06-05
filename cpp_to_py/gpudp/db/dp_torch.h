@@ -10,6 +10,7 @@ public:
     DPTorchRawDB(torch::Tensor node_lpos_init_,
                  torch::Tensor node_size_,
                  torch::Tensor node_weight_,
+                 torch::Tensor is_macro_,
                  torch::Tensor pin_rel_lpos_,
                  torch::Tensor pin_id2node_id_,
                  torch::Tensor pin_id2net_id_,
@@ -35,6 +36,7 @@ public:
     void commit();
     void rollback();
     void commit_from(torch::Tensor x_, torch::Tensor y_);
+    void commit_from_partial(torch::Tensor x_, torch::Tensor y_);
     torch::Tensor get_curr_cposx();
     torch::Tensor get_curr_cposy();
     torch::Tensor get_curr_lposx();
@@ -48,6 +50,7 @@ public:
     torch::Tensor pin_rel_lpos;
 
     torch::Tensor node_weight;
+    torch::Tensor is_macro;
 
     torch::Tensor init_x;  // original pos (keep it const except committing)
     torch::Tensor init_y;  // original pos (keep it const except committing)

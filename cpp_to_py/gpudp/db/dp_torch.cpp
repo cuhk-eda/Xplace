@@ -8,6 +8,7 @@ namespace dp {
 DPTorchRawDB::DPTorchRawDB(torch::Tensor node_lpos_init_,
                            torch::Tensor node_size_,
                            torch::Tensor node_weight_,
+                           torch::Tensor is_macro_,
                            torch::Tensor pin_rel_lpos_,
                            torch::Tensor pin_id2node_id_,
                            torch::Tensor pin_id2net_id_,
@@ -74,6 +75,7 @@ DPTorchRawDB::DPTorchRawDB(torch::Tensor node_lpos_init_,
 
     net_mask = net_mask_;
     node_weight = node_weight_;
+    is_macro = is_macro_;
 
     site_width = site_width_;
     row_height = row_height_;
@@ -172,6 +174,16 @@ void DPTorchRawDB::commit_from(torch::Tensor x_, torch::Tensor y_) {
     init_y.index({torch::indexing::Slice(0, num_movable_nodes)})
         .data()
         .copy_(y_.index({torch::indexing::Slice(0, num_movable_nodes)}));
+    x.index({torch::indexing::Slice(0, num_movable_nodes)})
+        .data()
+        .copy_(x_.index({torch::indexing::Slice(0, num_movable_nodes)}));
+    y.index({torch::indexing::Slice(0, num_movable_nodes)})
+        .data()
+        .copy_(y_.index({torch::indexing::Slice(0, num_movable_nodes)}));
+}
+
+void DPTorchRawDB::commit_from_partial(torch::Tensor x_, torch::Tensor y_) {
+    // commit external pos to new pos
     x.index({torch::indexing::Slice(0, num_movable_nodes)})
         .data()
         .copy_(x_.index({torch::indexing::Slice(0, num_movable_nodes)}));
