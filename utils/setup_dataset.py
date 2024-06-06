@@ -10,9 +10,26 @@ def find_design_params(args, logger, placement=None):
         params = get_single_design_params(
             args.dataset_root, args.dataset, args.design_name, placement
         )
+    setup_given_solution(args, logger, params, placement)
     log_design_params(logger, params)
     setup_design_args(args)
     return params
+
+
+def setup_given_solution(args, logger, params, placement=None):
+    if placement is not None:
+        args.given_solution = placement
+    if args.given_solution != "":
+        placement = args.given_solution
+        logger.info("Find given placement solution: %s" % placement)
+        if ".pl" in placement:
+            if "pl" in params.keys():
+                logger.info("Overwrite pl file %s by %s" % (params["pl"], placement))
+            params["pl"] = placement
+        elif ".def" in placement:
+            if "def" in params.keys():
+                logger.info("Overwrite def file %s by %s" % (params["def"], placement))
+            params["def"] = placement
 
 
 def log_design_params(logger, params: dict):

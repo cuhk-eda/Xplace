@@ -9,6 +9,7 @@ def get_option():
     parser.add_argument('--design_name', type=str, default='mgc_superblue12', help='design name')
     parser.add_argument('--custom_path', type=str, default='', help='custom design path, set it as token1:path1,token2:path2 e.g. lef:data/test.lef,def:data/test.def,design_name:mydesign,benchmark:mybenchmark')
     parser.add_argument('--custom_json', type=str, default='', help='custom json path, support multi-lefs.')
+    parser.add_argument('--given_solution', type=str, default='', help='Given placement solution. Will overwrite other given .pl and .def.')
     parser.add_argument('--load_from_raw', type=str2bool, default=True, help='If True, parse and load from benchmark files. If False, load from pt')
     parser.add_argument('--run_all', type=str2bool, default=False, help='If True, run all designs in the given dataset. If False, run the given design_name only.')
     parser.add_argument('--seed', type=int, default=0, help='seed to initialize all the random modules')
@@ -17,6 +18,7 @@ def get_option():
     parser.add_argument('--deterministic', type=str2bool, default=True, help='use deterministic mode')
 
     # global placement params
+    parser.add_argument('--global_placement', type=str2bool, default=True, help='perform gp') 
     parser.add_argument('--lr', type=float, default=0.01, help='learning rate')
     parser.add_argument('--inner_iter', type=int, default=10000, help='#inner iters')
     parser.add_argument('--wa_coeff', type=float, default=4.0, help='wa coeff')

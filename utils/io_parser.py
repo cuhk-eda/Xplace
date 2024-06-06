@@ -77,6 +77,9 @@ class IOParser(object):
             if "pl" in params.keys() and not os.path.exists(params["pl"]):
                 print("pl %s not exists." % params["pl"])
                 return False
+            if "bookshelf_variety" not in params.keys():
+                print("Not specify bookshelf_variety. Set to ispd2005.")
+                params["bookshelf_variety"] = "ispd2005"
             if "output" in params.keys():
                 if "pl" != params["output"].split(".")[-1]:
                     print("output format should be .pl")

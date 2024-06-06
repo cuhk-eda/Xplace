@@ -10,24 +10,22 @@ def get_trunc_node_pos_fn(mov_node_size, data):
         return x
     return trunc_node_pos_fn
 
-def run_placement_main_nesterov(args, logger):
-    total_start = time.time()
-    params = find_design_params(args, logger)
-    data, rawdb, gpdb = load_dataset(args, logger, params)
-    device = torch.device(
-        "cuda:{}".format(args.gpu) if torch.cuda.is_available() else "cpu"
-    )
-    assert args.use_eplace_nesterov
-    logger.info("Start place %s/%s" % (args.dataset , args.design_name))
-    logger.info("Use Nesterov optimizer!")
-    data = data.to(device)
-    data = data.preprocess()
-    logger.info(data)
-    logger.info(data.node_type_indices)
-    # args.num_bin_x = args.num_bin_y = 2 ** math.ceil(math.log2(max(data.die_info).item() // 25))
+def global_placement_main(gpdb, rawdb, ps: ParamScheduler, data: PlaceData, args, logger):
+    init_density_map = data.init_density_map
+    if not args.global_placement:
+        logger.info("Global placement is switched off. Please make sure the input "
+                    "placement solution is already placed globally.")
+        node_pos, iteration = data.node_pos, 0
+        hpwl, overflow = evaluate_placement(node_pos, init_density_map, ps, data, args)
+        hpwl, overflow = hpwl.item(), overflow.item()
+        info = ("%d_gp" % (iteration + 1), hpwl, data.design_name)
+        if args.draw_placement:
+            draw_fig_with_cairo_cpp(node_pos, data.node_size, data, info, args)
+        logger.info("Input solution, exact HPWL: %.6E exact Overflow: %.4f" % (hpwl, overflow))
+        gp_hpwl, overflow, gp_time, gp_per_iter = hpwl, overflow, 0, -1
+        return node_pos, iteration, gp_hpwl, overflow, gp_time, gp_per_iter
 
-    init_density_map = get_init_density_map(rawdb, gpdb, data, args, logger)
-    data.init_filler()
+    device = data.device
     mov_lhs, mov_rhs = data.movable_index
     mov_node_pos, mov_node_size, expand_ratio = data.get_mov_node_info()
     mov_node_pos = mov_node_pos.requires_grad_(True)
@@ -45,7 +43,6 @@ def run_placement_main_nesterov(args, logger):
         return overflow_sum / data.total_mov_area_without_filler
     overflow_helper = (mov_lhs, mov_rhs, overflow_fn)
 
-    ps = ParamScheduler(data, args, logger)
     density_map_layer = ElectronicDensityLayer(
         unit_len=data.unit_len,
         num_bin_x=data.num_bin_x,
@@ -391,6 +388,33 @@ def run_placement_main_nesterov(args, logger):
     gp_time = gp_end_time - gp_start_time
     iteration += 1 # increase 1 For DP drawing
 
+    return node_pos, iteration, gp_hpwl, overflow, gp_time, gp_per_iter
+
+
+def run_placement_main_nesterov(args, logger):
+    total_start = time.time()
+    params = find_design_params(args, logger)
+    data, rawdb, gpdb = load_dataset(args, logger, params)
+    device = torch.device(
+        "cuda:{}".format(args.gpu) if torch.cuda.is_available() else "cpu"
+    )
+    assert args.use_eplace_nesterov
+    logger.info("Start place %s/%s" % (args.dataset , args.design_name))
+    logger.info("Use Nesterov optimizer!")
+    data = data.to(device)
+    data = data.preprocess()
+    logger.info(data)
+    logger.info(data.node_type_indices)
+    # args.num_bin_x = args.num_bin_y = 2 ** math.ceil(math.log2(max(data.die_info).item() // 25))
+    get_init_density_map(rawdb, gpdb, data, args, logger)
+    data.init_filler()
+
+    ps = ParamScheduler(data, args, logger)
+
+    # global placement
+    node_pos, iteration, gp_hpwl, overflow, gp_time, gp_per_iter = global_placement_main(
+        gpdb, rawdb, ps, data, args, logger
+    )
     # detail placement
     node_pos, dp_hpwl, top5overflow, lg_time, dp_time = detail_placement_main(
         node_pos, gpdb, rawdb, ps, data, args, logger
