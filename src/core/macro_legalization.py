@@ -25,6 +25,7 @@ def check_macro_legality(macro_pos, macro_size, macro_fixed, die_info, check_all
     num_macros = macro_pos.shape[0]
     # overlap = np.zeros((num_macros, num_macros), dtype=np.bool8)
     legal = True
+    overlaps = []
     for i in nb.prange(num_macros):
         lx_i = macro_pos[i][0] - macro_size[i][0] / 2
         ly_i = macro_pos[i][1] - macro_size[i][1] / 2
@@ -42,10 +43,11 @@ def check_macro_legality(macro_pos, macro_size, macro_fixed, die_info, check_all
                 # overlap[j][i] = True
                 legal = False
                 if not check_all and not legal:
-                    return legal
-                print("Macro", i, "and Macro", j, "Overlap.")
+                    return legal, overlaps
+                overlaps.append((i, j))
+                # print("Macro", i, "and Macro", j, "Overlap.")
 
-    return legal
+    return legal, overlaps
     
     
 
@@ -866,7 +868,7 @@ def macro_legalization_multi(macro_info, args, logger):
     # plot_macros(macro_pos, macro_size, macro_fixed, die_info, img_path="legalized_before.png")
     nb.set_num_threads(args.num_threads)
 
-    if check_macro_legality(macro_pos, macro_size, macro_fixed, die_info, check_all=False):
+    if check_macro_legality(macro_pos, macro_size, macro_fixed, die_info, check_all=False)[0]:
         # Macros are legal, skip legalization
         return macro_pos, True
 
@@ -880,8 +882,10 @@ def macro_legalization_multi(macro_info, args, logger):
             solver.timeLimit = (i + 1) * 20 if timeLimit is None else timeLimit
             logger.info("Use cbc to solve LP. TimeLimit = %ds." % solver.timeLimit)
             macro_pos_tmp, solve_success, displacement = ml_func(*func_args, lpbackend=solver, **ml_func_kwargs)
-            if not check_macro_legality(macro_pos_tmp, macro_size, macro_fixed, die_info):
+            legal, overlaps = check_macro_legality(macro_pos_tmp, macro_size, macro_fixed, die_info)
+            if not legal:
                 # update macro_pos to macro_pos_tmp
+                logger.warning("Current solution is illegal. Macro Overlap Pairs: %s." % overlaps)
                 func_args = (*func_args[:2], macro_pos_tmp, *func_args[3:])
                 ml_func_kwargs["edge_type"] = None
                 solve_success = False
