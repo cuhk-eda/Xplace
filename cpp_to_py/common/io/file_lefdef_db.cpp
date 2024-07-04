@@ -748,6 +748,9 @@ int readLefLayer(lefrCallbackType_e c, lefiLayer* leflayer, lefiUserData ud) {
             return 0;
         }
         type = 'c';
+    } else if (!strcmp(leflayer->type(), "MASTERSLICE")) {
+        logger.warning("Find MASTERSLICE layer %s.", name.c_str());
+        type = 's';
     } else {
         return 0;
     }
@@ -887,6 +890,8 @@ int readLefLayer(lefrCallbackType_e c, lefiLayer* leflayer, lefiUserData ud) {
                         return 0;
                 }
             }
+            return 0;
+        case 's':
             return 0;
         default:
             return 0;

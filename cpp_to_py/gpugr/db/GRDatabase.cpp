@@ -330,7 +330,7 @@ void GRDatabase::addCellObs(std::vector<RectOnLayer>& allObs, db::Cell* cell) {
     int dy = ctype->originY() + cell->ly();
     // Macro Obs
     for (auto& e : ctype->obs()) {
-        if (e.layer.rIndex == 0) continue;  // ignore M1 OBS
+        if (e.layer.rIndex <= 0) continue;  // ignore M1 OBS and non-routing layer
         int lx = e.lx, ly = e.ly, hx = e.hx, hy = e.hy;
         switch (cellOrient) {
             case 2:  // S
@@ -355,7 +355,7 @@ void GRDatabase::addCellObs(std::vector<RectOnLayer>& allObs, db::Cell* cell) {
     // Pin Box
     for (auto pintype : ctype->pins) {
         for (auto& e : pintype->shapes) {
-            if (e.layer.rIndex == 0) continue;  // ignore M1 OBS
+            if (e.layer.rIndex <= 0) continue;  // ignore M1 OBS and non-routing layer
             int lx = e.lx, ly = e.ly, hx = e.hx, hy = e.hy;
             switch (cellOrient) {
                 case 2:  // S

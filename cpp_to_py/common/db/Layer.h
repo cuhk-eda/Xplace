@@ -39,7 +39,7 @@ class Layer {
 
 private:
     string _name = "";
-    //'r' for route or 'c' for cut
+    //'r' for route, 'c' for cut, 's' for MasterSlice(pwell, nwell)
     char _type = 'x';
 
     Layer* _below = nullptr;
@@ -79,6 +79,7 @@ public:
 
     bool isRouteLayer() const { return _type == 'r'; }
     bool isCutLayer() const { return _type == 'c'; }
+    bool isMasterSliceLayer() const { return _type == 's'; }
     Layer* getLayerBelow() const { return _below; }
     Layer* getLayerAbove() const { return _above; }
 
