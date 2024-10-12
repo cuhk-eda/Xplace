@@ -1,5 +1,7 @@
 from utils import *
 from src import run_placement_main, Flute
+import random, os
+
 
 def set_option():
     args = type('ARGS', (), {})()
@@ -66,13 +68,19 @@ def set_option():
     args.exp_id = datetime.datetime.now().strftime('%Y-%m-%d-%H:%M:%S') + args.exp_id
     return args
 
-def run_xplace(aux_filepath, design_name):
+
+def run_xplace(aux_filepath, design_name, target_density):
     args = set_option()
     args.aux = aux_filepath
     args.design_name = design_name
+    args.target_density = target_density
+    args.seed = random.randint(0, 65535)
+    args.num_threads = os.cpu_count()
     logger = setup_logger(args, sys.argv)
     set_random_seed(args)
     Flute.register(args.num_threads)
-    run_placement_main(args, logger)
+    res = run_placement_main(args, logger)
+    return res[0][0], res[0][1]  # detail_hpwl, global_hpwl
 
-run_xplace('../../testcase/mms/adaptec1/adaptec1.aux', 'adaptec1')
+# run_xplace('../../testcase/mms/adaptec1/adaptec1.aux', 'adaptec1', 1.0)
+

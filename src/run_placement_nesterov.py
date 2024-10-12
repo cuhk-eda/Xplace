@@ -391,38 +391,11 @@ def global_placement_main(gpdb, rawdb, ps: ParamScheduler, data: PlaceData, args
     return node_pos, iteration, gp_hpwl, overflow, gp_time, gp_per_iter
 
 def set_dataset_args(args):
-    if args.design_name in ["adaptec1", "bigblue1"]:
+    if args.design_name in ["adaptec1", "bigblue1", "newblue1"]:
         args.num_bin_x = args.num_bin_y = 512
-        args.target_density = 1.0
-    elif args.design_name in ["adaptec2", "adaptec3", "adaptec4", "bigblue2"]:
+    elif args.design_name in ["adaptec2", "adaptec3", "adaptec4", "adaptec5", "bigblue2", "newblue2", "newblue4", "newblue5"]:
         args.num_bin_x = args.num_bin_y = 1024
-        args.target_density = 1.0
-    elif args.design_name in ["bigblue3", "bigblue4"]:
-        args.num_bin_x = args.num_bin_y = 2048
-        args.target_density = 1.0
-    elif args.design_name in ["adaptec5"]:
-        args.target_density = 0.5
-        args.num_bin_x = args.num_bin_y = 1024
-    elif args.design_name in ["newblue1"]:
-        args.target_density = 0.8
-        args.num_bin_x = args.num_bin_y = 512
-    elif args.design_name in ["newblue2"]:
-        args.target_density = 0.9
-        args.num_bin_x = args.num_bin_y = 1024
-    elif args.design_name in ["newblue3"]:
-        args.target_density = 0.8
-        args.num_bin_x = args.num_bin_y = 2048
-    elif args.design_name in ["newblue4"]:
-        args.target_density = 0.5
-        args.num_bin_x = args.num_bin_y = 1024
-    elif args.design_name in ["newblue5"]:
-        args.target_density = 0.5
-        args.num_bin_x = args.num_bin_y = 1024
-    elif args.design_name in ["newblue6"]:
-        args.target_density = 0.8
-        args.num_bin_x = args.num_bin_y = 2048
-    elif args.design_name in ["newblue7"]:
-        args.target_density = 0.8
+    elif args.design_name in ["bigblue3", "bigblue4", "newblue3", "newblue6", "newblue7"]:
         args.num_bin_x = args.num_bin_y = 2048
 
 def run_placement_main_nesterov(args, logger):
