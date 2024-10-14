@@ -1,5 +1,5 @@
 from cpp_to_py import flute_cpp
-import torch
+import torch, os
 import numpy as np
 
 class Flute(object):
@@ -7,6 +7,10 @@ class Flute(object):
 
     @staticmethod
     def register(num_threads_=1, POWVFILE="thirdparty/flute/POWV9.dat", POSTFILE="thirdparty/flute/POST9.dat"):
+        script_path = os.path.abspath(__file__)
+        script_dir = os.path.join(os.path.dirname(script_path), "../..")
+        POWVFILE = os.path.join(script_dir, POWVFILE)
+        POSTFILE = os.path.join(script_dir, POSTFILE)
         Flute.read_lut(POWVFILE, POSTFILE)
         Flute.num_threads = num_threads_
         

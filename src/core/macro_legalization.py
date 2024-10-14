@@ -20,7 +20,7 @@ pulp_logger = logging.getLogger('pulp')
 pulp_logger.setLevel(logging.INFO)
 use_numba_parallel = False
 
-@nb.jit(cache=True, parallel=use_numba_parallel)
+@nb.jit(nopython=True, cache=True, parallel=use_numba_parallel)
 def check_macro_legality(macro_pos, macro_size, macro_fixed, die_info, check_all=True):
     num_macros = macro_pos.shape[0]
     # overlap = np.zeros((num_macros, num_macros), dtype=np.bool8)

@@ -52,12 +52,12 @@ def setup_logger(args, sys_argv) -> logging.Logger:
         logger.setLevel(logging.DEBUG)
     logger.addHandler(file_handler)
     logger.addHandler(screen_handler)
-
     logger.info("Command line: python " + " ".join(sys_argv))
     logger.info("log file at {}".format(log_file_path))
+
     logger.info("")
-    for arg in vars(args):
-        logger.info("{}: {}".format(arg, getattr(args, arg)))
+    for attr_name, attr_value in vars(args).items():
+        logger.info("{}: {}".format(attr_name, attr_value))
     logger.info("")
 
     logging.getLogger("matplotlib.font_manager").disabled = True

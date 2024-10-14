@@ -5,9 +5,15 @@ import math
 from utils import *
 
 
-def load_dataset(args, logger, params):
+def load_dataset(args, logger):
     rawdb, gpdb = None, None
     parser = IOParser()
+    params = {
+        'benchmark': args.dataset, 
+        'bookshelf_variety': args.bookshelf_variety, 
+        'aux': args.aux, 
+        'design_name': args.design_name
+    }
     if args.load_from_raw:
         logger.info("loading from original benchmark...")
         rawdb, gpdb = parser.read(
