@@ -1,4 +1,9 @@
-#include "Database.h"
+#include "Cell.h"
+
+#include "DatabaseClass.h"
+#include "Geometry.h"
+#include "Pin.h"
+
 using namespace db;
 
 /***** Cell *****/
@@ -37,9 +42,7 @@ void Cell::ctype(CellType* t) {
 
 int Cell::lx() const { return _lx; }
 int Cell::ly() const { return _ly; }
-int Cell::orient() const {
-    return _orient;
-}
+int Cell::orient() const { return _orient; }
 
 bool Cell::placed() const { return (lx() != INT_MIN) && (ly() != INT_MIN); }
 // int Cell::siteWidth() const { return width() / database.siteW; }

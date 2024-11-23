@@ -1,54 +1,7 @@
 #pragma once
 
+#include "DatabaseClass.h"
 #include "Setting.h"
-#include "common/common.h"
-
-namespace db {
-
-using std::string;
-using std::vector;
-
-class Rectangle;
-class Geometry;
-class GeoMap;
-class Cell;
-class CellType;
-class Pin;
-class PinType;
-class IOPin;
-class CellPin;
-class Net;
-class Row;
-class RowSegment;
-class Track;
-class Layer;
-class Via;
-class ViaRule;
-class ViaType;
-class Region;
-class NDR;
-class SNet;
-class Site;
-class PowerNet;
-class EdgeTypes;
-class GCellGrid;
-class BsRouteInfo;
-}  // namespace db
-
-#include "BsRouteInfo.h"
-#include "Cell.h"
-#include "DesignRule.h"
-#include "GCellGrid.h"
-#include "Geometry.h"
-#include "Layer.h"
-#include "Net.h"
-#include "Pin.h"
-#include "Region.h"
-#include "Row.h"
-#include "SNet.h"
-#include "Site.h"
-#include "SiteMap.h"
-#include "Via.h"
 
 namespace db {
 
@@ -86,7 +39,7 @@ public:
     robin_hood::unordered_map<string, ViaType*> name_viatypes;
 
     vector<Layer> layers;
-    vector<Site> sites;
+    vector<Site*> lefsites;
     vector<ViaType*> viatypes;
     vector<CellType*> celltypes;
 
@@ -102,7 +55,7 @@ public:
     vector<Geometry> routeBlockages;
     vector<Rectangle> placeBlockages;
 
-    PowerNet powerNet;
+    PowerNet* powerNet = nullptr;
 
 private:
     static const size_t _bufferCapacity = 128 * 1024;
@@ -115,11 +68,11 @@ public:
     unsigned nSitesX = 0;
     unsigned nSitesY = 0;
 
-    SiteMap siteMap;
-    GCellGrid gcellgrid;
+    SiteMap* siteMap = nullptr;
+    GCellGrid* gcellgrid = nullptr;
 
-    BsRouteInfo bsRouteInfo;
-    EdgeTypes edgetypes;
+    BsRouteInfo* bsRouteInfo = nullptr;
+    EdgeTypes* edgetypes = nullptr;
 
     int dieLX, dieLY, dieHX, dieHY;
     int coreLX, coreLY, coreHX, coreHY;
@@ -139,13 +92,13 @@ public:
     ~Database();
     void clear();
     void clearTechnology();
-    inline void clearLibrary() { CLEAR_POINTER_LIST(celltypes); }
+    void clearLibrary();
     void clearDesign();
 
     Layer& addLayer(const string& name, const char type = 'x');
-    Site& addSite(const string& name, const string& siteClassName, const int w, const int h);
+    Site* addSite(const string& name, const string& siteClassName, const int w, const int h);
     ViaType* addViaType(const string& name, bool isDef);
-    inline ViaType* addViaType(const string& name) { return addViaType(name, false); }
+    ViaType* addViaType(const string& name) { return addViaType(name, false); }
     CellType* addCellType(const string& name, unsigned libcell);
     void reserveCells(const size_t n) { cells.reserve(n); }
     Cell* addCell(const string& name, CellType* type = nullptr);
@@ -183,17 +136,15 @@ public:
 
     unsigned getNumRLayers() const;
     unsigned getNumCLayers() const;
-    inline unsigned getNumLayers() const { return layers.size(); }
-    inline unsigned getNumCells() const { return cells.size(); }
-    inline unsigned getNumNets() const { return nets.size(); }
-    inline unsigned getNumRegions() const { return regions.size(); }
-    inline unsigned getNumIOPins() const { return iopins.size(); }
-    inline unsigned getNumCellTypes() const { return celltypes.size(); }
+    unsigned getNumLayers() const;
+    unsigned getNumCells() const { return cells.size(); }
+    unsigned getNumNets() const { return nets.size(); }
+    unsigned getNumRegions() const { return regions.size(); }
+    unsigned getNumIOPins() const { return iopins.size(); }
+    unsigned getNumCellTypes() const { return celltypes.size(); }
 
-    inline int getCellTypeSpace(const CellType* L, const CellType* R) const {
-        return edgetypes.getEdgeSpace(L->edgetypeR, R->edgetypeL);
-    }
-    inline int getCellTypeSpace(const Cell* L, const Cell* R) const { return getCellTypeSpace(L->ctype(), R->ctype()); }
+    int getCellTypeSpace(const CellType* L, const CellType* R) const;
+    int getCellTypeSpace(const Cell* L, const Cell* R) const;
     int getContainedSites(
         const int lx, const int ly, const int hx, const int hy, int& slx, int& sly, int& shx, int& shy) const;
     int getOverlappedSites(

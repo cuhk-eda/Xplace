@@ -1,5 +1,6 @@
 #pragma once
-#include "common/common.h"
+#include <string>
+#include <vector>
 
 namespace db {
 

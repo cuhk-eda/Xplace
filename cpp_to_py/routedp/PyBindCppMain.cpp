@@ -1,7 +1,10 @@
 #include <torch/extension.h>
 #include "common/common.h"
 #include "common/db/Database.h"
-#include "flute.h"
+#include "common/db/Geometry.h"
+#include "common/db/Layer.h"
+#include "common/db/SNet.h"
+#include "common/db/Via.h"
 #include "io_parser/gp/GPDatabase.h"
 
 namespace routedp {

@@ -1,6 +1,15 @@
 #pragma once
+#include <climits>
+#include <iostream>
+#include <map>
+#include <vector>
 
 namespace db {
+
+using std::vector;
+
+class Layer;
+
 class Rectangle {
 public:
     int lx = INT_MAX;
@@ -47,7 +56,7 @@ public:
         : Rectangle(lx, ly, hx, hy), layer(layer) {}
     Geometry(const Geometry& geom) : Rectangle(geom), layer(geom.layer) {}
 
-    inline bool operator==(const Geometry& rhs) const;
+    bool operator==(const Geometry& rhs) const;
 };
 
 class GeoMap : public Rectangle {

@@ -1,6 +1,17 @@
 #pragma once
+#include <string>
+#include <vector>
+#include <tuple>
+#include <climits>
 
 namespace db {
+
+using std::string;
+using std::vector;
+
+class Layer;
+class Track;
+
 class Track {
     // contain DEF track info
     // support multi layer track DEF definition
@@ -68,7 +79,7 @@ public:
     // ParallelRunLength Spacing
     vector<int> parLength;
     vector<int> parWidth;
-    vector<vector<int>> parWidthSpace; // 2D table: (parWidth, parLength) -> widthSpacing
+    vector<vector<int>> parWidthSpace;  // 2D table: (parWidth, parLength) -> widthSpacing
 
     vector<Track> tracks;
     vector<Track> nonPreferDirTracks;

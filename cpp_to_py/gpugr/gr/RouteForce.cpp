@@ -1,4 +1,7 @@
 #include "RouteForce.h"
+#include "common/db/Database.h"
+#include "io_parser/gp/GPDatabase.h"
+#include "gpugr/db/GRDatabase.h"
 
 namespace gr {
 

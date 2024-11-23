@@ -1,4 +1,8 @@
+#include "common/db/Cell.h"
 #include "common/db/Database.h"
+#include "common/db/DatabaseClass.h"
+#include "common/db/Layer.h"
+#include "common/db/Row.h"
 
 using namespace db;
 

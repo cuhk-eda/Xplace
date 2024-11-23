@@ -1,6 +1,23 @@
 #pragma once
+#include <map>
+#include <string>
+#include <vector>
+#include <climits>
 
 namespace db {
+
+using std::string;
+using std::vector;
+
+class Layer;
+class Pin;
+class Cell;
+class NDR;
+class NetRouteNode;
+class NetRouteSegment;
+class NetRouting;
+class Net;
+class SNet;
 
 class NetRouteNode {
 private:
@@ -11,12 +28,9 @@ public:
     int y = 0;
     int z = 0;
     Pin* pin;
-
     NetRouteNode(const Layer* layer = nullptr, const int x = 0, const int y = 0, const int z = 0);
 
-    inline bool operator==(const NetRouteNode& r) const {
-        return _layer == r._layer && x == r.x && y == r.y && z == r.z;
-    }
+    bool operator==(const NetRouteNode& r) const;
 };
 
 class NetRouteSegment {
@@ -62,8 +76,8 @@ public:
     const NDR* ndr = nullptr;
     int gpdb_id = -1;
 
-    Net(const string& name, const NDR* ndr = nullptr) : name(name), ndr(ndr) {}
-    Net(const Net& net) : _routing(net._routing), name(net.name), pins(net.pins), ndr(net.ndr) {}
+    Net(const string& name, const NDR* ndr = nullptr);
+    Net(const Net& net);
 
     bool globalRouted() const { return gRouted; }
     bool detailedRouted() const { return dRouted; }
@@ -100,6 +114,7 @@ private:
     std::map<int, SNet*> rails;
 
 public:
+    ~PowerNet() { rails.clear(); }
     void addRail(SNet* snet, int lx, int hx, int y);
     bool getRowPower(int ly, int hy, char& topPower, char& botPower);
 };

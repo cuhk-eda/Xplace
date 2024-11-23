@@ -1,4 +1,24 @@
+#include <fstream>
+#include <iomanip>
+#include <iostream>
+#include <sstream>
+
+#include "common/db/BsRouteInfo.h"
+#include "common/db/Cell.h"
 #include "common/db/Database.h"
+#include "common/db/DatabaseClass.h"
+#include "common/db/DesignRule.h"
+#include "common/db/GCellGrid.h"
+#include "common/db/Geometry.h"
+#include "common/db/Layer.h"
+#include "common/db/Net.h"
+#include "common/db/Pin.h"
+#include "common/db/Region.h"
+#include "common/db/Row.h"
+#include "common/db/SNet.h"
+#include "common/db/Site.h"
+#include "common/db/SiteMap.h"
+#include "common/db/Via.h"
 
 // tcl have another definition of EXTERN
 #undef EXTERN
@@ -349,7 +369,7 @@ bool Database::readDEFPG(const std::string& file) {
                     }
                     //  snet->addShape(*layer, lx, ly, hx, hy);
                     if ((layer->rIndex == 0 || layer->rIndex == 1) && direction == 'h') {
-                        //  db->powerNet.addRail(snet, lx, hx, fy);
+                        //  db->powerNet->addRail(snet, lx, hx, fy);
                     }
                 }
             }
@@ -385,17 +405,20 @@ bool Database::writeComponents(std::ofstream& ofs) {
         std::ofstream& oss = ofs;
 #endif
         oss << "   - " << cell->name() << " " << cell->ctype()->name << std::endl;
-        // ofs << "   - " << cell->name() << " " << cell->ctype()->name << std::endl;
+        // ofs << "   - " << cell->name() << " " << cell->ctype()->name <<
+        // std::endl;
         if (cell->fixed()) {
             oss << "      + FIXED ( " << cell->lx() << " " << cell->ly() << " ) " << getOrient(cell->orient()) << " ;"
                 << std::endl;
-            // ofs << "      + FIXED ( " << cell->lx() << " " << cell->ly() << " ) "
+            // ofs << "      + FIXED ( " << cell->lx() << " " << cell->ly() << "
+            // ) "
             //    << getOrient(cell->orient())
             //    << " ;" << std::endl;
         } else if (cell->placed()) {
             oss << "      + PLACED ( " << cell->lx() << " " << cell->ly() << " ) " << getOrient(cell->orient()) << " ;"
                 << std::endl;
-            // ofs << "      + PLACED ( " << cell->lx() << " " << cell->ly() << " ) "
+            // ofs << "      + PLACED ( " << cell->lx() << " " << cell->ly() <<
+            // " ) "
             //    << getOrient(cell->orient())
             //    << " ;" << std::endl;
         } else {
@@ -463,7 +486,8 @@ bool Database::writeICCAD2017(const string& outputDef) {
     }
     logger.info("writing %s", outputDef.c_str());
 
-    writeComponents(ofs);  // just replace the information of components, while others keep remain.
+    writeComponents(ofs);  // just replace the information of components, while
+                           // others keep remain.
 
     ofs << "END DESIGN\n\n" << std::endl;
 
@@ -620,7 +644,9 @@ bool Database::writeBuffer(std::ofstream& ofs, const string& line) {
             b += nw;
         }
 
-        ofs.write(_buffer, _bufferCapacity);  // From _buffer write _bufferCapacity charcters to ostream
+        ofs.write(_buffer,
+                  _bufferCapacity);  // From _buffer write _bufferCapacity
+                                     // charcters to ostream
         _bufferSize = 0;
     }
 
@@ -698,36 +724,36 @@ int readLefProp(lefrCallbackType_e c, lefiProp* prop, lefiUserData ud) {
                 if (setting.EdgeSpacing) {
                     dbdist = (int)round(microndist * db->LefConvertFactor);
                 }
-                int type1_idx = db->edgetypes.getEdgeType(type1);
-                int type2_idx = db->edgetypes.getEdgeType(type2);
+                int type1_idx = db->edgetypes->getEdgeType(type1);
+                int type2_idx = db->edgetypes->getEdgeType(type2);
 
                 if (type1_idx < 0) {
-                    type1_idx = db->edgetypes.types.size();
-                    db->edgetypes.types.push_back(type1);
+                    type1_idx = db->edgetypes->types.size();
+                    db->edgetypes->types.push_back(type1);
                 }
                 if (type2_idx < 0) {
-                    type2_idx = db->edgetypes.types.size();
-                    db->edgetypes.types.push_back(type2);
+                    type2_idx = db->edgetypes->types.size();
+                    db->edgetypes->types.push_back(type2);
                 }
 
-                int numEdgeTypes = db->edgetypes.types.size();
-                if (numEdgeTypes > (int)db->edgetypes.distTable.size()) {
-                    db->edgetypes.distTable.resize(numEdgeTypes);
+                int numEdgeTypes = db->edgetypes->types.size();
+                if (numEdgeTypes > (int)db->edgetypes->distTable.size()) {
+                    db->edgetypes->distTable.resize(numEdgeTypes);
                 }
                 for (int i = 0; i < numEdgeTypes; i++) {
-                    db->edgetypes.distTable[i].resize(numEdgeTypes, 0);
+                    db->edgetypes->distTable[i].resize(numEdgeTypes, 0);
                 }
-                db->edgetypes.distTable[type1_idx][type2_idx] = dbdist;
-                db->edgetypes.distTable[type2_idx][type1_idx] = dbdist;
+                db->edgetypes->distTable[type1_idx][type2_idx] = dbdist;
+                db->edgetypes->distTable[type2_idx][type1_idx] = dbdist;
             }
             if (buffer == ";") {
                 break;
             }
         }
         // default edge type dist
-        for (unsigned i = 0; i < db->edgetypes.types.size(); i++) {
-            db->edgetypes.distTable[0][i] = 0;
-            db->edgetypes.distTable[i][0] = 0;
+        for (unsigned i = 0; i < db->edgetypes->types.size(); i++) {
+            db->edgetypes->distTable[0][i] = 0;
+            db->edgetypes->distTable[i][0] = 0;
         }
     }
     return 0;
@@ -820,7 +846,8 @@ int readLefLayer(lefrCallbackType_e c, lefiLayer* leflayer, lefiUserData ud) {
 
             if (leflayer->lefiLayer::hasSpacingNumber()) {
                 for (int i = 0; i < leflayer->lefiLayer::numSpacing(); i++) {
-                    // spaceType: 0 -> minSpacing, 1 -> maxEOLSpace, 2 -> maxEOLSpaceParallelEdge
+                    // spaceType: 0 -> minSpacing, 1 -> maxEOLSpace, 2 ->
+                    // maxEOLSpaceParallelEdge
                     int spaceType = 0;
                     int spacing, width, within, parSpace, parWithin;
                     spacing = lround(leflayer->lefiLayer::spacing(i) * convertFactor);
@@ -1233,9 +1260,9 @@ int readLefMacro(lefrCallbackType_e c, lefiMacro* macro, lefiUserData ud) {
                     string edgetype;
                     ssedgetype >> edgeside >> edgetype;
                     if (edgeside == "LEFT") {
-                        celltype->edgetypeL = db->edgetypes.getEdgeType(edgetype);
+                        celltype->edgetypeL = db->edgetypes->getEdgeType(edgetype);
                     } else if (edgeside == "RIGHT") {
-                        celltype->edgetypeR = db->edgetypes.getEdgeType(edgetype);
+                        celltype->edgetypeR = db->edgetypes->getEdgeType(edgetype);
                     } else if (edgeside == "BOTTOM") {
                         static bool missBot = true;
                         if (missBot) {
@@ -1350,13 +1377,13 @@ int readDefGcellGrid(defrCallbackType_e c, defiGcellGrid* dgrid, defiUserData ud
     Database* db = (Database*)ud;
     const string macro(dgrid->macro());
     if (macro == "X") {
-        db->gcellgrid.numX.emplace_back(dgrid->xNum());
-        db->gcellgrid.stepX.emplace_back(dgrid->xStep());
-        db->gcellgrid.startX.emplace_back(dgrid->x());
+        db->gcellgrid->numX.emplace_back(dgrid->xNum());
+        db->gcellgrid->stepX.emplace_back(dgrid->xStep());
+        db->gcellgrid->startX.emplace_back(dgrid->x());
     } else if (macro == "Y") {
-        db->gcellgrid.numY.emplace_back(dgrid->xNum());
-        db->gcellgrid.stepY.emplace_back(dgrid->xStep());
-        db->gcellgrid.startY.emplace_back(dgrid->x());
+        db->gcellgrid->numY.emplace_back(dgrid->xNum());
+        db->gcellgrid->stepY.emplace_back(dgrid->xStep());
+        db->gcellgrid->startY.emplace_back(dgrid->x());
     }
     return 0;
 }
@@ -1500,10 +1527,12 @@ int readDefComponent(defrCallbackType_e c, defiComponent* co, defiUserData ud) {
         cell->fixed(true);
         if (co->placementOrient() % 2 == 1) {
             // 0:N, 1:W, 2:S, 3:E, 4:FN, 5:FW, 6:FS, 7:FE, -1:NONE
-            logger.warning("Fixed Cell [%s]'s placementOrient [%s] is not supported, CLASS: %s.",
-                           cell->name().c_str(),
-                           getOrient(co->placementOrient()).c_str(),
-                           celltype->cls.c_str());
+            logger.warning(
+                "Fixed Cell [%s]'s placementOrient [%s] is not supported, "
+                "CLASS: %s.",
+                cell->name().c_str(),
+                getOrient(co->placementOrient()).c_str(),
+                celltype->cls.c_str());
         }
     }
     return 0;
@@ -1550,8 +1579,10 @@ int readDefPin(defrCallbackType_e c, defiPin* dpin, defiUserData ud) {
         for (int j = 0; j < dpin->numPorts(); j++) {
             if (j > 1) {
                 string pinName(dpin->pinName());
-                logger.warning("DefPin %s has multiple ports. We currently only support single port definition",
-                               pinName.c_str());
+                logger.warning(
+                    "DefPin %s has multiple ports. We currently only support "
+                    "single port definition",
+                    pinName.c_str());
                 break;
             }
             defiPinPort* port = dpin->pinPort(j);
@@ -1686,7 +1717,7 @@ int readDefSNet(defrCallbackType_e c, defiNet* dnet, defiUserData ud) {
                             }
                             snet->addShape(*layer, lx, ly, hx, hy);
                             if ((layer->rIndex == 0 || layer->rIndex == 1) && fy == ty) {
-                                db->powerNet.addRail(snet, lx, hx, fy);
+                                db->powerNet->addRail(snet, lx, hx, fy);
                             }
                             fx = tx;
                             fy = ty;
@@ -1717,7 +1748,7 @@ int readDefSNet(defrCallbackType_e c, defiNet* dnet, defiUserData ud) {
                             }
                             snet->addShape(*layer, lx, ly, hx, hy);
                             if ((layer->rIndex == 0 || layer->rIndex == 1) && fy == ty) {
-                                db->powerNet.addRail(snet, lx, hx, fy);
+                                db->powerNet->addRail(snet, lx, hx, fy);
                             }
                             fx = tx;
                             fy = ty;
@@ -1891,7 +1922,8 @@ int readDefRegion(defrCallbackType_e c, defiRegion* dreg, defiUserData ud) {
 }
 
 //-----Group-----
-// #define GROUP_MARKER 9999999 //first mark all group member cell with this marker, then replace the value in one scan
+// #define GROUP_MARKER 9999999 //first mark all group member cell with this
+// marker, then replace the value in one scan
 int readDefGroupName(defrCallbackType_e c, const char* cl, defiUserData ud) { return 0; }
 
 int readDefGroupMember(defrCallbackType_e c, const char* cl, defiUserData ud) {

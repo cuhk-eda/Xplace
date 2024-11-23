@@ -2,7 +2,10 @@
 
 #include <torch/extension.h>
 #include "common/common.h"
-#include "common/db/Database.h"
+
+namespace db {
+class Database;
+}
 
 namespace dp {
 

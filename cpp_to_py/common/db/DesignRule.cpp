@@ -1,4 +1,7 @@
-#include "Database.h"
+#include "DesignRule.h"
+
+#include "DatabaseClass.h"
+
 using namespace db;
 
 /***** EdgeTypes *****/

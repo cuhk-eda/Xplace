@@ -1,4 +1,8 @@
+#include "common/db/Cell.h"
 #include "common/db/Database.h"
+#include "common/db/Layer.h"
+#include "common/db/Net.h"
+#include "common/db/Pin.h"
 
 using namespace db;
 
@@ -135,7 +139,7 @@ bool Database::readVerilog(const std::string &file) {
                 if (!iopin) {
                     logger.error("io pin not found: %s", pinName.c_str());
                 }
-                Pin* pin = iopin->pin;
+                Pin *pin = iopin->pin;
                 iopin->is_connected = true;
                 Net *net = addNet(pinName);
 

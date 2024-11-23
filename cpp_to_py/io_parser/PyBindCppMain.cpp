@@ -1,4 +1,6 @@
 #include "BindHelper.h"
+#include "common/db/Database.h"
+#include "io_parser/gp/GPDatabase.h"
 
 namespace Xplace {
 

@@ -1,10 +1,22 @@
-#include "Database.h"
+#include "Net.h"
+
+#include "DatabaseClass.h"
+#include "DesignRule.h"
+#include "Layer.h"
+#include "SNet.h"
+#include "Via.h"
+#include "Geometry.h"
+
 using namespace db;
 
 /***** NetRouteNode *****/
 
 NetRouteNode::NetRouteNode(const Layer* layer, const int x, const int y, const int z)
     : _layer(layer), x(x), y(y), z(z) {}
+
+bool NetRouteNode::operator==(const NetRouteNode& r) const {
+    return _layer == r._layer && x == r.x && y == r.y && z == r.z;
+}
 
 /***** NetRouteSegment *****/
 
@@ -94,6 +106,9 @@ long long NetRouting::length() const {
 
 /***** Net *****/
 
+Net::Net(const string& name, const NDR* ndr) : name(name), ndr(ndr) {}
+Net::Net(const Net& net) : _routing(net._routing), name(net.name), pins(net.pins), ndr(net.ndr) {}
+
 void Net::addPin(Pin* pin) {
     // if (pin->type->direction() == 'o' && pins.size()) {
     //     Pin* firstPin = pins[0];
@@ -111,12 +126,13 @@ void Net::addPin(Pin* pin) {
 void PowerNet::addRail(SNet* snet, int lx, int hx, int y) {
     std::map<int, SNet*>::iterator rail = rails.find(y);
     if (rail != rails.end() && rail->second != snet) {
-        logger.error("rail %s already exists at y=%d , new rail %s is from %d to %d", rail->second->name.c_str(),
-                 y, snet->name.c_str(),
-                 lx,
-                 hx);
+        logger.error("rail %s already exists at y=%d , new rail %s is from %d to %d",
+                     rail->second->name.c_str(),
+                     y,
+                     snet->name.c_str(),
+                     lx,
+                     hx);
         return;
-
     }
     rails.emplace(y, snet);
 }
@@ -139,4 +155,3 @@ bool PowerNet::getRowPower(int ly, int hy, char& topPower, char& botPower) {
     }
     return valid;
 }
-

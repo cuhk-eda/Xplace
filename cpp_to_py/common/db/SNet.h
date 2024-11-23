@@ -1,6 +1,14 @@
 #pragma once
+#include <vector>
+
+#include "Via.h"
 
 namespace db {
+
+using std::vector;
+
+class Geometry;
+
 class SNet {
 public:
     string name;
@@ -19,7 +27,5 @@ public:
     void addVia(Args&&... args) {
         vias.emplace_back(args...);
     }
-
 };
-}
-
+}  // namespace db

@@ -1,8 +1,10 @@
 #pragma once
 #include "common/common.h"
-#include "common/db/Database.h"
-#include "gpugr/db/GRDatabase.h"
 #include "gpugr/gr/GPURouter.h"
+
+namespace gr {
+class GRDatabase;
+}
 
 namespace gr {
 

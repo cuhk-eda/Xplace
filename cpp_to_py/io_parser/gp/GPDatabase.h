@@ -1,7 +1,12 @@
 #pragma once
 #include <torch/extension.h>
 #include "common/common.h"
-#include "common/db/Database.h"
+
+namespace db {
+class Database;
+class Pin;
+class PinType;
+}
 
 namespace gp {
 
@@ -210,7 +215,7 @@ public:
     const std::tuple<int, int, int, int>& getCoreInfo() const { return coreInfo; }
     const int getSiteWidth() const { return siteW; }
     const int getSiteHeight() const { return siteH; }
-    const int getM1Direction() const { return database.getRLayer(0)->direction == 'v' ? 1 : 0; }
+    const int getM1Direction() const;
 
     // Torch related
     torch::Tensor getNodeLPosTensor();

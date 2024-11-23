@@ -1,5 +1,15 @@
 #include "GPDatabase.h"
 
+#include "common/db/Cell.h"
+#include "common/db/Database.h"
+#include "common/db/Layer.h"
+#include "common/db/Net.h"
+#include "common/db/Pin.h"
+#include "common/db/Region.h"
+#include "common/db/Row.h"
+#include "common/db/SNet.h"
+#include "common/db/Via.h"
+
 namespace gp {
 
 GPDatabase::~GPDatabase() { logger.info("destruct gpdb"); }
@@ -364,7 +374,6 @@ orient_type rotate_180_orient(orient_type orient) {
 
 orient_type vflip_orient(orient_type orient) { return hflip_orient(rotate_180_orient(orient)); }
 
-
 void GPDatabase::transferOrient() {
     // Transfer all gpdb nodes to "N" direction for global placement
     // NOTE: we don't change rawdb
@@ -591,6 +600,8 @@ void GPDatabase::setup_random_place() {
         }
     }
 }
+
+const int GPDatabase::getM1Direction() const { return database.getRLayer(0)->direction == 'v' ? 1 : 0; }
 
 // Torch Related
 torch::Tensor GPDatabase::getNodeLPosTensor() {

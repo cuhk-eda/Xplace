@@ -4,7 +4,6 @@
 #include <cuda_runtime.h>
 
 #include "common/common.h"
-#include "common/db/Database.h"
 #include "gpudp/db/dp_torch.h"
 #include "pitch_nested_vector.cuh"
 #include "utils.cuh"

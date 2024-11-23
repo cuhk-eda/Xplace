@@ -1,6 +1,10 @@
 #pragma once
+#include <vector>
 
 namespace db {
+
+using std::vector;
+
 class BsRouteInfo {
     // specially restore ICCAD2012/DAC2012 bookshelf routing info
 public:

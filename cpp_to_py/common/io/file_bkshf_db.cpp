@@ -1,4 +1,16 @@
+#include <fstream>
+#include <iomanip>
+#include <iostream>
+#include <sstream>
+
+#include "common/db/BsRouteInfo.h"
+#include "common/db/Cell.h"
 #include "common/db/Database.h"
+#include "common/db/GCellGrid.h"
+#include "common/db/Layer.h"
+#include "common/db/Net.h"
+#include "common/db/Pin.h"
+#include "common/db/Row.h"
 
 using namespace db;
 
@@ -463,7 +475,8 @@ bool Database::readBSAux(const std::string& auxFile, const std::string& plFile) 
     if (minRowXStep != bsData.siteWidth) {
         if (bsData.siteWidth % minRowXStep == 0) {
             logger.warning(
-                "estimated siteWidth %d is not equal to the min rowXStep %d, but is a multiple of min rowXStep. Set "
+                "estimated siteWidth %d is not equal to the min rowXStep %d, "
+                "but is a multiple of min rowXStep. Set "
                 "estimated siteWidth as %d.",
                 bsData.siteWidth,
                 minRowXStep,
@@ -471,7 +484,10 @@ bool Database::readBSAux(const std::string& auxFile, const std::string& plFile) 
             bsData.siteWidth = minRowXStep;
         } else {
             logger.error(
-                "estimated siteWidth %d is not equal to the minimum rowXStep %d.", bsData.siteWidth, minRowXStep);
+                "estimated siteWidth %d is not equal to the minimum rowXStep "
+                "%d.",
+                bsData.siteWidth,
+                minRowXStep);
         }
     }
 
@@ -481,17 +497,17 @@ bool Database::readBSAux(const std::string& auxFile, const std::string& plFile) 
     if (bsData.format == "dac2012") {
         isDac2012 = true;
         nLayers = bsData.gridNZ;
-        this->gcellgrid.numX = {bsData.gridNX + 1};
-        this->gcellgrid.numY = {bsData.gridNY + 1};
-        this->gcellgrid.startX = {bsData.gridOriginX};
-        this->gcellgrid.startY = {bsData.gridOriginY};
-        this->gcellgrid.stepX = {bsData.tileW};
-        this->gcellgrid.stepY = {bsData.tileH};
-        this->bsRouteInfo.hasInfo = true;
-        this->bsRouteInfo.capV = std::move(bsData.capV);
-        this->bsRouteInfo.capH = std::move(bsData.capH);
-        this->bsRouteInfo.viaSpace = std::move(bsData.viaSpace);
-        this->bsRouteInfo.blockagePorosity = bsData.blockagePorosity;
+        this->gcellgrid->numX = {bsData.gridNX + 1};
+        this->gcellgrid->numY = {bsData.gridNY + 1};
+        this->gcellgrid->startX = {bsData.gridOriginX};
+        this->gcellgrid->startY = {bsData.gridOriginY};
+        this->gcellgrid->stepX = {bsData.tileW};
+        this->gcellgrid->stepY = {bsData.tileH};
+        this->bsRouteInfo->hasInfo = true;
+        this->bsRouteInfo->capV = std::move(bsData.capV);
+        this->bsRouteInfo->capH = std::move(bsData.capH);
+        this->bsRouteInfo->viaSpace = std::move(bsData.viaSpace);
+        this->bsRouteInfo->blockagePorosity = bsData.blockagePorosity;
         // this->grGrid.gcellNX = bsData.gridNX;
         // this->grGrid.gcellNY = bsData.gridNY;
         // this->grGrid.gcellL = bsData.gridOriginX;
@@ -505,13 +521,15 @@ bool Database::readBSAux(const std::string& auxFile, const std::string& plFile) 
         // this->grGrid.viaSpacing = std::move(bsData.viaSpace);
         // this->grGrid.minPitch.resize(nLayers);
         // for (int i = 0; i < nLayers; i++) {
-        //     this->grGrid.minPitch[i] = this->grGrid.minWireWidth[i] + this->grGrid.minWireSpacing[i];
+        //     this->grGrid.minPitch[i] = this->grGrid.minWireWidth[i] +
+        //     this->grGrid.minWireSpacing[i];
         // }
     }
 
-    // NOTE: ICCAD/DAC 2012 does not define trackPitch and the capacity of each GCell
-    // cannot be directly computed by tracks. We restore the bookshelf capacity value
-    // in Database::Others::capV(H) and will handle them in GRDatabase.
+    // NOTE: ICCAD/DAC 2012 does not define trackPitch and the capacity of each
+    // GCell cannot be directly computed by tracks. We restore the bookshelf
+    // capacity value in Database::Others::capV(H) and will handle them in
+    // GRDatabase.
     logger.info("parsing layers");
     int defaultPitch = bsData.siteWidth;
     int defaultWidth = bsData.siteWidth / 2;
@@ -519,8 +537,8 @@ bool Database::readBSAux(const std::string& auxFile, const std::string& plFile) 
     char m1direction = 'h';  // M1 Route layer, rIndex == 0
     char m2direction = 'v';  // M2 Route layer, rIndex == 1
     if ((nLayers > 1) && (bsData.format == "dac2012")) {
-        m1direction = (this->bsRouteInfo.capV[1] > 0) ? 'h' : 'v';
-        m2direction = (this->bsRouteInfo.capV[1] > 0) ? 'v' : 'h';
+        m1direction = (this->bsRouteInfo->capV[1] > 0) ? 'h' : 'v';
+        m2direction = (this->bsRouteInfo->capV[1] > 0) ? 'v' : 'h';
     }
     for (unsigned i = 0; i != nLayers; ++i) {
         Layer& layer = this->addLayer(string("M").append(std::to_string(i + 1)), 'r');
@@ -579,7 +597,8 @@ bool Database::readBSAux(const std::string& auxFile, const std::string& plFile) 
                     direction = 'o';
                     break;
                 case 'B':
-                    // We temporarily use 'x' to represent pin direction B in Bookshelf
+                    // We temporarily use 'x' to represent pin direction B in
+                    // Bookshelf
                     direction = 'x';
                     break;
                 default:
@@ -620,7 +639,8 @@ bool Database::readBSAux(const std::string& auxFile, const std::string& plFile) 
         } else {
             string celltypename(bsData.typeName[typeID]);
             Cell* cell = this->addCell(bsData.cellName[i], this->getCellType(celltypename));
-            // In Bookshelf, we don't need to consider the cell orient, set it as -1
+            // In Bookshelf, we don't need to consider the cell orient, set it
+            // as -1
             cell->place(bsData.cellX[i], bsData.cellY[i], -1);
             // cout<<cell->x<<","<<cell->y<<endl;
             cell->fixed((bsData.cellFixed[i] == (char)1));
@@ -717,7 +737,8 @@ bool Database::readBSNodes(const std::string& file) {
                 cType = tokens[3];
             }
             // if (cWidth == 0 || cHeight == 0) {
-            //     logger.warning("Node %s (Type %s) has irregular shape: width %d height %d.",
+            //     logger.warning("Node %s (Type %s) has irregular shape: width
+            //     %d height %d.",
             //                    cName.c_str(),
             //                    cType.c_str(),
             //                    cWidth,
@@ -810,11 +831,14 @@ bool Database::readBSNets(const std::string& file) {
                 pinY = bsData.typeHeight[typeID] * 0.5 + (double)atof(tokens[3].c_str());
                 /*
                 if(tokens.size() >= 6){
-                    //pinX = (int)round(atof(tokens[4].c_str())*bsData.siteWidth);
-                    //pinY = (int)round(atof(tokens[5].c_str())*bsData.siteWidth);
-                }else{
-                    pinX = bsData.typeWidth[typeID]  * 0.5 + (int)round(atof(tokens[2].c_str()));
-                    pinY = bsData.typeHeight[typeID] * 0.5 + (int)round(atof(tokens[3].c_str()));
+                    //pinX =
+                (int)round(atof(tokens[4].c_str())*bsData.siteWidth);
+                    //pinY =
+                (int)round(atof(tokens[5].c_str())*bsData.siteWidth); }else{
+                    pinX = bsData.typeWidth[typeID]  * 0.5 +
+                (int)round(atof(tokens[2].c_str())); pinY =
+                bsData.typeHeight[typeID] * 0.5 +
+                (int)round(atof(tokens[3].c_str()));
                 }
                 */
                 string pinName = (tokens.size() < 7) ? "" : tokens[6];
@@ -953,7 +977,8 @@ bool Database::readBSRoute(const std::string& file) {
             bsData.tileH = atoi(tokens[2].c_str());
         } else if (tokens[0] == "BlockagePorosity") {
             bsData.blockagePorosity = atof(tokens[1].c_str());
-            // assert_msg(bsData.blockagePorosity == 0, "We haven't yet supported non-zero blockagePorosity");
+            // assert_msg(bsData.blockagePorosity == 0, "We haven't yet
+            // supported non-zero blockagePorosity");
         } else if (tokens[0] == "NumNiTerminals") {
             status = ReadingPinLayer;
         } else if (tokens[0] == "NumBlockageNodes") {
@@ -994,7 +1019,8 @@ bool Database::readBSRoute(const std::string& file) {
             int ty = atoi(tokens[4].c_str());
             int tz = atoi(tokens[5].c_str());
             int cap = atoi(tokens[6].c_str());
-            cout<<fx<<" "<<fy<<" "<<fz<<" "<<tx<<" "<<ty<<" "<<tz<<" "<<cap<<endl;
+            cout<<fx<<" "<<fy<<" "<<fz<<" "<<tx<<" "<<ty<<" "<<tz<<"
+            "<<cap<<endl;
             */
         }
     }

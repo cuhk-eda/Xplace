@@ -1,5 +1,16 @@
 #include "GRDatabase.h"
 
+#include "common/db/BsRouteInfo.h"
+#include "common/db/Cell.h"
+#include "common/db/Database.h"
+#include "common/db/Layer.h"
+#include "common/db/GCellGrid.h"
+#include "common/db/Net.h"
+#include "common/db/Pin.h"
+#include "common/db/SNet.h"
+#include "common/db/Via.h"
+#include "io_parser/gp/GPDatabase.h"
+
 namespace gr {
 
 GRDatabase::~GRDatabase() { logger.info("destruct grdb"); }
@@ -67,9 +78,9 @@ GRDatabase::GRDatabase(std::shared_ptr<db::Database> rawdb_, std::shared_ptr<gp:
 
     // 2) init gcellgrid
     // 2.1) grid lines
-    db::GCellGrid& gcellgrid = rawdb.gcellgrid;
+    db::GCellGrid* gcellgrid = rawdb.gcellgrid;
     gridlines.resize(2);
-    if (!gcellgrid.numX.size() || !gcellgrid.numY.size()) {
+    if (!gcellgrid->numX.size() || !gcellgrid->numY.size()) {
         if (grSetting.routeXSize <= 0 || grSetting.routeYSize <= 0) {
             grSetting.routeXSize = 512;
             grSetting.routeYSize = 512;
@@ -77,16 +88,16 @@ GRDatabase::GRDatabase(std::shared_ptr<db::Database> rawdb_, std::shared_ptr<gp:
     }
     if (grSetting.routeXSize <= 0 || grSetting.routeYSize <= 0) {
         gridlines[0].emplace_back(0);
-        for (int idx = 0; idx < gcellgrid.numX.size(); idx++) {
-            for (int i = 1; i < gcellgrid.numX[idx]; i++) {
-                gridlines[0].emplace_back(gcellgrid.startX[idx] + i * gcellgrid.stepX[idx]);
+        for (int idx = 0; idx < gcellgrid->numX.size(); idx++) {
+            for (int i = 1; i < gcellgrid->numX[idx]; i++) {
+                gridlines[0].emplace_back(gcellgrid->startX[idx] + i * gcellgrid->stepX[idx]);
             }
         }
 
         gridlines[1].emplace_back(0);
-        for (int idx = 0; idx < gcellgrid.numY.size(); idx++) {
-            for (int i = 1; i < gcellgrid.numY[idx]; i++) {
-                gridlines[1].emplace_back(gcellgrid.startY[idx] + i * gcellgrid.stepY[idx]);
+        for (int idx = 0; idx < gcellgrid->numY.size(); idx++) {
+            for (int i = 1; i < gcellgrid->numY[idx]; i++) {
+                gridlines[1].emplace_back(gcellgrid->startY[idx] + i * gcellgrid->stepY[idx]);
             }
         }
     } else {
@@ -109,16 +120,16 @@ GRDatabase::GRDatabase(std::shared_ptr<db::Database> rawdb_, std::shared_ptr<gp:
 
     if (grSetting.routeXSize <= 0 || grSetting.routeYSize <= 0) {
         int largeNumX = -1, largeNumY = -1;
-        for (int idx = 0; idx < gcellgrid.numX.size(); idx++) {
-            if (largeNumX < gcellgrid.numX[idx]) {
-                largeNumX = gcellgrid.numX[idx];
-                mainGcellStepX = gcellgrid.stepX[idx];
+        for (int idx = 0; idx < gcellgrid->numX.size(); idx++) {
+            if (largeNumX < gcellgrid->numX[idx]) {
+                largeNumX = gcellgrid->numX[idx];
+                mainGcellStepX = gcellgrid->stepX[idx];
             }
         }
-        for (int idx = 0; idx < gcellgrid.numY.size(); idx++) {
-            if (largeNumY < gcellgrid.numY[idx]) {
-                largeNumY = gcellgrid.numY[idx];
-                mainGcellStepY = gcellgrid.stepY[idx];
+        for (int idx = 0; idx < gcellgrid->numY.size(); idx++) {
+            if (largeNumY < gcellgrid->numY[idx]) {
+                largeNumY = gcellgrid->numY[idx];
+                mainGcellStepY = gcellgrid->stepY[idx];
             }
         }
     } else {
@@ -191,7 +202,7 @@ void GRDatabase::setupCapacity() {
 void GRDatabase::setupCapacityBookshelf() {
     capacity.resize(gridGraphSize, 0);
     for (int i = 0; i < nLayers; i++) {
-        int oricap = std::max(rawdb.bsRouteInfo.capH[i], rawdb.bsRouteInfo.capV[i]);
+        int oricap = std::max(rawdb.bsRouteInfo->capH[i], rawdb.bsRouteInfo->capV[i]);
         float cap = oricap / (layerPitch[i]);
         if ((i & 1) ^ m1direction) {
             for (int j = 0; j < xSize; j++) {
@@ -608,7 +619,7 @@ void GRDatabase::markObsBookShelf(std::vector<RectOnLayer>& allObs,
 
     std::vector<float> layer2oricap(nLayers, 0.0);
     for (int i = 0; i < nLayers; i++) {
-        int oricap = std::max(rawdb.bsRouteInfo.capH[i], rawdb.bsRouteInfo.capV[i]);
+        int oricap = std::max(rawdb.bsRouteInfo->capH[i], rawdb.bsRouteInfo->capV[i]);
         float cap = oricap / (layerPitch[i]);
         layer2oricap[i] = oricap;
     }
@@ -695,7 +706,7 @@ void GRDatabase::markObsBookShelf(std::vector<RectOnLayer>& allObs,
                     ovlpLen = buf[0].range();
                 }
                 // Follow perl script dac2012_evaluate_solution.pl
-                float blocked = floor((float)ovlpLen * (1.0 - rawdb.bsRouteInfo.blockagePorosity));
+                float blocked = floor((float)ovlpLen * (1.0 - rawdb.bsRouteInfo->blockagePorosity));
                 float availableSpace = ((float)gridIntvl.range() - blocked) / (float)gridIntvl.range();
                 int adjustedCap = layer2oricap[l] * availableSpace;
                 adjustedCap = std::max(0, adjustedCap);

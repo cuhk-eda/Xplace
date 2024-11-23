@@ -1,7 +1,6 @@
 #pragma once
 
 #include "common/common.h"
-#include "common/db/Database.h"
 #include "gpudp/db/dp_torch.h"
 
 namespace dp {

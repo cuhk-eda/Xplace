@@ -1,4 +1,7 @@
-#include "Database.h"
+#include "Layer.h"
+
+#include "DatabaseClass.h"
+
 using namespace db;
 
 /***** Track *****/

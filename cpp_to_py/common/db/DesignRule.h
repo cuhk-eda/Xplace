@@ -1,6 +1,15 @@
 #pragma once
+#include <string>
+#include <vector>
 
 namespace db {
+
+class Layer;
+class ViaType;
+
+using std::string;
+using std::vector;
+
 class WireRule {
 private:
     const Layer* _layer;

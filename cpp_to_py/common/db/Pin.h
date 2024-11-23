@@ -1,6 +1,30 @@
 #pragma once
 
+#include <string>
+#include <vector>
+#include <climits>
+
+namespace utils {
+template <class T>
+class BoxT;
+template <class T>
+class PointT;
+}  // namespace utils
+
 namespace db {
+
+using std::string;
+using std::vector;
+
+class Geometry;
+class Layer;
+class PinType;
+class IOPin;
+class Pin;
+class PinSTA;
+class Cell;
+class Net;
+
 class PinType {
 private:
     string _name = "";
@@ -30,10 +54,7 @@ public:
     unsigned getW() const { return boundHX - boundLX; }
     unsigned getH() const { return boundHY - boundLY; }
     void getBounds(int& lx, int& ly, int& hx, int& hy) const;
-    bool operator==(const PinType& r) const {
-        return _type == r._type && boundLX == r.boundLX && boundLY == r.boundLY && boundHX == r.boundHX &&
-               boundHY == r.boundHY && shapes[0].layer.rIndex == r.shapes[0].layer.rIndex;
-    }
+    bool operator==(const PinType& r) const;
     bool operator!=(const PinType& r) const { return !(*this == r); }
     bool operator<(const PinType& r) const;
     bool operator>(const PinType& r) const { return r < *this; }
@@ -95,10 +116,10 @@ public:
 
     PinSTA* staInfo = nullptr;
 
-    Pin(const PinType* type = nullptr) : type(type) {}
-    Pin(Cell* cell, int i) : cell(cell), type(cell->ctype()->pins[i]), parentCellPinId(i) {}
-    Pin(IOPin* iopin) : iopin(iopin), type(iopin->type) {}
-    Pin(const Pin& pin) : cell(pin.cell), net(pin.net), type(pin.type) {}
+    Pin(const PinType* type = nullptr);
+    Pin(Cell* cell, int i);
+    Pin(IOPin* iopin);
+    Pin(const Pin& pin);
 
     void getPinCenter(int& x, int& y);
     void getPinBounds(int& lx, int& ly, int& hx, int& hy, int& rIndex);

@@ -1,4 +1,9 @@
-#include "Database.h"
+#include "SiteMap.h"
+
+#include "DatabaseClass.h"
+#include "Region.h"
+#include "common/utils/utils.h"
+
 using namespace db;
 
 /***** SiteMap *****/
@@ -8,6 +13,18 @@ void SiteMap::initSiteMap(unsigned nx, unsigned ny) {
     this->ny = ny;
     sites.resize(nx, vector<unsigned char>(ny));
     regions.resize(nx, vector<unsigned char>(ny));
+}
+
+void SiteMap::setSiteMap(const unsigned x, const unsigned y, const unsigned char property) {
+    setBit(sites[x][y], property);
+}
+
+void SiteMap::unsetSiteMap(const unsigned x, const unsigned y, const unsigned char property) {
+    unsetBit(sites[x][y], property);
+}
+
+bool SiteMap::getSiteMap(const unsigned x, const unsigned y, const unsigned char property) const {
+    return (getBit(sites[x][y], property) == property);
 }
 
 void SiteMap::getSiteBound(int x, int y, int &lx, int &ly, int &hx, int &hy) const {

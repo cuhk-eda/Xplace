@@ -1,5 +1,6 @@
 #include "common/common.h"
 #include "common/db/Database.h"
+#include "io_parser/gp/GPDatabase.h"
 #include "gpugr/db/GRDatabase.h"
 #include "gpugr/gr/RouteForce.h"
 #include "flute.h"

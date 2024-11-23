@@ -1,6 +1,11 @@
 #pragma once
 
+#include <vector>
+
 namespace db {
+
+using std::vector;
+
 class SiteMap {
 private:
     unsigned nx = 0;
@@ -24,13 +29,9 @@ public:
 
     void initSiteMap(unsigned nx, unsigned ny);
 
-    void setSiteMap(const unsigned x, const unsigned y, const unsigned char property) { setBit(sites[x][y], property); }
-    inline void unsetSiteMap(const unsigned x, const unsigned y, const unsigned char property) {
-        unsetBit(sites[x][y], property);
-    }
-    inline bool getSiteMap(const unsigned x, const unsigned y, const unsigned char property) const {
-        return (getBit(sites[x][y], property) == property);
-    }
+    void setSiteMap(const unsigned x, const unsigned y, const unsigned char property);
+    void unsetSiteMap(const unsigned x, const unsigned y, const unsigned char property);
+    bool getSiteMap(const unsigned x, const unsigned y, const unsigned char property) const;
     unsigned char getSiteMap(int x, int y) const { return sites[x][y]; }
 
     void getSiteBound(int x, int y, int& lx, int& ly, int& hx, int& hy) const;

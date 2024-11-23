@@ -1,8 +1,18 @@
 #pragma once
 
 #include <set>
+#include <string>
+#include <utility>
 
 namespace db {
+
+using std::string;
+
+class Geometry;
+class Via;
+class ViaRule;
+class ViaType;
+
 class Via {
 public:
     int x;

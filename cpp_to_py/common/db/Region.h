@@ -1,6 +1,14 @@
 #pragma once
+#include <string>
+#include <vector>
+
+#include "Geometry.h"
 
 namespace db {
+
+using std::string;
+using std::vector;
+
 class Region : public Rectangle {
 private:
     string _name = "";
@@ -19,12 +27,10 @@ public:
     Region(const string& name = "", const char type = 'x')
         : Rectangle(INT_MAX, INT_MAX, INT_MIN, INT_MIN), _name(name), _type(type) {}
 
-    inline const string& name() const { return _name; }
-    inline char type() const { return _type; }
+    const string& name() const { return _name; }
+    char type() const { return _type; }
 
     void addRect(const int xl, const int yl, const int xh, const int yh);
     void resetRects() { sliceH(rects); }
-
 };
 }  //   namespace db
-

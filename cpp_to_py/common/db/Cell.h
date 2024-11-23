@@ -1,6 +1,24 @@
 #pragma once
+#include <iostream>
+#include <string>
+#include <vector>
+#include "Geometry.h"
 
 namespace db {
+
+using std::string;
+using std::vector;
+
+class CellType;
+class Cell;
+class Database;
+class Rectangle;
+class Geometry;
+class Pin;
+class Region;
+class Net;
+class PinType;
+
 class CellType {
     friend class Database;
 

@@ -1,4 +1,7 @@
-#include "Database.h"
+#include "DatabaseClass.h"
+#include "Geometry.h"
+#include "Layer.h"
+
 using namespace db;
 
 /***** Rectangle *****/

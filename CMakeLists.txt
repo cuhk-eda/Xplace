@@ -1,6 +1,6 @@
-cmake_minimum_required(VERSION 3.12)
+cmake_minimum_required(VERSION 3.18)
 
-project(xplace C CXX)
+project(xplace LANGUAGES C CXX CUDA)
 
 if(NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE Release)
@@ -48,7 +48,25 @@ find_package(Cairo)
 message(STATUS "CAIRO_INCLUDE_DIRS: ${CAIRO_INCLUDE_DIRS}")
 message(STATUS "CAIRO_LIBRARIES: ${CAIRO_LIBRARIES}")
 
-# Get Torch info
+# CUDA
+# set cuda arch and nvcc flags
+if (NOT DEFINED CMAKE_CUDA_ARCHITECTURES)
+  set(CMAKE_CUDA_ARCHITECTURES 80 86 CACHE STRING "CUDA architectures" FORCE)
+endif()
+message(STATUS "CMAKE_CUDA_ARCHITECTURES: ${CMAKE_CUDA_ARCHITECTURES}")
+find_package(CUDAToolkit)
+
+# set nvcc flags
+set(CUDA_USE_STATIC_CUDA_RUNTIME OFF)
+set(CMAKE_CUDA17_EXTENSION_COMPILE_OPTION "-std=c++17")
+list(APPEND BASIC_CUDA_FLAGS --compiler-options;-fPIC;-std=c++17)
+list(APPEND BASIC_CUDA_FLAGS --expt-relaxed-constexpr) # suppress warning from pytorch
+message(STATUS "BASIC_CUDA_FLAGS: ${BASIC_CUDA_FLAGS}")
+add_compile_options(
+  "$<$<COMPILE_LANGUAGE:CUDA>:${BASIC_CUDA_FLAGS}>"
+)
+
+# Torch
 execute_process(COMMAND ${PYTHON_EXECUTABLE} -c 
   "import torch; print(torch.__path__[0]); print(int(torch.cuda.is_available())); print(torch.__version__);" 
   OUTPUT_VARIABLE TORCH_OUTPUT OUTPUT_STRIP_TRAILING_WHITESPACE)
@@ -61,35 +79,10 @@ list(GET TORCH_VERSION_LIST 0 TORCH_VERSION_MAJOR)
 list(GET TORCH_VERSION_LIST 1 TORCH_VERSION_MINOR)
 message(STATUS TORCH_INSTALL_PREFIX=${TORCH_INSTALL_PREFIX})
 message(STATUS TORCH_VERSION=${TORCH_VERSION_MAJOR}.${TORCH_VERSION_MINOR})
-
-# find CUDA
-if (TORCH_ENABLE_CUDA)
-  find_package(CUDA 11.4)
-  find_package(CUDAToolkit)
-  if (NOT CUDA_FOUND)
-    set(TORCH_ENABLE_CUDA 0 CACHE BOOL "Whether enable CUDA" FORCE)
-    message(FATAL_ERROR "Xplace only supports CUDA mode, CMake will exit." )
-  endif(NOT CUDA_FOUND)
-endif()
 message(STATUS TORCH_ENABLE_CUDA=${TORCH_ENABLE_CUDA})
-
-# set cuda arch and nvcc flags
-if (CUDA_FOUND)
-  if (NOT CUDA_ARCH_LIST)
-    set(CUDA_ARCH_LIST 6.0 6.1 7.0 7.5 8.0 8.6)
-  endif(NOT CUDA_ARCH_LIST)
-  # for cuda_add_library
-  cuda_select_nvcc_arch_flags(CUDA_ARCH_FLAGS ${CUDA_ARCH_LIST})
-  message(STATUS "CUDA_ARCH_FLAGS: ${CUDA_ARCH_FLAGS}")
-  # set nvcc flags
-  set(CUDA_USE_STATIC_CUDA_RUNTIME OFF)
-  set(CMAKE_CUDA17_EXTENSION_COMPILE_OPTION "-std=c++17")
-  list(APPEND CUDA_NVCC_FLAGS ${CUDA_ARCH_FLAGS} --compiler-options;-fPIC;-std=c++17)
-  list(APPEND CUDA_NVCC_FLAGS ${CUDA_ARCH_FLAGS} --extended-lambda)
-  list(APPEND TORCH_NVCC_FLAGS --expt-relaxed-constexpr)
-  list(APPEND CUDA_NVCC_FLAGS ${TORCH_NVCC_FLAGS})
-  message(STATUS "CUDA_NVCC_FLAGS: ${CUDA_NVCC_FLAGS}")
-endif(CUDA_FOUND)
+if (NOT TORCH_ENABLE_CUDA)
+  message(FATAL_ERROR "Xplace only supports Torch-CUDA mode, exit CMAKE." )
+endif()
 
 # set torch lib
 add_library(torch STATIC IMPORTED)
@@ -131,7 +124,7 @@ function(add_pytorch_extension target_name)
     set(CUDA_SRCS "${ARG_UNPARSED_ARGUMENTS}")
     list(FILTER CUDA_SRCS INCLUDE REGEX ".*cu$")
     if (CUDA_SRCS)
-      cuda_add_library(${target_name}_cuda_tmp STATIC ${CUDA_SRCS})
+      add_library(${target_name}_cuda_tmp STATIC ${CUDA_SRCS})
       target_include_directories(${target_name}_cuda_tmp PRIVATE ${ARG_EXTRA_INCLUDE_DIRS} ${TORCH_INCLUDE_DIRS})
       target_link_libraries(${target_name}_cuda_tmp ${ARG_EXTRA_LINK_LIBRARIES} ${TORCH_LIBRARY})
       target_compile_definitions(${target_name}_cuda_tmp PRIVATE 

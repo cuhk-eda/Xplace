@@ -1,9 +1,15 @@
 #pragma once
-#include "GRSetting.h"
 #include "GrNet.h"
 #include "common/common.h"
-#include "common/db/Database.h"
-#include "io_parser/gp/GPDatabase.h"
+#include "GRSetting.h"
+
+namespace db {
+class Database;
+class Cell;
+}
+namespace gp {
+class GPDatabase;
+}
 
 namespace gr {
 

@@ -1,11 +1,32 @@
 #include "Database.h"
 
+#include "BsRouteInfo.h"
+#include "Cell.h"
+#include "DatabaseClass.h"
+#include "DesignRule.h"
+#include "GCellGrid.h"
+#include "Geometry.h"
+#include "Layer.h"
+#include "Net.h"
+#include "Pin.h"
+#include "Region.h"
+#include "Row.h"
+#include "SNet.h"
+#include "Site.h"
+#include "SiteMap.h"
+#include "Via.h"
+
 using namespace db;
 
 /***** Database *****/
 Database::Database() {
     clear();
     _buffer = new char[_bufferCapacity];
+    powerNet = new PowerNet();
+    siteMap = new SiteMap();
+    gcellgrid = new GCellGrid();
+    bsRouteInfo = new BsRouteInfo();
+    edgetypes = new EdgeTypes();
 }
 
 Database::~Database() {
@@ -72,16 +93,15 @@ void Database::reset() {
     name_viatypes.clear();
 
     layers.clear();
-    sites.clear();
 
     routeBlockages.clear();
     placeBlockages.clear();
 
-    powerNet = PowerNet();
-
-    siteMap = SiteMap();
-    gcellgrid = GCellGrid();
-    edgetypes = EdgeTypes();
+    powerNet = new PowerNet();
+    siteMap = new SiteMap();
+    gcellgrid = new GCellGrid();
+    bsRouteInfo = new BsRouteInfo();
+    edgetypes = new EdgeTypes();
     dbIssues.clear();
 
     dieLX = 0;
@@ -114,6 +134,11 @@ void Database::clearTechnology() {
     CLEAR_POINTER_MAP(ndrs);
 }
 
+void Database::clearLibrary() {
+    CLEAR_POINTER_LIST(lefsites);
+    CLEAR_POINTER_LIST(celltypes);
+}
+
 void Database::clearDesign() {
     CLEAR_POINTER_LIST(cells);
     CLEAR_POINTER_LIST(iopins);
@@ -126,6 +151,22 @@ void Database::clearDesign() {
     DBU_Micron = -1.0;
     designName = "";
     regions.push_back(new Region("default"));
+
+    if (!powerNet) {
+        delete powerNet;
+    }
+    if (!siteMap) {
+        delete siteMap;
+    }
+    if (!gcellgrid) {
+        delete gcellgrid;
+    }
+    if (!bsRouteInfo) {
+        delete bsRouteInfo;
+    }
+    if (!edgetypes) {
+        delete edgetypes;
+    }
 }
 
 void Database::save(const std::string& given_prefix) {
@@ -246,17 +287,17 @@ void Database::SetupFloorplan() {
         coreHY = std::max(row->y() + siteH, coreHY);
     }
 
-    for (Site& site : sites) {
-        if (site.siteClassName() == "CORE") {
-            if (siteW != (unsigned)site.width()) {
+    for (Site* lefsite : lefsites) {
+        if (lefsite->siteClassName() == "CORE") {
+            if (siteW != (unsigned)lefsite->width()) {
                 logger.warning("siteW %d in DEF is inconsistent with siteW %d in LEF.",
                                static_cast<int>(siteW),
-                               static_cast<int>(site.width()));
+                               static_cast<int>(lefsite->width()));
             }
-            if (siteH != site.height()) {
+            if (siteH != lefsite->height()) {
                 logger.warning("siteH %d in DEF is inconsistent with siteH %d in LEF.",
                                static_cast<int>(siteH),
-                               static_cast<int>(site.height()));
+                               static_cast<int>(lefsite->height()));
             }
             break;
         }
@@ -319,15 +360,15 @@ void Database::SetupRegions() {
 
 void Database::SetupSiteMap() {
     // set up site map
-    siteMap.siteL = coreLX;
-    siteMap.siteR = coreHX;
-    siteMap.siteB = coreLY;
-    siteMap.siteT = coreHY;
-    siteMap.siteStepX = siteW;
-    siteMap.siteStepY = siteH;
-    siteMap.siteNX = nSitesX;
-    siteMap.siteNY = nSitesY;
-    siteMap.initSiteMap(nSitesX, nSitesY);
+    siteMap->siteL = coreLX;
+    siteMap->siteR = coreHX;
+    siteMap->siteB = coreLY;
+    siteMap->siteT = coreHY;
+    siteMap->siteStepX = siteW;
+    siteMap->siteStepY = siteH;
+    siteMap->siteNX = nSitesX;
+    siteMap->siteNY = nSitesY;
+    siteMap->initSiteMap(nSitesX, nSitesY);
 
     // mark site partially overlapped by fence
     int nRegions = regions.size();
@@ -342,20 +383,20 @@ void Database::SetupSiteMap() {
         for (int j = 0; j < (int)hSlices.size(); j++) {
             int lx = hSlices[j].lx;
             int hx = hSlices[j].hx;
-            int olx = binOverlappedL(lx, siteMap.siteL, siteMap.siteR, siteMap.siteStepX);
-            int ohx = binOverlappedR(hx, siteMap.siteL, siteMap.siteR, siteMap.siteStepX);
-            int clx = binContainedL(lx, siteMap.siteL, siteMap.siteR, siteMap.siteStepX);
-            int chx = binContainedR(hx, siteMap.siteL, siteMap.siteR, siteMap.siteStepX);
-            int sly = binOverlappedL(hSlices[j].ly, siteMap.siteB, siteMap.siteT, siteMap.siteStepY);
-            int shy = binOverlappedR(hSlices[j].hy, siteMap.siteB, siteMap.siteT, siteMap.siteStepY);
+            int olx = binOverlappedL(lx, siteMap->siteL, siteMap->siteR, siteMap->siteStepX);
+            int ohx = binOverlappedR(hx, siteMap->siteL, siteMap->siteR, siteMap->siteStepX);
+            int clx = binContainedL(lx, siteMap->siteL, siteMap->siteR, siteMap->siteStepX);
+            int chx = binContainedR(hx, siteMap->siteL, siteMap->siteR, siteMap->siteStepX);
+            int sly = binOverlappedL(hSlices[j].ly, siteMap->siteB, siteMap->siteT, siteMap->siteStepY);
+            int shy = binOverlappedR(hSlices[j].hy, siteMap->siteB, siteMap->siteT, siteMap->siteStepY);
             if (olx != clx) {
                 for (int y = sly; y <= shy; y++) {
-                    siteMap.blockRegion(olx, y);
+                    siteMap->blockRegion(olx, y);
                 }
             }
             if (ohx != chx) {
                 for (int y = sly; y <= shy; y++) {
-                    siteMap.blockRegion(ohx, y);
+                    siteMap->blockRegion(ohx, y);
                 }
             }
         }
@@ -365,34 +406,34 @@ void Database::SetupSiteMap() {
         for (const Rectangle& vSlice : vSlices) {
             int ly = vSlice.ly;
             int hy = vSlice.hy;
-            const unsigned oly = binOverlappedL(ly, siteMap.siteB, siteMap.siteT, siteMap.siteStepY);
-            const unsigned ohy = binOverlappedR(hy, siteMap.siteB, siteMap.siteT, siteMap.siteStepY);
-            const int cly = binContainedL(ly, siteMap.siteB, siteMap.siteT, siteMap.siteStepY);
-            const int chy = binContainedR(hy, siteMap.siteB, siteMap.siteT, siteMap.siteStepY);
-            const unsigned slx = binOverlappedL(vSlice.lx, siteMap.siteL, siteMap.siteR, siteMap.siteStepX);
-            const unsigned shx = binOverlappedR(vSlice.hx, siteMap.siteL, siteMap.siteR, siteMap.siteStepX);
+            const unsigned oly = binOverlappedL(ly, siteMap->siteB, siteMap->siteT, siteMap->siteStepY);
+            const unsigned ohy = binOverlappedR(hy, siteMap->siteB, siteMap->siteT, siteMap->siteStepY);
+            const int cly = binContainedL(ly, siteMap->siteB, siteMap->siteT, siteMap->siteStepY);
+            const int chy = binContainedR(hy, siteMap->siteB, siteMap->siteT, siteMap->siteStepY);
+            const unsigned slx = binOverlappedL(vSlice.lx, siteMap->siteL, siteMap->siteR, siteMap->siteStepX);
+            const unsigned shx = binOverlappedR(vSlice.hx, siteMap->siteL, siteMap->siteR, siteMap->siteStepX);
             if ((int)oly != cly) {
                 for (unsigned x = slx; x <= shx; ++x) {
-                    siteMap.blockRegion(x, oly);
+                    siteMap->blockRegion(x, oly);
                 }
             }
             if ((int)ohy != chy) {
                 for (unsigned x = slx; x <= shx; ++x) {
-                    siteMap.blockRegion(x, ohy);
+                    siteMap->blockRegion(x, ohy);
                 }
             }
         }
 
         for (const Rectangle& rect : hSlices) {
-            siteMap.setRegion(rect.lx, rect.ly, rect.hx, rect.hy, region->id);
+            siteMap->setRegion(rect.lx, rect.ly, rect.hx, rect.hy, region->id);
         }
         for (const Rectangle& rect : vSlices) {
-            siteMap.setRegion(rect.lx, rect.ly, rect.hx, rect.hy, region->id);
+            siteMap->setRegion(rect.lx, rect.ly, rect.hx, rect.hy, region->id);
         }
     }
 
     // mark all sites blocked
-    siteMap.setSites(coreLX, coreLY, coreHX, coreHY, SiteMap::SiteBlocked);
+    siteMap->setSites(coreLX, coreLY, coreHX, coreHY, SiteMap::SiteBlocked);
 
     // mark rows as non-blocked
     for (const Row* row : rows) {
@@ -400,7 +441,7 @@ void Database::SetupSiteMap() {
         int ly = row->y();
         int hx = row->x() + row->width();
         int hy = row->y() + siteH;
-        siteMap.unsetSites(lx, ly, hx, hy, SiteMap::SiteBlocked);
+        siteMap->unsetSites(lx, ly, hx, hy, SiteMap::SiteBlocked);
     }
 
     // mark blocked sites
@@ -413,8 +454,8 @@ void Database::SetupSiteMap() {
         int hx = cell->hx();
         int hy = cell->hy();
 
-        siteMap.setSites(lx, ly, hx, hy, SiteMap::SiteBlocked);
-        siteMap.blockRegion(lx, ly, hx, hy);
+        siteMap->setSites(lx, ly, hx, hy, SiteMap::SiteBlocked);
+        siteMap->blockRegion(lx, ly, hx, hy);
     }
 
     for (const Rectangle& placeBlockage : placeBlockages) {
@@ -422,8 +463,8 @@ void Database::SetupSiteMap() {
         int ly = placeBlockage.ly;
         int hx = placeBlockage.hx;
         int hy = placeBlockage.hy;
-        siteMap.setSites(lx, ly, hx, hy, SiteMap::SiteBlocked);
-        siteMap.blockRegion(lx, ly, hx, hy);
+        siteMap->setSites(lx, ly, hx, hy, SiteMap::SiteBlocked);
+        siteMap->blockRegion(lx, ly, hx, hy);
     }
 
     for (const SNet* snet : snets) {
@@ -431,11 +472,11 @@ void Database::SetupSiteMap() {
             switch (geo.layer.rIndex) {
                 case 1:
                     if (geo.layer.direction == 'v') {
-                        siteMap.setSites(geo.lx, geo.ly, geo.hx, geo.hy, SiteMap::SiteM2Blocked);
+                        siteMap->setSites(geo.lx, geo.ly, geo.hx, geo.hy, SiteMap::SiteM2Blocked);
                     }
                     break;
                 case 2:
-                    siteMap.setSites(geo.lx, geo.ly, geo.hx, geo.hy, SiteMap::SiteM3Blocked);
+                    siteMap->setSites(geo.lx, geo.ly, geo.hx, geo.hy, SiteMap::SiteM3Blocked);
                     break;
                 default:
                     break;
@@ -449,11 +490,11 @@ void Database::SetupSiteMap() {
                 case 0:
                     break;
                 case 1:
-                    siteMap.setSites(shape.lx + iopin->x,
-                                     shape.ly + iopin->y,
-                                     shape.hx + iopin->x,
-                                     shape.hy + iopin->y,
-                                     SiteMap::SiteM2BlockedIOPin);
+                    siteMap->setSites(shape.lx + iopin->x,
+                                      shape.ly + iopin->y,
+                                      shape.hx + iopin->x,
+                                      shape.hy + iopin->y,
+                                      SiteMap::SiteM2BlockedIOPin);
                     break;
                 case 2:
                     break;
@@ -463,31 +504,31 @@ void Database::SetupSiteMap() {
         }
     }
 
-    siteMap.nSites = siteMap.siteNX * siteMap.siteNY;
-    siteMap.nPlaceable = 0;
-    siteMap.nRegionSites.resize(regions.size(), 0);
-    for (int y = 0; y < siteMap.siteNY; y++) {
-        for (int x = 0; x < siteMap.siteNX; x++) {
-            if (siteMap.getSiteMap(x, y, SiteMap::SiteBlocked) || siteMap.getSiteMap(x, y, SiteMap::SiteM2Blocked) ||
-                siteMap.getSiteMap(x, y, SiteMap::SiteM2BlockedIOPin)) {
+    siteMap->nSites = siteMap->siteNX * siteMap->siteNY;
+    siteMap->nPlaceable = 0;
+    siteMap->nRegionSites.resize(regions.size(), 0);
+    for (int y = 0; y < siteMap->siteNY; y++) {
+        for (int x = 0; x < siteMap->siteNX; x++) {
+            if (siteMap->getSiteMap(x, y, SiteMap::SiteBlocked) || siteMap->getSiteMap(x, y, SiteMap::SiteM2Blocked) ||
+                siteMap->getSiteMap(x, y, SiteMap::SiteM2BlockedIOPin)) {
                 continue;
             }
-            siteMap.nPlaceable++;
-            unsigned char region = siteMap.getRegion(x, y);
+            siteMap->nPlaceable++;
+            unsigned char region = siteMap->getRegion(x, y);
             if (region != Region::InvalidRegion) {
-                siteMap.nRegionSites[region]++;
+                siteMap->nRegionSites[region]++;
             }
         }
     }
 
-    logger.verbose("core area: %ld", siteMap.nSites);
+    logger.verbose("core area: %ld", siteMap->nSites);
     logger.verbose(
-        "placeable: %ld (%lf%%)", siteMap.nPlaceable, (double)siteMap.nPlaceable / (double)siteMap.nSites * 100.0);
+        "placeable: %ld (%lf%%)", siteMap->nPlaceable, (double)siteMap->nPlaceable / (double)siteMap->nSites * 100.0);
     for (int i = 0; i < (int)regions.size(); i++) {
         logger.verbose("region %d : %ld (%lf%%)",
                        i,
-                       siteMap.nRegionSites[i],
-                       (double)siteMap.nRegionSites[i] / (double)siteMap.nPlaceable);
+                       siteMap->nRegionSites[i],
+                       (double)siteMap->nRegionSites[i] / (double)siteMap->nPlaceable);
     }
 }
 
@@ -499,7 +540,8 @@ void Database::SetupRows() {
     for (Row* row : rows) {
         char isFlip = (row->flip() ? 1 : 2);
         int y = (row->y() - coreLY) / siteH;
-        orients[y] = row->orient();  // TODO: how to handle multiple ROW definitions on same y?
+        orients[y] = row->orient();  // TODO: how to handle multiple ROW
+                                     // definitions on same y?
         if (flip[y] == 0) {
             flip[y] = isFlip;
         } else if (flip[y] != isFlip) {
@@ -543,27 +585,42 @@ void Database::SetupRows() {
         Row* row = rows[y];
         int ly = row->y();
         int hy = row->y() + siteH;
-        if (!powerNet.getRowPower(ly, hy, row->_topPower, row->_botPower)) {
+        if (!powerNet->getRowPower(ly, hy, row->_topPower, row->_botPower)) {
             if (topNormal && row->topPower() == 'x') {
                 if (y + 1 == nSitesY) {
-                    logger.warning("Top power rail of the row at y=%d is not connected to power rail", row->y());
+                    logger.warning(
+                        "Top power rail of the row at y=%d is not connected to "
+                        "power rail",
+                        row->y());
                 } else {
-                    logger.error("Top power rail of the row at y=%d is not connected to power rail", row->y());
+                    logger.error(
+                        "Top power rail of the row at y=%d is not connected to "
+                        "power rail",
+                        row->y());
                     topNormal = false;
                 }
             }
             if (botNormal && row->botPower() == 'x') {
                 if (y) {
-                    logger.error("Bottom power rail of the row at y=%d is not connected to power rail", row->y());
+                    logger.error(
+                        "Bottom power rail of the row at y=%d is not connected "
+                        "to power rail",
+                        row->y());
                     botNormal = false;
                 } else {
-                    logger.warning("Bottom power rail of the row at y=%d is not connected to power rail", row->y());
+                    logger.warning(
+                        "Bottom power rail of the row at y=%d is not connected "
+                        "to power rail",
+                        row->y());
                 }
             }
         }
         if (shrNormal && row->topPower() == row->botPower()) {
             logger.error(
-                "Top and Bottom power rail of the row at y=%d share the same power %c", row->y(), row->topPower());
+                "Top and Bottom power rail of the row at y=%d share the same "
+                "power %c",
+                row->y(),
+                row->topPower());
             shrNormal = false;
         }
     }
@@ -584,15 +641,15 @@ void Database::SetupRowSegments() {
                 b2 = true;
                 r2 = NULL;
             } else {
-                b2 = siteMap.getSiteMap(x, y, SiteMap::SiteBlocked);
+                b2 = siteMap->getSiteMap(x, y, SiteMap::SiteBlocked);
                 if (setting.EnablePG) {
-                    b2 = b2 || siteMap.getSiteMap(x, y, SiteMap::SiteM2Blocked);
+                    b2 = b2 || siteMap->getSiteMap(x, y, SiteMap::SiteM2Blocked);
                 }
                 if (setting.EnableIOPin) {
-                    b2 = b2 || siteMap.getSiteMap(x, y, SiteMap::SiteM2BlockedIOPin);
+                    b2 = b2 || siteMap->getSiteMap(x, y, SiteMap::SiteM2BlockedIOPin);
                 }
                 if (setting.EnableFence) {
-                    r2 = getRegion(siteMap.getRegion(x, y));
+                    r2 = getRegion(siteMap->getRegion(x, y));
                 } else {
                     r2 = regions[0];
                 }
@@ -650,15 +707,16 @@ Layer& Database::addLayer(const string& name, const char type) {
     return newlayer;
 }
 
-Site& Database::addSite(const string& name, const string& siteClassName, const int w, const int h) {
-    for (unsigned i = 0; i < sites.size(); i++) {
-        if (name == sites[i].name()) {
+Site* Database::addSite(const string& name, const string& siteClassName, const int w, const int h) {
+    for (unsigned i = 0; i < lefsites.size(); i++) {
+        if (name == lefsites[i]->name()) {
             logger.warning("site re-defined: %s", name.c_str());
-            return sites[i];
+            return lefsites[i];
         }
     }
-    sites.emplace_back(name, siteClassName, w, h);
-    return sites.back();
+    Site* site = new Site(name, siteClassName, w, h);
+    lefsites.push_back(site);
+    return site;
 }
 
 ViaType* Database::addViaType(const string& name, bool isDef) {
@@ -793,7 +851,7 @@ long long Database::getFreeArea(Region* region) const {
         if (region && region != regions[i]) {
             continue;
         }
-        freeArea += siteMap.nRegionSites[i];
+        freeArea += siteMap->nRegionSites[i];
     }
     return freeArea;
 }
@@ -919,6 +977,12 @@ ViaType* Database::getViaType(const string& name) const {
     return mi->second;
 }
 
+int Database::getCellTypeSpace(const CellType* L, const CellType* R) const {
+    return edgetypes->getEdgeSpace(L->edgetypeR, R->edgetypeL);
+}
+
+int Database::getCellTypeSpace(const Cell* L, const Cell* R) const { return getCellTypeSpace(L->ctype(), R->ctype()); }
+
 int Database::getContainedSites(
     const int lx, const int ly, const int hx, const int hy, int& slx, int& sly, int& shx, int& shy) const {
     slx = binContainedL(lx, coreLX, coreHX, siteW);
@@ -962,6 +1026,8 @@ unsigned Database::getNumCLayers() const {
     }
     return numCLayers;
 }
+
+unsigned Database::getNumLayers() const { return layers.size(); }
 
 void Database::errorCheck(bool autoFix) {
     vector<Row*>::iterator ri = rows.begin();

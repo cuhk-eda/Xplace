@@ -1,6 +1,16 @@
 #pragma once
+#include <string>
+#include <vector>
 
 namespace db {
+
+class Region;
+class Row;
+class RowSegment;
+
+using std::string;
+using std::vector;
+
 class Row {
     friend class Database;
 
@@ -11,7 +21,7 @@ private:
     int _y = 0;
     unsigned _xNum = 0;
     unsigned _yNum = 0;
-    int _orient = 0;   // 0:N, 1:W, 2:S, 3:E, 4:FN, 5:FW, 6:FS, 7:FE, -1:NONE
+    int _orient = 0;  // 0:N, 1:W, 2:S, 3:E, 4:FN, 5:FW, 6:FS, 7:FE, -1:NONE
     bool _flip = false;
     unsigned _xStep = 0;
     unsigned _yStep = 0;
@@ -71,7 +81,6 @@ public:
     void shiftY(const int value) { _y += value; }
     void shrinkXNum(const int value) { _xNum -= value; }
     void shrinkYNum(const int value) { _yNum -= value; }
-
 };
 
 class RowSegment {
@@ -80,5 +89,4 @@ public:
     int w = 0;
     Region* region = nullptr;
 };
-} // namespace db
-
+}  // namespace db

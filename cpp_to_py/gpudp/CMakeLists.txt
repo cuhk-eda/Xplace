@@ -8,30 +8,27 @@ file(GLOB_RECURSE SRC_FILES_DP_CUDA ${CMAKE_CURRENT_SOURCE_DIR}/*.cu)
 # OpenMP
 find_package(OpenMP REQUIRED)
 
-# CUDA DP Kernel
-cuda_add_library(dp_cuda_tmp STATIC ${SRC_FILES_DP_CUDA})
+# CUDA/CPP DP Kernel
+add_library(dp STATIC ${CMAKE_CURRENT_SOURCE_DIR}/../io_parser/gp/GPDatabase.cpp
+                      ${SRC_FILES_DP}
+                      ${SRC_FILES_DP_CUDA})
 
-set_target_properties(dp_cuda_tmp PROPERTIES CUDA_RESOLVE_DEVICE_SYMBOLS ON)
-set_target_properties(dp_cuda_tmp PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
-set_target_properties(dp_cuda_tmp PROPERTIES POSITION_INDEPENDENT_CODE ON)
+set_target_properties(dp PROPERTIES
+                      CUDA_RESOLVE_DEVICE_SYMBOLS ON
+                      POSITION_INDEPENDENT_CODE ON)
 
-target_include_directories(dp_cuda_tmp PRIVATE ${PROJECT_SOURCE_DIR}/cpp_to_py ${TORCH_INCLUDE_DIRS} ${FLUTE_INCLUDE_DIR})
-target_link_libraries(dp_cuda_tmp torch ${TORCH_PYTHON_LIBRARY} xplace_common flute OpenMP::OpenMP_CXX)
-
-# CPU DP object
-add_library(dp SHARED ${CMAKE_CURRENT_SOURCE_DIR}/../io_parser/gp/GPDatabase.cpp
-                       ${SRC_FILES_DP}
-                       ${SRC_FILES_DP_CUDA})
-
-target_include_directories(dp PRIVATE ${PROJECT_SOURCE_DIR}/cpp_to_py ${TORCH_INCLUDE_DIRS} ${FLUTE_INCLUDE_DIR})
-target_link_libraries(dp PRIVATE torch ${TORCH_PYTHON_LIBRARY} xplace_common flute dp_cuda_tmp pthread CUDA::curand)
+target_include_directories(dp PRIVATE ${TORCH_INCLUDE_DIRS} ${PROJECT_SOURCE_DIR}/cpp_to_py)
+target_link_libraries(dp PRIVATE torch ${TORCH_PYTHON_LIBRARY} xplace_common OpenMP::OpenMP_CXX pthread CUDA::curand)
 target_compile_options(dp PRIVATE -fPIC)
 
-install(TARGETS dp DESTINATION ${XPLACE_LIB_DIR})
+pybind11_add_module(gpudp MODULE PyBindCppMain.cpp)
 
-# For Pybind
-add_pytorch_extension(gpudp PyBindCppMain.cpp
-    EXTRA_INCLUDE_DIRS ${PROJECT_SOURCE_DIR}/cpp_to_py ${FLUTE_INCLUDE_DIR}
-    EXTRA_LINK_LIBRARIES xplace_common flute io_parser dp)
+target_include_directories(gpudp PRIVATE ${TORCH_INCLUDE_DIRS} ${PROJECT_SOURCE_DIR}/cpp_to_py)
+target_link_libraries(gpudp PRIVATE torch ${TORCH_PYTHON_LIBRARY} xplace_common io_parser dp)
+target_compile_definitions(gpudp PRIVATE 
+                            TORCH_EXTENSION_NAME=gpudp
+                            TORCH_VERSION_MAJOR=${TORCH_VERSION_MAJOR}
+                            TORCH_VERSION_MINOR=${TORCH_VERSION_MINOR}
+                            ENABLE_CUDA=${TORCH_ENABLE_CUDA})
 
 install(TARGETS gpudp DESTINATION ${XPLACE_LIB_DIR})

@@ -59,7 +59,7 @@ make -j40 && make install
 ```
 
 ### 1.1. Dependencies
-- [CMake](https://cmake.org/) >= 3.17
+- [CMake](https://cmake.org/) >= 3.18
 - [GCC](https://gcc.gnu.org/) >= 7.5.0
 - [Boost](https://www.boost.org/) >= 1.56.0
 - [CUDA](https://developer.nvidia.com/cuda-toolkit) >= 11.3

@@ -1,5 +1,10 @@
 #pragma once
+#include <string>
+
 namespace db {
+
+using std::string;
+
 class Site {
 private:
     string _name = "";
