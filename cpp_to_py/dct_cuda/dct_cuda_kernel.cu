@@ -9,7 +9,7 @@
  *      except tiny modifications on preprocessing and postprocessing
  */
 
-#include <ATen/cuda/CUDAContext.h>
+#include <c10/cuda/CUDAStream.h>
 #include <float.h>
 #include <math.h>
 #include <torch/extension.h>
@@ -120,7 +120,7 @@ template <typename T>
 void dct2dPreprocessCudaLauncher(const T *x, T *y, const int M, const int N) {
     dim3 gridSize((N + TPB - 1) / TPB, (M + TPB - 1) / TPB, 1);
     dim3 blockSize(TPB, TPB, 1);
-    auto stream = at::cuda::getCurrentCUDAStream();
+    auto stream = c10::cuda::getCurrentCUDAStream();
     dct2dPreprocess<T><<<gridSize, blockSize, 0, stream>>>(x, y, M, N, N / 2);
 }
 
@@ -208,7 +208,7 @@ void dct2dPostprocessCudaLauncher(
     const T *x, T *y, const int M, const int N, const T *__restrict__ expkM, const T *__restrict__ expkN) {
     dim3 gridSize((N / 2 + TPB - 1) / TPB, (M / 2 + TPB - 1) / TPB, 1);
     dim3 blockSize(TPB, TPB, 1);
-    auto stream = at::cuda::getCurrentCUDAStream();
+    auto stream = c10::cuda::getCurrentCUDAStream();
     dct2dPostprocess<T, ComplexType<T>><<<gridSize, blockSize, 0, stream>>>((ComplexType<T> *)x,
                                                                             y,
                                                                             M,
@@ -333,7 +333,7 @@ void idct2_fft2PreprocessCudaLauncher(
     const T *x, T *y, const int M, const int N, const T *__restrict__ expkM, const T *__restrict__ expkN) {
     dim3 gridSize((N / 2 + TPB - 1) / TPB, (M / 2 + TPB - 1) / TPB, 1);
     dim3 blockSize(TPB, TPB, 1);
-    auto stream = at::cuda::getCurrentCUDAStream();
+    auto stream = c10::cuda::getCurrentCUDAStream();
     idct2_fft2Preprocess<T, ComplexType<T>><<<gridSize, blockSize, 0, stream>>>(
         x, (ComplexType<T> *)y, M, N, M / 2, N / 2, (ComplexType<T> *)expkM, (ComplexType<T> *)expkN);
 }
@@ -369,7 +369,7 @@ template <typename T>
 void idct2_fft2PostprocessCudaLauncher(const T *x, T *y, const int M, const int N) {
     dim3 gridSize((N + TPB - 1) / TPB, (M + TPB - 1) / TPB, 1);
     dim3 blockSize(TPB, TPB, 1);
-    auto stream = at::cuda::getCurrentCUDAStream();
+    auto stream = c10::cuda::getCurrentCUDAStream();
     idct2_fft2Postprocess<T><<<gridSize, blockSize, 0, stream>>>(x, y, M, N, N / 2, M * N);
 }
 
@@ -483,7 +483,7 @@ void idct_idxstPreprocessCudaLauncher(
     const T *x, T *y, const int M, const int N, const T *__restrict__ expkM, const T *__restrict__ expkN) {
     dim3 gridSize((N / 2 + TPB - 1) / TPB, (M / 2 + TPB - 1) / TPB, 1);
     dim3 blockSize(TPB, TPB, 1);
-    auto stream = at::cuda::getCurrentCUDAStream();
+    auto stream = c10::cuda::getCurrentCUDAStream();
     idct_idxstPreprocess<T, ComplexType<T>><<<gridSize, blockSize, 0, stream>>>(
         x, (ComplexType<T> *)y, M, N, M / 2, N / 2, (ComplexType<T> *)expkM, (ComplexType<T> *)expkN);
 }
@@ -527,7 +527,7 @@ template <typename T>
 void idct_idxstPostprocessCudaLauncher(const T *x, T *y, const int M, const int N) {
     dim3 gridSize((N + TPB - 1) / TPB, (M + TPB - 1) / TPB, 1);
     dim3 blockSize(TPB, TPB, 1);
-    auto stream = at::cuda::getCurrentCUDAStream();
+    auto stream = c10::cuda::getCurrentCUDAStream();
     idct_idxstPostprocess<T><<<gridSize, blockSize, 0, stream>>>(x, y, M, N, N / 2, M * N);
 }
 
@@ -645,7 +645,7 @@ void idxst_idctPreprocessCudaLauncher(
     const T *x, T *y, const int M, const int N, const T *__restrict__ expkM, const T *__restrict__ expkN) {
     dim3 gridSize((N / 2 + TPB - 1) / TPB, (M / 2 + TPB - 1) / TPB, 1);
     dim3 blockSize(TPB, TPB, 1);
-    auto stream = at::cuda::getCurrentCUDAStream();
+    auto stream = c10::cuda::getCurrentCUDAStream();
     idxst_idctPreprocess<T, ComplexType<T>><<<gridSize, blockSize, 0, stream>>>(
         x, (ComplexType<T> *)y, M, N, M / 2, N / 2, (ComplexType<T> *)expkM, (ComplexType<T> *)expkN);
 }
@@ -689,7 +689,7 @@ template <typename T>
 void idxst_idctPostprocessCudaLauncher(const T *x, T *y, const int M, const int N) {
     dim3 gridSize((N + TPB - 1) / TPB, (M + TPB - 1) / TPB, 1);
     dim3 blockSize(TPB, TPB, 1);
-    auto stream = at::cuda::getCurrentCUDAStream();
+    auto stream = c10::cuda::getCurrentCUDAStream();
     idxst_idctPostprocess<T><<<gridSize, blockSize, 0, stream>>>(x, y, M, N, N / 2, M * N);
 }
 
@@ -701,7 +701,8 @@ void idxst_idctPostprocessCudaLauncher(const T *x, T *y, const int M, const int 
     CHECK_CUDA(x);     \
     CHECK_CONTIGUOUS(x)
 
-void dct2_fft2_forward_cuda(at::Tensor x, at::Tensor expkM, at::Tensor expkN, at::Tensor out, at::Tensor buf) {
+void dct2_fft2_forward_cuda(
+    torch::Tensor x, torch::Tensor expkM, torch::Tensor expkN, torch::Tensor out, torch::Tensor buf) {
     cudaSetDevice(x.get_device());
     CHECK_INPUT(x);
     CHECK_INPUT(expkM);
@@ -714,13 +715,14 @@ void dct2_fft2_forward_cuda(at::Tensor x, at::Tensor expkM, at::Tensor expkN, at
 
     dct2dPreprocessCudaLauncher<float>(x.data_ptr<float>(), out.data_ptr<float>(), M, N);
 
-    buf = at::view_as_real(at::fft_rfft2(out, c10::nullopt, {-2, -1}, "backward")).contiguous();
+    buf = torch::view_as_real(torch::fft_rfft2(out, c10::nullopt, {-2, -1}, "backward")).contiguous();
 
     dct2dPostprocessCudaLauncher<float>(
         buf.data_ptr<float>(), out.data_ptr<float>(), M, N, expkM.data_ptr<float>(), expkN.data_ptr<float>());
 }
 
-void idct2_fft2_forward_cuda(at::Tensor x, at::Tensor expkM, at::Tensor expkN, at::Tensor out, at::Tensor buf) {
+void idct2_fft2_forward_cuda(
+    torch::Tensor x, torch::Tensor expkM, torch::Tensor expkN, torch::Tensor out, torch::Tensor buf) {
     cudaSetDevice(x.get_device());
     CHECK_INPUT(x);
     CHECK_INPUT(expkM);
@@ -734,12 +736,13 @@ void idct2_fft2_forward_cuda(at::Tensor x, at::Tensor expkM, at::Tensor expkN, a
     idct2_fft2PreprocessCudaLauncher<float>(
         x.data_ptr<float>(), buf.data_ptr<float>(), M, N, expkM.data_ptr<float>(), expkN.data_ptr<float>());
 
-    auto y = at::fft_irfft2(at::view_as_complex(buf), {{M, N}}, {-2, -1}, "backward").contiguous();
+    auto y = torch::fft_irfft2(torch::view_as_complex(buf), {{M, N}}, {-2, -1}, "backward").contiguous();
 
     idct2_fft2PostprocessCudaLauncher<float>(y.data_ptr<float>(), out.data_ptr<float>(), M, N);
 }
 
-void idct_idxst_forward_cuda(at::Tensor x, at::Tensor expkM, at::Tensor expkN, at::Tensor out, at::Tensor buf) {
+void idct_idxst_forward_cuda(
+    torch::Tensor x, torch::Tensor expkM, torch::Tensor expkN, torch::Tensor out, torch::Tensor buf) {
     cudaSetDevice(x.get_device());
     CHECK_INPUT(x);
     CHECK_INPUT(expkM);
@@ -753,12 +756,13 @@ void idct_idxst_forward_cuda(at::Tensor x, at::Tensor expkM, at::Tensor expkN, a
     idct_idxstPreprocessCudaLauncher<float>(
         x.data_ptr<float>(), buf.data_ptr<float>(), M, N, expkM.data_ptr<float>(), expkN.data_ptr<float>());
 
-    auto y = at::fft_irfft2(at::view_as_complex(buf), {{M, N}}, {-2, -1}, "backward").contiguous();
+    auto y = torch::fft_irfft2(torch::view_as_complex(buf), {{M, N}}, {-2, -1}, "backward").contiguous();
 
     idct_idxstPostprocessCudaLauncher<float>(y.data_ptr<float>(), out.data_ptr<float>(), M, N);
 }
 
-void idxst_idct_forward_cuda(at::Tensor x, at::Tensor expkM, at::Tensor expkN, at::Tensor out, at::Tensor buf) {
+void idxst_idct_forward_cuda(
+    torch::Tensor x, torch::Tensor expkM, torch::Tensor expkN, torch::Tensor out, torch::Tensor buf) {
     cudaSetDevice(x.get_device());
     CHECK_INPUT(x);
     CHECK_INPUT(expkM);
@@ -772,7 +776,7 @@ void idxst_idct_forward_cuda(at::Tensor x, at::Tensor expkM, at::Tensor expkN, a
     idxst_idctPreprocessCudaLauncher<float>(
         x.data_ptr<float>(), buf.data_ptr<float>(), M, N, expkM.data_ptr<float>(), expkN.data_ptr<float>());
 
-    auto y = at::fft_irfft2(at::view_as_complex(buf), {{M, N}}, {-2, -1}, "backward").contiguous();
+    auto y = torch::fft_irfft2(torch::view_as_complex(buf), {{M, N}}, {-2, -1}, "backward").contiguous();
 
     idxst_idctPostprocessCudaLauncher<float>(y.data_ptr<float>(), out.data_ptr<float>(), M, N);
 }

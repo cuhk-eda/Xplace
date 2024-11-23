@@ -1,4 +1,4 @@
-#include <ATen/cuda/CUDAContext.h>
+#include <c10/cuda/CUDAStream.h>
 #include <cuda.h>
 #include <cuda_runtime.h>
 #include <torch/extension.h>
@@ -153,7 +153,7 @@ void calc_node_grad_cuda(torch::Tensor node_grad,
                          int num_nodes,
                          bool deterministic) {
     if (deterministic) {
-        auto stream = at::cuda::getCurrentCUDAStream();
+        auto stream = c10::cuda::getCurrentCUDAStream();
         const int threads = 128;
         const int blocks = (num_nodes * 2 + threads - 1) / threads;
         calc_node_grad_deterministic_cuda_kernel<<<blocks, threads, 0, stream>>>(
@@ -177,7 +177,7 @@ torch::Tensor masked_scale_hpwl_sum_cuda(torch::Tensor node_pos,
                                          torch::Tensor net_mask,
                                          torch::Tensor hpwl_scale) {
     cudaSetDevice(node_pos.get_device());
-    auto stream = at::cuda::getCurrentCUDAStream();
+    auto stream = c10::cuda::getCurrentCUDAStream();
 
     const auto num_nodes = node_pos.size(0);
     const auto num_pins = pin_id2node_id.size(0);
@@ -224,7 +224,7 @@ std::vector<torch::Tensor> wa_wirelength_masked_scale_hpwl_cuda(torch::Tensor no
                                                                 float gamma,
                                                                 bool deterministic) {
     cudaSetDevice(node_pos.get_device());
-    auto stream = at::cuda::getCurrentCUDAStream();
+    auto stream = c10::cuda::getCurrentCUDAStream();
 
     const auto num_nodes = node_pos.size(0);
     const auto num_pins = pin_id2node_id.size(0);

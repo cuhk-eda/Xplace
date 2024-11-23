@@ -1,4 +1,4 @@
-#include <ATen/cuda/CUDAContext.h>
+#include <c10/cuda/CUDAStream.h>
 #include <cuda.h>
 #include <cuda_runtime.h>
 #include <torch/extension.h>
@@ -252,7 +252,7 @@ torch::Tensor density_map_cuda_normalize_node(torch::Tensor node_pos,
                                               int num_bin_y,
                                               int num_nodes) {
     cudaSetDevice(node_pos.get_device());
-    auto stream = at::cuda::getCurrentCUDAStream();
+    auto stream = c10::cuda::getCurrentCUDAStream();
 
     const int threads = 128;
     const int blocks = (num_nodes + threads - 1) / threads;
@@ -279,7 +279,7 @@ torch::Tensor density_map_cuda_forward(torch::Tensor normalize_node_info,
                                        int num_nodes,
                                        bool deterministic) {
     cudaSetDevice(normalize_node_info.get_device());
-    auto stream = at::cuda::getCurrentCUDAStream();
+    auto stream = c10::cuda::getCurrentCUDAStream();
 
     int thread_count = 64;
     dim3 blockSize(2, 2, thread_count);
@@ -362,7 +362,7 @@ torch::Tensor density_map_cuda_backward(torch::Tensor normalize_node_info,
                                         int num_nodes,
                                         bool deterministic) {
     cudaSetDevice(normalize_node_info.get_device());
-    auto stream = at::cuda::getCurrentCUDAStream();
+    auto stream = c10::cuda::getCurrentCUDAStream();
 
     if (deterministic) {
         int threads = 64;

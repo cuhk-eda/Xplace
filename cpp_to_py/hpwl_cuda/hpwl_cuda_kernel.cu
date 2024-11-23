@@ -1,4 +1,4 @@
-#include <ATen/cuda/CUDAContext.h>
+#include <c10/cuda/CUDAStream.h>
 #include <cuda.h>
 #include <cuda_runtime.h>
 #include <torch/extension.h>
@@ -51,7 +51,7 @@ __global__ void node_pos_to_pin_pos_cuda_kernel(
 
 torch::Tensor hpwl_cuda(torch::Tensor pos, torch::Tensor hyperedge_list, torch::Tensor hyperedge_list_end) {
     cudaSetDevice(pos.get_device());
-    auto stream = at::cuda::getCurrentCUDAStream();
+    auto stream = c10::cuda::getCurrentCUDAStream();
 
     const auto num_nets = hyperedge_list_end.size(0);
     const int num_channels = 2;
@@ -74,7 +74,7 @@ torch::Tensor node_pos_to_pin_pos_cuda(torch::Tensor node_pos,
                                        torch::Tensor pin_id2node_id,
                                        torch::Tensor pin_rel_cpos) {
     cudaSetDevice(node_pos.get_device());
-    auto stream = at::cuda::getCurrentCUDAStream();
+    auto stream = c10::cuda::getCurrentCUDAStream();
     // pin_pos == node_pos + pin_rel_cpos
 
     const auto num_pins = pin_id2node_id.size(0);

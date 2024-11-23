@@ -1,4 +1,4 @@
-#include <ATen/cuda/CUDAContext.h>
+#include <c10/cuda/CUDAStream.h>
 #include <cuda.h>
 #include <cuda_runtime.h>
 #include <torch/extension.h>
@@ -226,7 +226,7 @@ torch::Tensor density_map_cuda_forward_naive(torch::Tensor node_pos,
                                              bool clamp_node,
                                              bool deterministic) {
     cudaSetDevice(node_pos.get_device());
-    auto stream = at::cuda::getCurrentCUDAStream();
+    auto stream = c10::cuda::getCurrentCUDAStream();
 
     const int threads = 64;
     const int blocks = (num_nodes + threads - 1) / threads;
@@ -298,7 +298,7 @@ torch::Tensor density_map_cuda_backward(torch::Tensor node_pos,
                                         bool clamp_node,
                                         bool deterministic) {
     cudaSetDevice(node_pos.get_device());
-    auto stream = at::cuda::getCurrentCUDAStream();
+    auto stream = c10::cuda::getCurrentCUDAStream();
 
     const int threads = 64;
     const int blocks = (num_nodes + threads - 1) / threads;
