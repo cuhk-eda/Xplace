@@ -141,7 +141,7 @@ def run_eval():
     all_designs = sorted([i for i in os.listdir(dataset_root) if os.path.isdir(os.path.join(dataset_root, i))])
 
     placers_info = {
-        "xplace_route": os.path.join(args.placement_root, "/output/placement_%(design_name)s_dp.def"),
+        "xplace_route": os.path.join(args.placement_root, "output/placement_%(design_name)s_dp.def"),
     }
     for placer_name, def_file_info in placers_info.items():
         for design_name in all_designs:
