@@ -154,7 +154,7 @@ void distributeBlanks2Bins(const float* x,
         int blank_num_bins_per_bin = roundDiv(bin_size_y, blank_bin_size_y);
         int blank_bin_id_yl = bin_id_y * blank_num_bins_per_bin;
         int blank_bin_id_yh = std::min(blank_bin_id_yl + blank_num_bins_per_bin, blank_num_bins_y);
-        
+
         const std::vector<int>& cells = bin_fixed_cells.at(i);
 
         for (unsigned int ci = 0; ci < cells.size(); ++ci) {
@@ -170,7 +170,8 @@ void distributeBlanks2Bins(const float* x,
             int node_2_blank_bin_id_yl = std::max((node_yl - yl) / blank_bin_size_y, (float)blank_bin_id_yl);
             int node_2_blank_bin_id_yh = std::min((int)ceil((node_yh - yl) / blank_bin_size_y), blank_bin_id_yh);
 
-            for (int blank_bin_id_y = node_2_blank_bin_id_yl; blank_bin_id_y < node_2_blank_bin_id_yh; ++blank_bin_id_y) {
+            for (int blank_bin_id_y = node_2_blank_bin_id_yl; blank_bin_id_y < node_2_blank_bin_id_yh;
+                 ++blank_bin_id_y) {
                 int blank_bin_id = bin_id_x * blank_num_bins_y + blank_bin_id_y;
 
                 std::vector<Blank<float>>& blanks = bin_blanks.at(blank_bin_id);
@@ -190,9 +191,8 @@ void distributeBlanks2Bins(const float* x,
                         blank.xh = floorDiv((node_xl - xl), site_width) * site_width + xl;  // align blanks to sites
                     } else {                                                                // two blanks
                         Blank<float> new_blank = blank;
-                        blank.xh = floorDiv((node_xl - xl), site_width) * site_width + xl;  // align blanks to sites
-                        new_blank.xl =
-                            floorDiv((node_xh - xl), site_width) * site_width + xl;  // align blanks to sites
+                        blank.xh = floorDiv((node_xl - xl), site_width) * site_width + xl;      // align blanks to sites
+                        new_blank.xl = floorDiv((node_xh - xl), site_width) * site_width + xl;  // align blanks to sites
                         bin_blanks.at(blank_bin_id).insert(bin_blanks.at(blank_bin_id).begin() + bi + 1, new_blank);
                         --bi;
                     }
@@ -225,6 +225,7 @@ void legalizeBin(
     float yh,
     float alpha,   // a parameter to tune anchor initial locations and current locations
     float beta,    // a parameter to tune space reserving
+    float gamma,   // a parameter to tune sort order
     bool lr_flag,  // from left to right
     int* num_unplaced_cells) {
     for (int i = 0; i < num_bins_x * num_bins_y; i += 1) {
@@ -240,14 +241,14 @@ void legalizeBin(
         // sort cells according to width
         if (lr_flag) {
             std::sort(cells.begin(), cells.end(), [&](int i, int j) -> bool {
-                float wi = -1000 * (init_x[i] + node_size_x[i] / 2) + node_size_x[i] + node_size_y[i];
-                float wj = -1000 * (init_x[j] + node_size_x[j] / 2) + node_size_x[j] + node_size_y[j];
+                float wi = -gamma * (init_x[i] + node_size_x[i] / 2) + node_size_x[i] + node_size_y[i];
+                float wj = -gamma * (init_x[j] + node_size_x[j] / 2) + node_size_x[j] + node_size_y[j];
                 return wi < wj || (wi == wj && (init_y[i] > init_y[j] || (init_y[i] == init_y[j] && i < j)));
             });
         } else {
             std::sort(cells.begin(), cells.end(), [&](int i, int j) -> bool {
-                float wi = 1000 * (init_x[i] + node_size_x[i] / 2) + node_size_x[i] + node_size_y[i];
-                float wj = 1000 * (init_x[j] + node_size_x[j] / 2) + node_size_x[j] + node_size_y[j];
+                float wi = gamma * (init_x[i] + node_size_x[i] / 2) + node_size_x[i] + node_size_y[i];
+                float wj = gamma * (init_x[j] + node_size_x[j] / 2) + node_size_x[j] + node_size_y[j];
                 return wi < wj || (wi == wj && (init_y[i] < init_y[j] || (init_y[i] == init_y[j] && i < j)));
             });
         }
@@ -446,11 +447,12 @@ void resizeBinObjects(std::vector<std::vector<T>>& bin_objs, int num_bins_x, int
 }
 
 template <typename T>
-void countBinObjects(const std::vector<std::vector<T>>& bin_objs) {
+int countBinObjects(const std::vector<std::vector<T>>& bin_objs) {
     int count = 0;
     for (unsigned int i = 0; i < bin_objs.size(); ++i) {
         count += bin_objs.at(i).size();
     }
+    return count;
 }
 
 void mergeBinBlanks(const std::vector<std::vector<Blank<float>>>& src_bin_blanks,
@@ -554,6 +556,13 @@ void greedyLegalization(DPTorchRawDB& at_db, int num_bins_x, int num_bins_y, boo
     db.set_num_bins(num_bins_x, num_bins_y);
     // first from right to left
     // then from left to right
+    float gamma = 1000.0;
+    std::vector<int> x_cache(db.num_movable_nodes);
+    std::vector<int> y_cache(db.num_movable_nodes);
+    for (int id = 0; id < db.num_movable_nodes; id++) {
+        x_cache[id] = db.x[id];
+        y_cache[id] = db.y[id];
+    }
     for (int i = 0; i < 2; ++i) {
         num_bins_x = 1;
         num_bins_y = 1;
@@ -589,7 +598,7 @@ void greedyLegalization(DPTorchRawDB& at_db, int num_bins_x, int num_bins_y, boo
                              db.num_nodes,
                              db.num_movable_nodes,
                              db.num_conn_movable_nodes,
-                             bin_cells, 
+                             bin_cells,
                              legalize_filler);
 
         // allocate bin fixed cells
@@ -637,16 +646,15 @@ void greedyLegalization(DPTorchRawDB& at_db, int num_bins_x, int num_bins_y, boo
                               blank_num_bins_y,
                               bin_blanks);
 
-        int num_unplaced_cells_host;
+        int num_unplaced_cells_host = 0;
         // minimum width in sites
         int min_unplaced_node_size_x_host;
         int num_iters = floor(log((float)std::min(num_bins_x, num_bins_y)) / log(2.0)) + 1;
         for (int iter = 0; iter < num_iters; ++iter) {
             logger.debug(
-                "%s iteration %d with %dx%d bins", "Standard cell legalization", iter, num_bins_x, num_bins_y);
+                "%s i %d gamma %.2f iteration %d with %dx%d bins", "Standard cell legalization", i, gamma, iter, num_bins_x, num_bins_y);
             num_unplaced_cells_host = 0;
-            logger.debug("%s #bin_blanks", "Standard cell legalization");
-            countBinObjects(bin_blanks);
+            logger.debug("%s #bin_blanks %d", "Standard cell legalization", countBinObjects(bin_blanks));
 
             legalizeBin(db.init_x,
                         db.init_y,
@@ -670,6 +678,7 @@ void greedyLegalization(DPTorchRawDB& at_db, int num_bins_x, int num_bins_y, boo
                         db.yh,
                         0.5,
                         4.0,
+                        gamma,
                         i % 2,
                         &num_unplaced_cells_host);
             logger.debug("%s num_unplaced_cells = %d", "Standard cell legalization", num_unplaced_cells_host);
@@ -726,6 +735,14 @@ void greedyLegalization(DPTorchRawDB& at_db, int num_bins_x, int num_bins_y, boo
 
             std::swap(bin_cells, bin_cells_copy);
             std::swap(bin_blanks, bin_blanks_copy);
+        }
+        if (i == 1 && num_unplaced_cells_host > 0 && gamma > 0.09) {
+            i = -1;
+            gamma /= 10;
+            for (int id = 0; id < db.num_movable_nodes; id++) {
+                db.x[id] = x_cache[id];
+                db.y[id] = y_cache[id];
+            }
         }
     }
 }
