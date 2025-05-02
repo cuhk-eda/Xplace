@@ -411,6 +411,16 @@ def run_placement_main_nesterov(args, logger):
 
     ps = ParamScheduler(data, args, logger)
 
+    gputimer = None
+    if args.timing_opt:        
+        gputimer = GPUTimer(data, rawdb, gpdb, params, args)
+        data.gputimer = gputimer
+        def timing_eval_func(node_pos):
+            gputimer.update_timing_eval(node_pos)
+            wns_early, tns_early, wns_late, tns_late = gputimer.report_timing_slack()
+            logger.info("early WNS/TNS: %.4f/%.4f (ns) | late WNS/TNS: %.4f/%.4f (ns)" % (wns_early, tns_early, wns_late, tns_late))
+            return wns_early, tns_early, wns_late, tns_late
+            
     # global placement
     node_pos, iteration, gp_hpwl, overflow, gp_time, gp_per_iter = global_placement_main(
         gpdb, rawdb, ps, data, args, logger
@@ -419,6 +429,8 @@ def run_placement_main_nesterov(args, logger):
     node_pos, dp_hpwl, top5overflow, lg_time, dp_time = detail_placement_main(
         node_pos, gpdb, rawdb, ps, data, args, logger
     )
+    if args.timing_opt:
+        wns_early_dp, tns_early_dp, wns_late_dp, tns_late_dp = timing_eval_func(node_pos)
     iteration += 1
 
     route_metrics = None
@@ -435,6 +447,7 @@ def run_placement_main_nesterov(args, logger):
 
     if args.load_from_raw:
         del gpdb, rawdb
+        del gputimer
 
     place_time = time.time() - total_start
     logger.info("GP Time: %.4f LG Time: %.4f DP Time: %.4f Total Place Time: %.4f" % (
