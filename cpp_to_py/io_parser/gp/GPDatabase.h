@@ -54,7 +54,15 @@ public:
     const index_type& getRegionId() const { return region_id; }
 
     const std::vector<index_type>& pins() const { return pins_id; }
-    void addPin(index_type pin_id) { pins_id.emplace_back(pin_id); }
+    std::unordered_map<std::string, int> portMap;
+    void addPin(index_type pin_id, std::string macroPinName) {
+        portMap[macroPinName] = pin_id;
+        pins_id.emplace_back(pin_id);
+    }
+    const int getPinbyPortName(std::string portName) const {
+        const int portId = portMap.find(portName)->second;
+        return portId;
+    }
 
     void setIsPolygonShape(bool isPolygonShape_) { isPolygonShape = isPolygonShape_; }
     const bool getIsPolygonShape() const { return isPolygonShape; }
@@ -100,7 +108,11 @@ public:
     }
     const std::tuple<index_type, index_type, index_type>& getOriDBInfo() const { return ori_db_info; }
 
+    std::string getMacroName() const { return macro_name; }
+    void setMacroName(const std::string& name_str) { macro_name = name_str; }
+
 protected:
+    std::string macro_name = "";
     coord_type rel_lx = std::numeric_limits<coord_type>::max();  // relative position from node_lx to pin_lx
     coord_type rel_ly = std::numeric_limits<coord_type>::max();  // relative position from node_ly to pin_ly
     coord_type width = 0;
@@ -121,7 +133,10 @@ public:
     void setOriDBId(const index_type& ori_db_id_) { ori_db_id = ori_db_id_; }
     const index_type& getOriDBId() const { return ori_db_id; }
     const std::vector<index_type>& pins() const { return pins_id; }
-    void addPin(index_type pin_id) { pins_id.emplace_back(pin_id); }
+    void addPin(index_type pin_id, bool is_root) {
+        pins_id.emplace_back(pin_id);
+        if (is_root) std::swap(pins_id.front(), pins_id.back());
+    }
 
 protected:
     index_type ori_db_id = std::numeric_limits<index_type>::max();
@@ -157,16 +172,21 @@ protected:
     std::tuple<int, int, int, int> coreInfo;  // coreLX, coreHX, coreLY, coreHY
     int siteW;
     int siteH;
+    int microns;
 
     unsigned int num_nodes;
     unsigned int num_pins;
     unsigned int num_nets;
     unsigned int num_regions;
+    unsigned int num_celltype;
 
     std::vector<GPNode> nodes;      // store all nodes Mov + FloatMov + Fix + IOPin + Blkg + FloatIOPin + FloatFix
     std::vector<GPPin> pins;        // store all pins
     std::vector<GPNet> nets;        // store all nets
     std::vector<GPRegion> regions;  // store all regions
+    std::vector<std::string> node_names;
+    std::vector<std::string> net_names;
+    std::vector<std::string> pin_names;
 
     std::vector<std::tuple<index_type, index_type, std::string>> node_types_indices;  // (start_idx, end_idx, type)
     std::vector<std::string> node_id2node_name;
@@ -203,8 +223,11 @@ public:
     void setup_random_place();
 
     const std::vector<GPNode>& getNodes() const { return nodes; }
+    const std::vector<std::string>& getNodeNames() const { return node_names; }
     const std::vector<GPNet>& getNets() const { return nets; }
+    const std::vector<std::string>& getNetNames() const { return net_names; }
     const std::vector<GPPin>& getPins() const { return pins; }
+    const std::vector<std::string>& getPinNames() const { return pin_names; }
     const std::vector<std::tuple<index_type, index_type, std::string>>& getNodeTypeIndices() const {
         return node_types_indices;
     }
@@ -216,6 +239,7 @@ public:
     const int getSiteWidth() const { return siteW; }
     const int getSiteHeight() const { return siteH; }
     const int getM1Direction() const;
+    const int getMicrons() const { return microns; }
 
     // Torch related
     torch::Tensor getNodeLPosTensor();
@@ -233,9 +257,11 @@ public:
     void applyOneNodeOrient(int node_id);
     void applyNodeCPos(torch::Tensor node_cpos);
     void applyNodeLPos(torch::Tensor node_lpos);
+    std::vector<index_type> getIONets();
 
     // Write Placement
     void writePlacement(const std::string& given_prefix = "");
+    void writeNetlist(const std::string& given_prefix = "");
 };
 
 }  // namespace gp

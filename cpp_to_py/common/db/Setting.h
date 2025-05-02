@@ -29,10 +29,15 @@ public:
     std::string LefCell = "";
     std::string LefTech = "";
     std::vector<std::string> LefFiles;
+    std::vector<std::string> LibFiles;
 
     std::string Constraints = "";
     std::string Verilog = "";
     std::string Size = "";
+    
+    std::string CellLib = "";
+    std::string CellLib_MIN = "";
+    std::string CellLib_MAX = "";
 
     std::string OutputFile = "";
 

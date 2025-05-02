@@ -50,6 +50,10 @@ void bindGPDatabase(pybind11::module& m) {
         .def("nodes", &gp::GPDatabase::getNodes)  // NOTE: using py::return_value_policy::reference is dangerous
         .def("pins", &gp::GPDatabase::getPins)
         .def("nets", &gp::GPDatabase::getNets)
+        .def("net_names", &gp::GPDatabase::getNetNames)
+        .def("pin_names", &gp::GPDatabase::getPinNames)
+        .def("node_names", &gp::GPDatabase::getNodeNames)
+        .def("microns", &gp::GPDatabase::getMicrons, py::return_value_policy::copy)
         .def("dieInfo", &gp::GPDatabase::getDieInfo, py::return_value_policy::copy)  // dieLX, dieHX, dieLY, dieHY
         .def("coreInfo", &gp::GPDatabase::getCoreInfo, py::return_value_policy::copy)  // coreLX, coreHX, coreLY, coreHY
         .def("siteWidth", &gp::GPDatabase::getSiteWidth, py::return_value_policy::copy)
@@ -72,7 +76,9 @@ void bindGPDatabase(pybind11::module& m) {
         .def("snet_info_tensor", &gp::GPDatabase::getSnetInfoTensor, py::return_value_policy::move)
         .def("apply_node_cpos", &gp::GPDatabase::applyNodeCPos)
         .def("apply_node_lpos", &gp::GPDatabase::applyNodeLPos)
-        .def("write_placement", &gp::GPDatabase::writePlacement);
+        .def("write_placement", &gp::GPDatabase::writePlacement)
+        .def("get_io_nets", &gp::GPDatabase::getIONets)
+        ;
 }
 
 }  // namespace Xplace

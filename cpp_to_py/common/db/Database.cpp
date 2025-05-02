@@ -15,6 +15,7 @@
 #include "Site.h"
 #include "SiteMap.h"
 #include "Via.h"
+#include "common/lib/Liberty.h"
 
 using namespace db;
 
@@ -63,21 +64,62 @@ void Database::load() {
     if (setting.LefFile != "") {
         setting.Format = "lefdef";
         readLEF(setting.LefFile);
+        lef_read = true;
     } else if ((setting.LefCell != "") && (setting.LefTech != "")) {
         setting.Format = "lefdef";
         readLEF(setting.LefTech);
         readLEF(setting.LefCell);
+        lef_read = true;
     } else if (setting.LefFiles.size() > 0) {
         setting.Format = "lefdef";
         for (auto lef : setting.LefFiles) {
             readLEF(lef);
         }
+        lef_read = true;
     }
+
+    if (setting.CellLib != "") {
+        auto lib = std::make_shared<gt::CellLib>();
+        if (lef_read) {
+            lib->rawdb = this;
+        }
+        lib->read(setting.CellLib);
+        lib->finish_read();
+        cell_libs_[gt::MIN] = lib;
+        cell_libs_[gt::MAX] = cell_libs_[gt::MIN];
+        liberty_read = true;
+    } else if (setting.CellLib_MIN != "" && setting.CellLib_MAX != "") {
+        auto lib_min = std::make_shared<gt::CellLib>();
+        auto lib_max = std::make_shared<gt::CellLib>();
+        if (lef_read) {
+            lib_min->rawdb = this;
+            lib_max->rawdb = this;
+        }
+        lib_min->read(setting.CellLib_MIN);
+        lib_max->read(setting.CellLib_MAX);
+        lib_min->finish_read();
+        lib_max->finish_read();
+        cell_libs_[gt::MIN] = lib_min;
+        cell_libs_[gt::MAX] = lib_max;
+        liberty_read = true;
+    }  else if (setting.LibFiles.size() > 0) {
+        auto lib = std::make_shared<gt::CellLib>();
+        if (lef_read) lib->rawdb = this;
+        for (auto libfile : setting.LibFiles) {
+            lib->read(libfile);
+        }
+        lib->finish_read();
+        cell_libs_[gt::MIN] = lib;
+        cell_libs_[gt::MAX] = cell_libs_[gt::MIN];
+        liberty_read = true;
+    }
+
 
     if (setting.DefFile != "") {
         setting.Format = "lefdef";
         readDEF(setting.DefFile);
         readDEFPG(setting.DefFile);
+        def_read = true;
     }
 
     if (setting.Size != "") {
@@ -690,9 +732,11 @@ void Database::SetupRowSegments() {
 }
 
 void Database::setup() {
-    SetupLayers();
+    if (def_read) {
+        SetupLayers();
+        SetupFloorplan();
+    }
     SetupCellLibrary();
-    SetupFloorplan();
     SetupRegions();
     if (!setting.liteMode) {
         SetupSiteMap();

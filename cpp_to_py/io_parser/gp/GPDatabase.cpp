@@ -14,6 +14,17 @@ namespace gp {
 
 GPDatabase::~GPDatabase() { logger.info("destruct gpdb"); }
 
+std::vector<index_type> GPDatabase::getIONets() {
+    std::vector<index_type> io_nets;
+    
+    for (db::IOPin* iopin : database.iopins) {
+        int IONetId = iopin->pin->net->gpdb_id;
+        io_nets.push_back(IONetId);
+    }
+    return io_nets;
+}
+
+
 void GPDatabase::addCellNode(index_type cell_id, std::string& node_type) {
     auto cell = database.cells[cell_id];
     nodes.emplace_back(GPNode());
@@ -38,6 +49,8 @@ void GPDatabase::addCellNode(index_type cell_id, std::string& node_type) {
         node.setIsPolygonShape(true);
     }
     cell->gpdb_id = nodes.size() - 1;
+
+    node_names.push_back(cell->name());
 }
 
 void GPDatabase::addIOPinNode(index_type iopin_id, std::string& node_type) {
@@ -95,12 +108,18 @@ void GPDatabase::addNet(index_type dbnet_id) {
             addPin(dbpin, dbpin->type, node, net, false);
         }
     }
+    net_names.push_back(dbnet->name);
 }
 
 void GPDatabase::addPin(db::Pin* dbpin, const db::PinType* pintype, GPNode& node, GPNet& net, bool isIOPin) {
     pins.emplace_back(GPPin());
     GPPin& pin = pins.back();
     pin.setId(pins.size() - 1);
+
+    std::string instName = node.getName();
+    std::string macroPinName = pintype->name();
+    isIOPin ? pin.setName(macroPinName) : pin.setName(instName + ":" + macroPinName);
+    pin.setMacroName(macroPinName);
 
     pin.setRelLx(pintype->boundLX);
     pin.setRelLy(pintype->boundLY);
@@ -112,8 +131,8 @@ void GPDatabase::addPin(db::Pin* dbpin, const db::PinType* pintype, GPNode& node
     pin.setParNetId(net.getId());
     pin.setOriDBInfo({node.getOriDBId(), isIOPin ? -1 : dbpin->parentCellPinId, net.getOriDBId()});
 
-    node.addPin(pin.getId());
-    net.addPin(pin.getId());
+    node.addPin(pin.getId(), macroPinName);
+    net.addPin(pin.getId(), pintype->direction() == 'o');
 
     dbpin->gpdb_id = pins.size() - 1;
 }
@@ -160,9 +179,13 @@ void GPDatabase::setupNum() {
     nodes.reserve(num_nodes);
     pins.reserve(num_pins);
     nets.reserve(num_nets);
+    num_celltype = database.celltypes.size();
 
     pin_id2node_id.reserve(num_pins);
     pin_id2net_id.reserve(num_pins);
+
+    // microns = database.LefConvertFactor;
+    microns = (int)database.DBU_Micron;
 }
 
 void GPDatabase::setupNodes() {
@@ -284,6 +307,7 @@ void GPDatabase::setupIndexMap() {
         const GPNet& net = nets.at(pin.getParNetId());
         pin_id2node_id.emplace_back(node.getId());
         pin_id2net_id.emplace_back(net.getId());
+        pin_names.push_back(pin.getName());
     }
     for (auto& node : nodes) {
         node_id2node_name.emplace_back(node.getName());

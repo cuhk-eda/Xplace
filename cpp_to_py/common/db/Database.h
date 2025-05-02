@@ -2,6 +2,8 @@
 
 #include "DatabaseClass.h"
 #include "Setting.h"
+#include "common/lib/Helper.h"
+
 std::string validate_token(std::string& name);
 
 namespace db {
@@ -39,10 +41,16 @@ public:
     robin_hood::unordered_map<string, IOPin*> name_iopins;
     robin_hood::unordered_map<string, ViaType*> name_viatypes;
     robin_hood::unordered_map<string, Layer*> name_layers;
+
+    bool lef_read = false;
+    bool def_read = false;
+    bool liberty_read = false;
     bool verilog_read = false;
 
     string module_name = "";
     VerilogParser* verilog_parser = nullptr;
+
+    array<std::shared_ptr<gt::CellLib>, 2> cell_libs_;
 
     vector<Layer> layers;
     vector<Site*> lefsites;

@@ -11,7 +11,13 @@ void Setting::reset() {
     LefCell = "";
     LefTech = "";
     LefFiles.clear();
+    LibFiles.clear();
     Constraints = "";
+
+    CellLib = "";
+    CellLib_MIN = "";
+    CellLib_MAX = "";
+
     Verilog = "";
     OutputFile = "";
     

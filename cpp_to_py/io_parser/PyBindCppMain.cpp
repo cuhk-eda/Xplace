@@ -44,13 +44,28 @@ bool loadParams(const pybind11::dict& kwargs) {
         db::setting.OutputFile = kwargs["output"].cast<std::string>();
     }
 
-    if (db::setting.BookshelfAux == "" && db::setting.DefFile == "") {
+    if (kwargs.contains("verilog")) {
+        db::setting.Verilog = kwargs["verilog"].cast<std::string>();
+    }
+
+    if (db::setting.BookshelfAux == "" && db::setting.DefFile == "" && db::setting.Verilog == "") {
         logger.error("design is not found");
         return false;
     }
 
-    if (kwargs.contains("verilog")) {
-        db::setting.Verilog = kwargs["verilog"].cast<std::string>();
+    if (kwargs.contains("lib")) {
+        db::setting.CellLib = kwargs["lib"].cast<std::string>();
+    } else if (kwargs.contains("libs")) {
+        for (auto lib_py : kwargs["libs"]) {
+            auto lib = lib_py.cast<std::string>();
+            db::setting.LibFiles.emplace_back(lib);
+        } 
+    }
+    if (kwargs.contains("early_lib")) {
+        db::setting.CellLib_MIN = kwargs["early_lib"].cast<std::string>();
+    }
+    if (kwargs.contains("late_lib")) {
+        db::setting.CellLib_MAX = kwargs["late_lib"].cast<std::string>();
     }
 
     // ----- other options -----

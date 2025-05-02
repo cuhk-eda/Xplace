@@ -14,6 +14,7 @@ def find_benchmark(dataset_root, benchmark):
         "iccad2019": os.path.join(dataset_root, "iccad2019"),
         "ispd2018": os.path.join(dataset_root, "ispd2018"),
         "iccad2015": os.path.join(dataset_root, "iccad2015"),
+        "iccad2015.ot": os.path.join(dataset_root, "iccad2015.ot"),
     }
     root = bm_to_root[benchmark]
     all_designs = [i for i in os.listdir(root) if os.path.isdir(os.path.join(root, i))]
@@ -189,6 +190,9 @@ def single_iccad2015(dataset_root, benchmark, design_name, placement=None):
         "cell_lef": "%s/%s/%s.lef" % (root, design_name, design_name),
         "def": "%s/%s/%s.def" % (root, design_name, design_name) if placement is None else placement,
         "verilog": "%s/%s/%s.v" % (root, design_name, design_name),
+        "early_lib": "%s/%s/%s_Early.lib" % (root, design_name, design_name),
+        "late_lib": "%s/%s/%s_Late.lib" % (root, design_name, design_name),
+        "sdc": "%s/%s/%s.sdc" % (root, design_name, design_name),
         "design_name": design_name,
     }
     return params
@@ -213,6 +217,7 @@ def get_custom_design_params(args):
 
 def get_custom_json_params(args, logger):
     import json
+    arg_dict = vars(args)
     with open(args.custom_json, 'r') as f:
         params = json.load(f)
     if "benchmark" not in params.keys():
@@ -232,4 +237,9 @@ def get_custom_json_params(args, logger):
                 lefs[i], lefs[0] = lefs[0], lefs[i]
                 break
         params["lefs"] = lefs
+    if "output_path" in params.keys():
+        args.output_path = params["output_path"]
+    for key in params.keys():
+        if key in arg_dict.keys():
+            arg_dict[key] = params[key]
     return params
