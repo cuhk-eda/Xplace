@@ -498,13 +498,62 @@ def run_dp(node_pos: torch.Tensor, data: PlaceData, args, logger):
     
     dp_handler(gpudp.kReorder, "K-Reorder 1", num_bins_x, num_bins_y, kr_K, kr_iter)
     dp_handler(gpudp.independentSetMatching, "Independent Set Match", num_bins_x, num_bins_y, ism_bs, ism_set, ism_iter)
-    dp_handler(gpudp.globalSwap, "Global Swap", num_bins_x // 2, num_bins_y // 2, gs_bs, gs_iter)
+    dp_handler(gpudp.globalSwap, "Global Swap", num_bins_x // 2, num_bins_y // 2, gs_bs, gs_iter, 0)
     dp_handler(gpudp.kReorder, "K-Reorder 2", num_bins_x, num_bins_y, kr_K, kr_iter)
 
     del dp_rawdb
 
     return node_pos
 
+
+def run_dp_local(node_pos: torch.Tensor, data: PlaceData, args, logger, displacement_ratio = 0.1):
+    # GPU Detailed Placement
+    dp_rawdb = setup_detailed_rawdb(node_pos, False, data, args, logger)
+
+    num_bins_x = data.num_bin_x
+    num_bins_y = data.num_bin_y
+    kr_K = 4
+    kr_iter = 2
+    gs_bs = 256
+    gs_iter = 2
+
+    # use integer coordinate systems in DP for better quality
+    scalar = compute_scalar(get_ori_scale_factor(data))
+    # scalar = 1.0
+
+    def dp_handler(dp_func, func_name, *func_args):
+        logger.info("Start running %s..." % func_name)
+        start_time = time.time()
+        if scalar != 1.0:
+            # NOTE: we assume site_width is integer, so 1 / scalar should be an integer
+            logger.info("scale dp_rawdb by %g" % round(1.0 / scalar))
+            dp_rawdb.scale(round(1.0 / scalar), True)
+        dp_func(dp_rawdb, *func_args)
+        if scalar != 1.0:
+            logger.info("scale dp_rawdb back by %g" % scalar)
+            dp_rawdb.scale(scalar, False)
+        # commit lpos for legality check
+        torch.cuda.synchronize(node_pos.device)
+        logger.info("Start checking...")
+        if not dp_rawdb.check(get_ori_scale_factor(data)):
+            dp_rawdb.rollback()
+            logger.error("Check failed in %s. Rollback to previous DP iteration." % func_name)
+            return
+        logger.info("Check Pass. Commit solution...")
+        # update dp_rawdb for next step dp_func and update the final solution
+        dp_rawdb.commit()
+        commit_to_node_pos(node_pos, data, dp_rawdb)
+        logger.info("***** Finish %s, HPWL: %.6E Time: %.4f *****" % (
+            func_name, get_obj_hpwl(node_pos, data, args).item(), time.time() - start_time
+        ))
+    
+    dp_handler(gpudp.kReorder, "K-Reorder 1", num_bins_x, num_bins_y, kr_K, kr_iter)
+    dp_handler(gpudp.globalSwap, "Global Swap", num_bins_x // 2, num_bins_y // 2, gs_bs, gs_iter, displacement_ratio)
+    dp_handler(gpudp.kReorder, "K-Reorder 2", num_bins_x, num_bins_y, kr_K, kr_iter)
+
+    del dp_rawdb
+
+    return node_pos
 
 def run_dp_route_opt(node_pos: torch.Tensor, gpdb, rawdb, ps, data: PlaceData, args, logger):
     # NOTE: we suppose M1's prefer routing direction is 0 (horizontal)
@@ -703,8 +752,10 @@ def default_detail_placement(node_pos, gpdb, rawdb, ps, data: PlaceData, args, l
         draw_fig_with_cairo_cpp(node_pos, data.node_size, data, info, args)
         torch.cuda.synchronize(node_pos.device)
     dp_start_time = time.time()
-    if args.detail_placement:
+    if args.detail_placement and not args.timing_opt:
         node_pos = run_dp(node_pos, data, args, logger)
+    elif args.detail_placement and args.timing_opt:
+        node_pos = run_dp_local(node_pos, data, args, logger)
     torch.cuda.synchronize(node_pos.device)
     node_pos = run_dp_route_opt(node_pos, gpdb, rawdb, ps, data, args, logger)
     dp_end_time = time.time()

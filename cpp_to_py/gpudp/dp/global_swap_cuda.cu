@@ -71,6 +71,8 @@ struct SwapState {
     int max_num_candidates;
     int max_num_candidates_all;
 
+    float displacement_region_ratio = 0;
+
     int pair_hpwl_computing_strategy;  ///< 0: for the original node2pin_map and
                                        ///< net2pin_map; 1: for node2net_map and
                                        ///< net2node_map, which requires
@@ -351,6 +353,19 @@ __global__ void compute_search_bins(DetailedPlaceData db, SwapState<float> state
                                                                       db.y[node_id],
                                                                       db.x[node_id] + db.node_size_x[node_id],
                                                                       db.y[node_id] + db.node_size_y[node_id]);
+
+        if (state.search_bin_strategy and state.displacement_region_ratio != 0) {
+            float dxh = opt_box.xh - (db.x[node_id] + db.node_size_x[node_id]);
+            float dxl = db.x[node_id] - opt_box.xl;
+            float dyh = opt_box.yh - (db.y[node_id] + db.node_size_y[node_id]);
+            float dyl = db.y[node_id] - opt_box.yl;
+            if (dxh > state.displacement_region_ratio * (db.xh - db.xl)) {
+                opt_box.xh = db.x[node_id] + db.node_size_x[node_id] + state.displacement_region_ratio * (db.xh - db.xl);
+            }
+            if (dxl > state.displacement_region_ratio * (db.xh - db.xl)) {
+                opt_box.xl = db.x[node_id] - state.displacement_region_ratio * (db.xh - db.xl);
+            }
+        }
         int cx = db.pos2bin_x(opt_box.center_x());
         int cy = db.pos2bin_y(opt_box.center_y());
         state.search_bins[node_id] = cx * db.num_bins_y + cy;
@@ -834,7 +849,7 @@ int compute_max_num_nodes_per_bin(const DetailedPlaceData& db) {
     return max_num_nodes_per_bin;
 }
 
-void globalSwapCUDA(DPTorchRawDB& at_db, int num_bins_x, int num_bins_y, int batch_size, int max_iters) {
+void globalSwapCUDA(DPTorchRawDB& at_db, int num_bins_x, int num_bins_y, int batch_size, int max_iters, float displacement_region_ratio) {
     cudaSetDevice(at_db.node_size_x.get_device());
     DetailedPlaceData db(at_db);
     db.set_num_bins(num_bins_x, num_bins_y);
@@ -852,6 +867,7 @@ void globalSwapCUDA(DPTorchRawDB& at_db, int num_bins_x, int num_bins_y, int bat
 
     const float stop_threshold = 0.1 / 100;
     state.batch_size = batch_size;
+    state.displacement_region_ratio = displacement_region_ratio;
     int max_num_nodes_per_bin = compute_max_num_nodes_per_bin(db);
     state.max_num_candidates = max_num_nodes_per_bin * 5;
     state.max_num_candidates_all = state.batch_size * state.max_num_candidates;

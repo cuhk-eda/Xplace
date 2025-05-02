@@ -4,7 +4,7 @@
 namespace dp {
 
 void kReorderCUDA(DPTorchRawDB& at_db, int num_bins_x, int num_bins_y, int K, int max_iters);
-void globalSwapCUDA(DPTorchRawDB& at_db, int num_bins_x, int num_bins_y, int batch_size, int max_iters);
+void globalSwapCUDA(DPTorchRawDB& at_db, int num_bins_x, int num_bins_y, int batch_size, int max_iters, float displacement_region_ratio);
 void independentSetMatchingCUDA(
     DPTorchRawDB& at_db, int num_bins_x, int num_bins_y, int batch_size, int set_size, int max_iters);
 
@@ -12,8 +12,8 @@ void kReorder(DPTorchRawDB& at_db, int num_bins_x, int num_bins_y, int K, int ma
     kReorderCUDA(at_db, num_bins_x, num_bins_y, K, max_iters);
 }
 
-void globalSwap(DPTorchRawDB& at_db, int num_bins_x, int num_bins_y, int batch_size, int max_iters) {
-    globalSwapCUDA(at_db, num_bins_x, num_bins_y, batch_size, max_iters);
+void globalSwap(DPTorchRawDB& at_db, int num_bins_x, int num_bins_y, int batch_size, int max_iters, float displacement_region_ratio) {
+    globalSwapCUDA(at_db, num_bins_x, num_bins_y, batch_size, max_iters, displacement_region_ratio);
 }
 
 void independentSetMatching(

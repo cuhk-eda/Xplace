@@ -110,8 +110,8 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
           });
     m.def(
         "globalSwap",
-        [](std::shared_ptr<dp::DPTorchRawDB> at_db_ptr, int num_bins_x, int num_bins_y, int batch_size, int max_iters) {
-            return dp::globalSwap(*at_db_ptr, num_bins_x, num_bins_y, batch_size, max_iters);
+        [](std::shared_ptr<dp::DPTorchRawDB> at_db_ptr, int num_bins_x, int num_bins_y, int batch_size, int max_iters, float displacement_region_ratio) {
+            return dp::globalSwap(*at_db_ptr, num_bins_x, num_bins_y, batch_size, max_iters, displacement_region_ratio);
         });
     m.def("independentSetMatching",
           [](std::shared_ptr<dp::DPTorchRawDB> at_db_ptr,

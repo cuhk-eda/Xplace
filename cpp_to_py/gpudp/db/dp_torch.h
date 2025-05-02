@@ -114,7 +114,7 @@ void fillerLegalization(DPTorchRawDB& at_db);
 
 // Detailed Placement
 void kReorder(DPTorchRawDB& at_db, int num_bins_x, int num_bins_y, int K, int max_iters);
-void globalSwap(DPTorchRawDB& at_db, int num_bins_x, int num_bins_y, int batch_size, int max_iters);
+void globalSwap(DPTorchRawDB& at_db, int num_bins_x, int num_bins_y, int batch_size, int max_iters, float displacement_region_ratio);
 void independentSetMatching(
     DPTorchRawDB& at_db, int num_bins_x, int num_bins_y, int batch_size, int set_size, int max_iters);
 
