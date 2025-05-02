@@ -75,9 +75,13 @@ public:
     std::vector<Pin*> pins;
     const NDR* ndr = nullptr;
     int gpdb_id = -1;
+    bool is_port = false;
+    // s: signal, c: clk, p: power, g: ground
+    char _type = 's';
 
     Net(const string& name, const NDR* ndr = nullptr);
     Net(const Net& net);
+    int getPin(const string& name);
 
     bool globalRouted() const { return gRouted; }
     bool detailedRouted() const { return dRouted; }

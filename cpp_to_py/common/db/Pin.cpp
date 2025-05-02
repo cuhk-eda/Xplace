@@ -47,7 +47,9 @@ void IOPin::getBounds(int& lx, int& ly, int& hx, int& hy, int& rIndex) const {
 /***** Pin *****/
 
 Pin::Pin(const PinType* type) : type(type) {}
-Pin::Pin(Cell* cell, int i) : cell(cell), type(cell->ctype()->pins[i]), parentCellPinId(i) {}
+Pin::Pin(Cell* cell, int i) : cell(cell), type(cell->ctype()->pins[i]), parentCellPinId(i) {
+    name = cell->name() + ":" + type->name();
+}
 Pin::Pin(IOPin* iopin) : iopin(iopin), type(iopin->type) {}
 Pin::Pin(const Pin& pin) : cell(pin.cell), net(pin.net), type(pin.type) {}
 

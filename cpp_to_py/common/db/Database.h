@@ -2,6 +2,7 @@
 
 #include "DatabaseClass.h"
 #include "Setting.h"
+std::string validate_token(std::string& name);
 
 namespace db {
 
@@ -37,6 +38,11 @@ public:
     robin_hood::unordered_map<string, Net*> name_nets;
     robin_hood::unordered_map<string, IOPin*> name_iopins;
     robin_hood::unordered_map<string, ViaType*> name_viatypes;
+    robin_hood::unordered_map<string, Layer*> name_layers;
+    bool verilog_read = false;
+
+    string module_name = "";
+    VerilogParser* verilog_parser = nullptr;
 
     vector<Layer> layers;
     vector<Site*> lefsites;
@@ -176,6 +182,7 @@ public:
     bool writeICCAD2017(const string& inputDef, const string& outputDef);
     bool writeICCAD2017(const string& outputDef);
     bool writeComponents(std::ofstream& ofs);
+    bool writeNets(std::ofstream& ofs);
     bool writeBuffer(std::ofstream& ofs, const string& line);
     void writeBufferFlush(std::ofstream& ofs);
 
@@ -190,7 +197,9 @@ public:
     bool writeBSPl(const std::string& file);
 
     bool readVerilog(const std::string& file);
+    bool readVerilog_yy(const std::string &file);
     bool readLiberty(const std::string& file);
+    bool write_verilog(const std::string& file);
 
     bool readConstraints(const std::string& file);
     bool readSize(const std::string& file);

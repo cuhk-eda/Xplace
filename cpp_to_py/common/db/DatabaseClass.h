@@ -42,4 +42,5 @@ class PowerNet;
 class EdgeTypes;
 class GCellGrid;
 class BsRouteInfo;
+class VerilogParser;
 }  // namespace db

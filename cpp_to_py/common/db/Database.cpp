@@ -18,6 +18,20 @@
 
 using namespace db;
 
+string validate_token(string& name) {
+    // remove '\'
+    string::size_type pos = 0;
+    while ((pos = name.find('\\', pos)) != string::npos) {
+        name.erase(pos, 1);
+    }
+    // remove ' '
+    pos = 0;
+    while ((pos = name.find(' ', pos)) != string::npos) {
+        name.erase(pos, 1);
+    }
+    return name;
+}
+
 /***** Database *****/
 Database::Database() {
     clear();
@@ -74,8 +88,9 @@ void Database::load() {
         readConstraints(setting.Constraints);
     }
 
+    // verilog is unused now
     if (setting.Verilog != "") {
-        readVerilog(setting.Verilog);
+        readVerilog_yy(setting.Verilog);
     }
 
     logger.info("Finish loading rawdb");
@@ -690,6 +705,7 @@ void Database::setup() {
 Layer& Database::addLayer(const string& name, const char type) {
     layers.emplace_back(name, type);
     Layer& newlayer = layers.back();
+    name_layers.emplace(name, &newlayer);
     if (layers.size() == 1) {
         if (type == 'r') {
             newlayer.rIndex = 0;

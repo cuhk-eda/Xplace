@@ -393,6 +393,18 @@ bool Database::readDEFPG(const std::string& file) {
     return true;
 }
 
+string expand_name(const std::string& name) {
+    // add '\' before '[' or ']'
+    std::string result;
+    for (char c : name) {
+        if (c == '[' || c == ']') {
+            result.push_back('\\');
+        }
+        result.push_back(c);
+    }
+    return result;
+}
+
 bool Database::writeComponents(std::ofstream& ofs) {
     int nCells = cells.size();
     ofs << "COMPONENTS " << nCells << " ;" << std::endl;
@@ -434,6 +446,40 @@ bool Database::writeComponents(std::ofstream& ofs) {
     writeBufferFlush(ofs);
 #endif
     ofs << "END COMPONENTS\n\n";
+    return true;
+}
+
+bool Database::writeNets(std::ofstream& ofs) {
+    int nNets = nets.size();
+    ofs << "NETS " << nNets << " ;" << std::endl;
+    for (int i = 0; i < nNets; i++) {
+        Net* net = nets[i];
+        std::ofstream& oss = ofs;
+
+        oss << "   - " << expand_name(net->name) << " \n";
+        for (Pin* pin : net->pins) {
+            if (pin->iopin)
+                oss << " ( PIN "
+                    << " " << pin->type->name() << " )";
+            else
+                oss << " ( " << expand_name(pin->cell->name()) << " " << pin->type->name() << " )";
+        }
+
+        const char use(net->_type);
+        if (use == 'p') {
+            oss << " + USE POWER ;\n";
+        } else if (use == 'g') {
+            oss << " + USE GROUND ;\n";
+        } else if (use == 's') {
+            oss << " + USE SIGNAL ;\n";
+        } else if (use == 'c') {
+            oss << " + USE CLOCK ;\n";
+        } else {
+            oss << ";\n";
+        }
+    }
+
+    ofs << "END NETS\n\n";
     return true;
 }
 
@@ -781,6 +827,15 @@ int readLefLayer(lefrCallbackType_e c, lefiLayer* leflayer, lefiUserData ud) {
         return 0;
     }
 
+    if (db->name_layers.find(name) != db->name_layers.end()) {
+        logger.warning("layer type re-defined: %s", name.c_str());
+        return 0;
+    }
+
+    if (type != 'r' && type != 'c') {
+        logger.warning("unsupported layer type: %s", name.c_str());
+        return 0;
+    }
     Layer& layer = db->addLayer(name, type);
 
     switch (type) {
@@ -1502,7 +1557,10 @@ int readDefComponentStart(defrCallbackType_e c, int num, defiUserData ud) {
 int readDefComponent(defrCallbackType_e c, defiComponent* co, defiUserData ud) {
     Database* db = (Database*)ud;
     CellType* celltype = db->getCellType(co->name());
-    Cell* cell = db->addCell(co->id(), celltype);
+
+    string cellName(co->id());
+    cellName = validate_token(cellName);
+    Cell* cell = db->addCell(cellName, celltype);
 
     if (co->isUnplaced()) {
         cell->fixed(false);
@@ -1787,7 +1845,29 @@ int readDefNet(defrCallbackType_e c, defiNet* dnet, defiUserData ud) {
         return 0;
     }
 
-    Net* net = db->addNet(dnet->name(), ndr);
+    string netName(dnet->name());
+    netName = validate_token(netName);
+    // exclude VDD and VSS TODO:
+    if (netName == "VDD" || netName == "VSS") {
+        return 0;
+    }
+    
+    Net* net = db->addNet(netName, ndr);
+
+    if (dnet->hasUse()) {
+        const string use(dnet->use());
+        if (use == "POWER") {
+            net->_type = 'p';
+        } else if (use == "GROUND") {
+            net->_type = 'g';
+        } else if (use == "SIGNAL") {
+            net->_type = 's';
+        } else if (use == "CLOCK") {
+            net->_type = 'c';
+        } else {
+            logger.error("unknown use: %s", use.c_str());
+        }
+    }
 
     for (unsigned i = 0; i != (unsigned)dnet->numConnections(); ++i) {
         Pin* pin = nullptr;
@@ -1805,6 +1885,7 @@ int readDefNet(defrCallbackType_e c, defiNet* dnet, defiUserData ud) {
             iopin->is_connected = true;
         } else {
             string cellname(dnet->instance(i));
+            cellname = validate_token(cellname);
             string pinname(dnet->pin(i));
             Cell* cell = db->getCell(cellname);
             if (!cell) {

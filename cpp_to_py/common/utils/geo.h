@@ -49,6 +49,11 @@ public:
     bool operator==(const PointT& rhs) const { return x == rhs.x && y == rhs.y; }
     bool operator!=(const PointT& rhs) const { return !(*this == rhs); }
 
+    bool operator<(const PointT& rhs) const { return (x < rhs.x) || ((x == rhs.x) && (y < rhs.y)); }
+    bool operator>(const PointT& rhs) const { return (x > rhs.x) || ((x == rhs.x) && (y > rhs.y)); }
+    bool operator<=(const PointT& rhs) const { return !(*this > rhs); }
+    bool operator>=(const PointT& rhs) const { return !(*this < rhs); }
+
     friend inline std::ostream& operator<<(std::ostream& os, const PointT& pt) {
         os << "(" << pt.x << ", " << pt.y << ")";
         return os;

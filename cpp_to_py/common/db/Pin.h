@@ -113,6 +113,7 @@ public:
     int gpdb_id = -1;
     int parentCellPinId = -1;
     bool is_connected = false;
+    string name = "";
 
     PinSTA* staInfo = nullptr;
 

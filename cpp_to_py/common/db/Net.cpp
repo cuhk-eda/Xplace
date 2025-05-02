@@ -6,6 +6,7 @@
 #include "SNet.h"
 #include "Via.h"
 #include "Geometry.h"
+#include "Pin.h"
 
 using namespace db;
 
@@ -119,6 +120,15 @@ void Net::addPin(Pin* pin) {
     // }
     // NOTE: we don't swap the output pin to the vector head now
     pins.push_back(pin);
+}
+
+int Net::getPin(const string& name) {
+    for (int i = 0; i < (int)pins.size(); i++) {
+        if (pins[i]->name == name) {
+            return i;
+        }
+    }
+    return -1;
 }
 
 /***** PowerNet *****/
