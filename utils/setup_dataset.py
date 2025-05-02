@@ -61,6 +61,13 @@ def setup_design_args(args):
     elif args.design_name in ["bigblue3", "bigblue4"]:
         args.num_bin_x = args.num_bin_y = 2048
         args.target_density = 1.0
+    elif args.design_name in ["superblue1", "superblue3", "superblue4", "superblue5", "superblue16", "superblue18"]:
+        args.num_bin_x = args.num_bin_y = 512
+        args.target_density = 1.0
+    elif args.design_name in ["superblue7", "superblue10"]:
+        args.num_bin_x = args.num_bin_y = 1024
+        args.target_density = 1.0
+        args.start_iter = 150
     elif args.design_name in ["adaptec5"]:
         args.target_density = 0.5
         args.num_bin_x = args.num_bin_y = 1024

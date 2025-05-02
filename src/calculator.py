@@ -1,7 +1,6 @@
 import torch
 from .param_scheduler import ParamScheduler
-from .core import merged_wl_loss_grad
-
+from .core import merged_wl_loss_grad, merged_wl_loss_grad_timing
 
 def apply_precond(mov_node_pos: torch.Tensor, ps: ParamScheduler, args):
     if not args.use_precond:
@@ -51,6 +50,17 @@ def calc_obj_and_grad(
             data.hpwl_scale, ps.wa_coeff, args.deterministic
         )
         mov_node_pos.grad[mov_lhs:mov_rhs] += conn_node_grad_by_wl[mov_lhs:mov_rhs]
+
+        if ps.enable_timing:
+            wl_loss_timing, conn_node_grad_by_timing = merged_wl_loss_grad_timing(
+                conn_node_pos, data.gputimer.timing_pin_weight,
+                data.pin_id2node_id, data.pin_rel_cpos,
+                data.node2pin_list, data.node2pin_list_end, data.hyperedge_list, data.hyperedge_list_end,
+                data.net_mask, data.net_weight, data.hpwl_scale, ps.wa_coeff, args.deterministic
+            )
+            mov_node_pos.grad[mov_lhs:mov_rhs] += conn_node_grad_by_timing[mov_lhs:mov_rhs]
+            wl_loss += wl_loss_timing
+            
         if ps.enable_sample_force:
             if ps.iter > 3 and ps.iter % 20 == 0:
                 # ps.iter > 3 for warmup

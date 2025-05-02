@@ -1,7 +1,7 @@
 import torch
 from .database import PlaceData
 from cpp_to_py import density_map_cuda
-from .core import merged_wl_loss_grad
+from .core import merged_wl_loss_grad, merged_wl_loss_grad_timing
 
 
 def get_init_density_map(rawdb, gpdb, data: PlaceData, args, logger, ps=None):
@@ -23,6 +23,9 @@ def get_init_density_map(rawdb, gpdb, data: PlaceData, args, logger, ps=None):
         node_pos = torch.cat([data.node_pos[data.is_mov_macro].contiguous(), node_pos])
         node_size = torch.cat([data.node_size[data.is_mov_macro].contiguous(), node_size])
         node_weight = node_size.new_ones(node_size.shape[0])
+    if args.timing_opt: # TODO: sideline
+        node_size = node_size.clone()
+        node_size[:, 0] *= 1.05
     init_density_map = density_map_cuda.forward_naive(
         node_pos, node_size, node_weight, data.unit_len, zeros_density_map,
         data.num_bin_x, data.num_bin_y, node_pos.shape[0], -1.0, -1.0, 1e-4, False,
@@ -126,11 +129,11 @@ def init_params(
     (mov_node_pos * 0.0).sum().backward()
     optimizer.zero_grad(set_to_none=False)
 
-    if not ps.rerun_route or route_fn is None:
+    if (not ps.rerun_route or route_fn is None) and not args.timing_opt:
         init_density_weight = (wl_grad.norm(p=1) / density_grad.norm(p=1)).detach()
         # init_density_weight = (wl_grad.norm(p=1) / grad_mat.norm(p=1)).detach()
         ps.set_init_param(init_density_weight, data)
-    else:
+    elif ps.rerun_route and route_fn is not None:
         _, filler_lhs = data.movable_connected_index
         filler_rhs = mov_node_pos.shape[0]
 
@@ -147,7 +150,22 @@ def init_params(
         ps.set_route_init_param(
             init_density_weight, init_route_weight, init_congest_weight, data, args
         )
-
+    elif args.timing_opt:
+        init_pin_weight = torch.ones(data.num_pins, dtype=torch.float32, device=data.device)
+        _, wl_grad_timing = merged_wl_loss_grad_timing(
+            conn_node_pos, init_pin_weight,
+            data.pin_id2node_id, data.pin_rel_cpos,
+            data.node2pin_list, data.node2pin_list_end, data.hyperedge_list, data.hyperedge_list_end,
+            data.net_mask, data.net_weight, data.hpwl_scale, ps.wa_coeff, args.deterministic
+        )
+        init_density_weight = ((wl_grad.norm(p=1) + wl_grad_timing.norm(p=1)) / density_grad.norm(p=1)).detach()
+        ps.set_init_param(init_density_weight, data)
+        ps.timing_wl_weight = args.timing_init_weight
+        data.gputimer.timing_pin_weight *= ps.timing_wl_weight
+        data.gputimer.beta = 5 * ps.timing_wl_weight
+        # timing mode fluctuation, larger divergence life
+        ps.max_life = 50
+        ps.life = ps.max_life
 
 # Nesterove learning rate initialization
 def estimate_initial_learning_rate(obj_and_grad_fn, constraint_fn, x_k, lr):

@@ -110,11 +110,12 @@ class PlaceData(object):
         # TODO: more cases, hardcode?
         self.node_special_type = torch.zeros(len(node_id2celltype_name), dtype=torch.int32)
         ## too slow...
-        # for node_id, celltype_name in enumerate(node_id2celltype_name):
-        #     if celltype_name.startswith("CORE/BUF"):
-        #         self.node_special_type[node_id] = 1
-        #     if celltype_name.startswith("CORE/DFF"):
-        #         self.node_special_type[node_id] = 2
+        for node_id, celltype_name in enumerate(node_id2celltype_name):
+            if celltype_name.startswith("CORE/BUF"):
+                self.node_special_type[node_id] = 1
+            if celltype_name.startswith("CORE/DFF"):
+                self.node_special_type[node_id] = 2
+
 
         dataset_format = ""
         if "aux" in dataset_path.keys():
@@ -506,10 +507,16 @@ class PlaceData(object):
         has_dict = any([isinstance(item, dict) for _, item in self])
 
         if not has_dict:
-            info = [size_repr(key, item) for key, item in self]
+            info = [
+                size_repr(key, item) for key, item in self if type(item) != dict
+            ]
             return "{}({}, {})".format(cls, self.design_name, ", ".join(info))
         else:
-            info = [size_repr(key, item, indent=2) for key, item in self]
+            info = [
+                size_repr(key, item, indent=2)
+                for key, item in self
+                if type(item) != dict
+            ]
             return "{}({}, \n{}\n)".format(cls, self.design_name, ",\n".join(info))
 
     def backup_ori_var(self):
@@ -606,6 +613,7 @@ class PlaceData(object):
         self.net_mask = torch.logical_and(
             self.net_to_num_pins <= args.ignore_net_degree, self.net_to_num_pins >= 2
         )  # 0: ignore, 1: consider in wirelength calculation
+        self.net_weight = torch.ones(self.num_nets, device=device, dtype=dtype)
         # macros -> all mov nodes has ultra-large areas with >= 3 row height and all fixed nodes
         # But nodes with zero width or zero height are not considered as macros
         mov_lhs, mov_rhs = self.movable_index
@@ -882,6 +890,7 @@ class PlaceData(object):
             scale = (self.die_ur - self.die_ll) * 0.001
             loc = (self.die_ur + self.die_ll) * 0.5
             mov_node_pos = torch.randn_like(mov_node_pos) * scale + loc
+            # mov_node_pos = torch.randn(mov_node_pos.shape).to(mov_node_pos.device) * scale + loc
         elif init_method == "randn_center_lxly":
             # TODO: Mixed-size placement is very sensitive to the initial location.
             #       An elegant yet effective initialization may be needed.

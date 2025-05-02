@@ -150,6 +150,10 @@ class IOParser(object):
         die_info = torch.tensor([dieLX, dieHX, dieLY, dieHY]).float()
         # die_shift = torch.tensor([dieLX, dieLY])
         # die_scale = torch.tensor([dieHX - dieLX, dieHY - dieLY])
+        net_names = gpdb.net_names()
+        pin_names = gpdb.pin_names()
+        node_names = gpdb.node_names()
+        microns = gpdb.microns()
 
         siteWidth = gpdb.siteWidth()
         siteHeight = gpdb.siteHeight()
@@ -202,6 +206,10 @@ class IOParser(object):
         design_info = {
             "benchmark": self.params["benchmark"],
             "dataset_path": self.params,
+            "node_names": node_names,
+            "net_names": net_names,
+            "pin_names": pin_names,
+            "microns": microns,
             "node_type_indices": node_type_indices,
             "node_id2node_name": node_id2node_name,
             "node_id2celltype_name": node_id2celltype_name,

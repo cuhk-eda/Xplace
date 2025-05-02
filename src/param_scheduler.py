@@ -29,10 +29,12 @@ class MetricRecorder:
                 )
             self[key].append(item)
 
-    def visualize(self, prefix):
+    def visualize(self, prefix, log = False):
         for key, value in self:
             x = list(range(len(value)))
             plt.plot(x, value, label=key)
+            if log:
+                plt.yscale("log")
             plt.legend()
             plt.savefig(prefix + "%s.png" % key)
             plt.close()
@@ -148,6 +150,13 @@ class ParamScheduler:
         self.include_macros = args.include_macros
         self.zero_macro_grad = False
 
+        # timing parameter
+        self.timing_sol_recorder = []
+        self.enable_timing = False
+        self.timing_wl_weight = 0
+        self.best_sol_timing: torch.Tensor = None
+        self.best_metric_timing = {"wns": float("inf"), "tns": float("inf"), "iter": 0}
+
     def set_init_param(self, init_density_weight, data: PlaceData):
         # init_density_weight
         self.init_iter = self.iter
@@ -230,6 +239,19 @@ class ParamScheduler:
         self.gr_sol_recorder.append((
             gr_metrics, hpwl, overflow, mov_node_pos.detach().clone()
         ))
+        
+    def push_timing_sol(self, timing_metrics, hpwl, overflow, mov_node_pos: torch.Tensor):
+        if overflow > self.stop_overflow: # skip overflow solutions
+            return
+        wns_early, tns_early, wns_late, tns_late = timing_metrics
+        wns = -min(wns_early, wns_late, 0)
+        tns = -min(tns_early, tns_late, 0)
+        if wns <= self.best_metric_timing["wns"]:
+            self.best_metric_timing["wns"] = wns
+            self.best_metric_timing["iter"] = self.iter
+            self.best_sol_timing = mov_node_pos.detach().clone()
+            if tns < self.best_metric_timing["tns"]:
+                self.best_metric_timing["tns"] = tns
 
     def step(self, hpwl, overflow, node_pos, data):
         self.update_precond_weight(data)
@@ -582,6 +604,20 @@ class ParamScheduler:
             (best_idx, numOvflNets, gr_wirelength, gr_numVias, gr_numShorts, rc_hor_mean, rc_ver_mean)
         )
         return best_sol
+    
+    def get_best_timing_sol(self):
+        logger = self.__logger__
+        if self.best_sol_timing is not None:
+            wns = self.best_metric_timing["wns"]
+            tns = self.best_metric_timing["tns"]
+            iterationn = self.best_metric_timing["iter"]
+            logger.info(
+                "Find best timing solution: WNS %.4f TNS %.4f at Iter %d" % (wns, tns, iterationn)
+            )
+        else:
+            logger.info("Cannot find best timing solution. Use the last solution.")
+            return None
+        return self.best_sol_timing.data
 
 
     def visualize(self, args, logger):
