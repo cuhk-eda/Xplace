@@ -14,6 +14,10 @@ def run_placement_single(args, logger):
 def run_placement_all(args, logger):
     logger.info("Run all designs in dataset %s." % args.dataset)
     place_df = pd.DataFrame(columns=["design", "dp_hpwl", "gp_hpwl", "top5overflow", "overflow", "gp_time", "lg+dp_time", "gp_per_iter", "place_time"])
+    if args.timing_opt:
+        place_df = pd.DataFrame(
+            columns=["design", "dp_hpwl", "gp_hpwl", "top5overflow", "overflow", "gp_time", "lg+dp_time", "gp_per_iter", "place_time", "wns_early_dp", "tns_early_dp", "wns_late_dp", "tns_late_dp"]
+        )
     route_df = pd.DataFrame(columns=["design", "#OvflNets", "GR WL", "GR #Vias", "GR EstShort", "RC Hor", "RC Ver"])
     mul_params = sorted(
         get_multiple_design_params(args.dataset_root, args.dataset), key=lambda params: params["design_name"]

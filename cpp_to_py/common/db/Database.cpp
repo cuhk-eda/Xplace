@@ -59,6 +59,7 @@ void Database::load() {
     if (setting.BookshelfAux != "") {
         setting.Format = "bookshelf";
         readBSAux(setting.BookshelfAux, setting.BookshelfPl);
+        def_read = true;
     }
 
     if (setting.LefFile != "") {

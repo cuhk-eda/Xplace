@@ -14,6 +14,10 @@ std::shared_ptr<gt::GPUTimer> create_gputimer(const py::dict& kwargs,
                                               std::shared_ptr<db::Database> rawdb,
                                               std::shared_ptr<gp::GPDatabase> gpdb,
                                               std::shared_ptr<gt::TimingTorchRawDB> timing_raw_db) {
+
+    if (!rawdb->liberty_read) {
+        throw std::invalid_argument("Liberty file not found. Please check!");
+    }
     std::shared_ptr<gt::GTDatabase> gtdb = std::make_shared<gt::GTDatabase>(rawdb, gpdb, timing_raw_db);
     auto sdc = std::make_shared<gt::sdc::SDC>();
 

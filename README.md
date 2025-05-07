@@ -1,16 +1,12 @@
 # Xplace: An Extremely Fast and Extensible Global Placement Framework
 
 ## News 🚀
-We are happy to announce that [Xplace 2.0](https://ieeexplore.ieee.org/abstract/document/10373583) is now released. Compared to [Xplace 1.0](https://dl.acm.org/doi/abs/10.1145/3489517.3530485), this version supports the following new features:
+We are thrilled to release [Xplace 3.0](https://dl.acm.org/doi/10.1145/3676536.3676803) with timing optimization additional to [Xplace 2.0](https://ieeexplore.ieee.org/abstract/document/10373583) and [Xplace 1.0](https://dl.acm.org/doi/abs/10.1145/3489517.3530485), this version supports the following new features:
 
-- Support deterministic mode with only 5~25% extra GP runtime overhead.
-- Implement an extremely fast GPU-accelerated detailed-routability-driven placement algorithm Xplace-Route.
-- Integrate with a GPU-accelerated detailed placer and a GPU-accelerated global router [GGR](cpp_to_py/gpugr/README.md).
-- Support a superfast **GPU-accelerated place and global route flow**! Input your LEF/DEF, the flow will output the **placement DEF** and the **global routing guide**! [xplace_route_flow.png](img/xplace_route_flow.png)
-- Provide benchmark download and preprocess scripts, and three routability evaluation scripts. 
-- Code refactoring.
+- Implement a GPU-accelerated timer.
+- Implement an extremely fast GPU-accelerated timing-driven placement algorithm Xplace-Timing.
 
-Please check our [TCAD paper](https://ieeexplore.ieee.org/document/10373583) for more details about **Xplace-Route**!
+Please check our [ICCAD paper](https://dl.acm.org/doi/pdf/10.1145/3676536.3676803) for more details about **Xplace-Timing**.
 
 ## About Xplace
 Xplace is a fast and extensible GPU-accelerated global placement framework developed by the research team supervised by Prof. Evangeline F. Y. Young at The Chinese University of Hong Kong (CUHK). It achieves around 3x speedup per GP iteration compared to DREAMPlace and shows high extensibility.
@@ -24,9 +20,11 @@ As shown in the following figure, Xplace framework is built on top of PyTorch an
 
 More details are in the following paper:
 
+Lixin Liu, Bangqi Fu, Martin D. F. Wong, and Evangeline F. Y. Young. "[Xplace: an extremely fast and extensible global placement framework](https://doi.org/10.1145/3489517.3530485)". In Proceedings of the 59th ACM/IEEE Design Automation Conference (DAC '22). Association for Computing Machinery, New York, NY, USA, 1309–1314. 
+
 Lixin Liu, Bangqi Fu, Shiju Lin, Jinwei Liu, Evangeline F.Y. Young, Martin D.F. Wong. "[Xplace: An Extremely Fast and Extensible Placement Framework](https://ieeexplore.ieee.org/document/10373583)". In IEEE Transactions on Computer-Aided Design of Integrated Circuits and Systems (TCAD), doi: 10.1109/TCAD.2023.3346291.
 
-Lixin Liu, Bangqi Fu, Martin D. F. Wong, and Evangeline F. Y. Young. "[Xplace: an extremely fast and extensible global placement framework](https://doi.org/10.1145/3489517.3530485)". In Proceedings of the 59th ACM/IEEE Design Automation Conference (DAC '22). Association for Computing Machinery, New York, NY, USA, 1309–1314. 
+Bangqi Fu, Lixin Liu, Martin D. F. Wong, and Evangeline F. Y. Young. "[Hybrid Modeling and Weighting for Timing-driven Placement with Efficient Calibration]((https://dl.acm.org/doi/10.1145/3676536.3676803))". In Proceedings of the 43rd IEEE/ACM International Conference on Computer-Aided Design (ICCAD '24). Association for Computing Machinery, New York, NY, USA, Article 22, 1–9.
 
 (For the Xplace-NN, please refer to branch [neural](https://github.com/cuhk-eda/Xplace/tree/neural))
 
@@ -95,6 +93,15 @@ python main.py --dataset ispd2015_fix --design_name mgc_fft_1
 python main.py --dataset ispd2015_fix --run_all True
 ```
 
+- To run timing optimization GP + DP flow for ICCAD2015 dataset:
+```bash
+# only run superblue4
+python main.py --dataset iccad2015 --design_name superblue4 --timing_opt True
+
+# run all the designs in iccad2015
+python main.py --dataset iccad2015 --run_all True --timing_opt True
+```
+
 - To run Routability GP + DP flow for ISPD2015/2018/2019 dataset:
 ```bash
 # run all the designs with routability optimization
@@ -128,7 +135,7 @@ Suppose there is a LEF/DEF benchmark named `toy` in `data/raw`, you can use the 
 python main.py --custom_path lef:data/raw/toy_input.lef,def:data/raw/toy_input.def,design_name:toy,benchmark:test --load_from_raw True --detail_placement True
 ```
 
-- **Custom JSON Mode**: You can also use the argument `--custom_json` to run multiple LEFs + DEF + Verilog:
+- **Custom JSON Mode**: You can also use the argument `--custom_json` to run multiple LEFs + DEF + Verilog + LIBs:
 ```
 python main.py --custom_json examples/examples.json --load_from_raw True --target_density 0.9
 ```
@@ -139,7 +146,13 @@ Please refer to `main.py`.
 
 ## 3. Other Features
 
-### 3.1. GPU-accelerated Place and Global Route Flow
+### 3.1. Standalone Timer Mode
+Setup the design parameters in `tool/timer.py` and run. Put the extracted parasitics file in `spef` option to report the spef timing. An example is given in the `timer.py` file.
+```bash
+python timer.py
+```
+
+### 3.2. GPU-accelerated Place and Global Route Flow
 Set `--final_route_eval True` in Python arguments to invoke the internal global router [GGR](cpp_to_py/gpugr/README.md) to run GPU-accelerated PnR flow. The flow will output the **placement DEF** and the **global routing guide** in `./result/exp_id/output`. Besides, GR metrics are reported in the log and recorded in `./result/exp_id/log/route.csv`. 
 
 - To run Place and Global Route flow for ISPD2015 dataset:
@@ -149,7 +162,7 @@ python main.py --dataset ispd2015_fix --run_all True --load_from_raw True --deta
 
 More details about using GGR in Xplace can be found in [cpp_to_py/gpugr/README.md](cpp_to_py/gpugr/README.md).
 
-### 3.2. Evaluate the Routability of Placement Solution 
+### 3.3. Evaluate the Routability of Placement Solution 
 We provide three ways to evaluate the routability of a placement solution:
 
 1. Set `--final_route_eval True` to invoke [GGR](cpp_to_py/gpugr/README.md) to evaluate the placement solution.
@@ -160,7 +173,7 @@ We provide three ways to evaluate the routability of a placement solution:
 
 
 
-### 3.3. Load Design from Preprocessed File
+### 3.4. Load Design from Preprocessed File
 The following script will dump the parsed design into a single torch `pt` file so Xplace can load the design from the `pt` file instead of parsing the input file from scratch. 
 
 ```bash
@@ -185,6 +198,14 @@ python main.py --dataset ispd2005 --run_all True --load_from_raw False
 ## 4. Citation
 If you find **Xplace** useful in your research, please consider to cite:
 ```bibtex
+
+@inproceedings{fu2024xplace_t,
+    author = {Fu, Bangqi and Liu, Lixin and Wong, Martin D. F. and Young, Evangeline F. Y.},
+    booktitle = {Proceedings of the 43rd IEEE/ACM International Conference on Computer-Aided Design},
+    title = {Hybrid Modeling and Weighting for Timing-driven Placement with Efficient Calibration},
+    year = {2024},
+}
+
 @article{xplace_tcad,
     author={Liu, Lixin and Fu, Bangqi and Lin, Shiju and Liu, Jinwei and Young, Evangeline F.Y. and Wong, Martin D.F.},
     journal={IEEE Transactions on Computer-Aided Design of Integrated Circuits and Systems}, 
@@ -200,7 +221,7 @@ If you find **Xplace** useful in your research, please consider to cite:
 }
 ```
 
-Thanks the authors of [ePlace](https://dl.acm.org/doi/10.1145/2699873), [RePlAce](https://github.com/The-OpenROAD-Project/RePlAce), and [DREAMPlace](https://github.com/limbo018/DREAMPlace) for their great work.
+Thanks the authors of [ePlace](https://dl.acm.org/doi/10.1145/2699873), [RePlAce](https://github.com/The-OpenROAD-Project/RePlAce), [DREAMPlace](https://github.com/limbo018/DREAMPlace), [OpenTimer](https://github.com/OpenTimer/OpenTimer), and [GPU-STA](https://ieeexplore.ieee.org/document/9256516) for their great work.
 ```bibtex
 @article{lu2015eplace,
     author={Lu, Jingwei and Chen, Pengwen and Chang,   Chin-Chih and Sha, Lu and Huang, Dennis Jen-Hsin and   Teng, Chin-Chi and Cheng, Chung-Kuan},
@@ -222,6 +243,22 @@ Thanks the authors of [ePlace](https://dl.acm.org/doi/10.1145/2699873), [RePlAce
     title={DREAMPlace: Deep Learning Toolkit-Enabled GPU Acceleration for Modern VLSI Placement}, 
     year={2021},
 }
+
+@article{huang2015opentimer,
+  author={Huang, Tsung-Wei and Wong, Martin D. F.},
+  booktitle={2015 IEEE/ACM International Conference on Computer-Aided Design (ICCAD)}, 
+  title={OpenTimer: A high-performance timing analysis tool}, 
+  year={2015},
+}
+
+@article{guo2020gpusta,
+  author={Guo, Zizheng and Huang, Tsung-Wei and Lin, Yibo},
+  booktitle={2020 IEEE/ACM International Conference On Computer Aided Design (ICCAD)}, 
+  title={GPU-Accelerated Static Timing Analysis}, 
+  year={2020},
+}
+
+
 ```
 
 ## 5. Contact

@@ -117,6 +117,10 @@ class GPUTimer():
             self.timer.update_rc(node_lpos, False, True, True)
         self.timer.update_timing()
         
+    def update_timing_spef(self):
+        self.timer.update_states()
+        self.timer.update_rc_spef()
+        self.timer.update_timing()
         
     def report_timing_slack(self):
         time_unit = self.timer.time_unit()

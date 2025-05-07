@@ -7,5 +7,13 @@
         "/PDK/asap7/lef/asap7sc7p5t_28_R_1x_220121a.lef",
         "/PDK/asap7/lef/asap7sc7p5t_28_SL_1x_220121a.lef"
     ],
-    "def": "/designs/top/def/top.def"
+    "libs": [
+        "./PDK/asap7/lib/NLDM/asap7sc7p5t_AO_RVT_FF_nldm_211120.lib.gz",
+        "./PDK/asap7/lib/NLDM/asap7sc7p5t_INVBUF_RVT_FF_nldm_220122.lib.gz",
+        "./PDK/asap7/lib/NLDM/asap7sc7p5t_OA_RVT_FF_nldm_211120.lib.gz",
+        "./PDK/asap7/lib/NLDM/asap7sc7p5t_SIMPLE_RVT_FF_nldm_211120.lib.gz",
+        "./PDK/asap7/lib/NLDM/asap7sc7p5t_SEQ_RVT_FF_nldm_220123.lib"
+    ],
+    "def": "/designs/top/def/top.def",
+    "verilog": "/designs/top/def/top.v"
 }

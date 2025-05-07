@@ -488,5 +488,7 @@ def run_placement_main_nesterov(args, logger):
     logger.info("GP Time: %.4f LG Time: %.4f DP Time: %.4f Total Place Time: %.4f" % (
         gp_time, lg_time, dp_time, place_time))
     place_metrics = (dp_hpwl, gp_hpwl, top5overflow, overflow, gp_time, dp_time + lg_time, gp_per_iter, place_time)
+    if args.timing_opt:
+        place_metrics += (wns_early_dp, tns_early_dp, wns_late_dp, tns_late_dp)
 
     return place_metrics, route_metrics
