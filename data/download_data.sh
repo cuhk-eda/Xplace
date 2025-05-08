@@ -27,6 +27,12 @@ mv ispd2015/ raw/
 echo "=== Preprocessing ispd2015 to generate ispd2015_fix ==="
 python fix_ispd2015_route.py
 
+echo "=== Downloading iccad2015 ==="
+wget --no-check-certificate "https://mycuhk-my.sharepoint.com/:u:/g/personal/1155168650_link_cuhk_edu_hk/EegLFLmRA8tMovlYBwmoaKABi4LOCnYkaj3vBc_PLPaPCg?e=xrtMSY&download=1" -O iccad2015.tar.gz
+tar xvzf iccad2015.tar.gz
+rm -rf iccad2015.tar.gz
+mv iccad2015/ raw/
+
 echo "=== Downloading iccad2019 ==="
 wget --no-check-certificate "https://mycuhk-my.sharepoint.com/:u:/g/personal/1155136644_link_cuhk_edu_hk/EYdqZNU7EGtEos77fGUSUkkBMdCOETzGm-Dws1XNnr_9BQ?e=3HYQLO&download=1" -O iccad2019.tar.gz
 tar xvzf iccad2019.tar.gz

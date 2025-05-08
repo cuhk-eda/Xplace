@@ -24,7 +24,7 @@ Lixin Liu, Bangqi Fu, Martin D. F. Wong, and Evangeline F. Y. Young. "[Xplace: a
 
 Lixin Liu, Bangqi Fu, Shiju Lin, Jinwei Liu, Evangeline F.Y. Young, Martin D.F. Wong. "[Xplace: An Extremely Fast and Extensible Placement Framework](https://ieeexplore.ieee.org/document/10373583)". In IEEE Transactions on Computer-Aided Design of Integrated Circuits and Systems (TCAD), doi: 10.1109/TCAD.2023.3346291.
 
-Bangqi Fu, Lixin Liu, Martin D. F. Wong, and Evangeline F. Y. Young. "[Hybrid Modeling and Weighting for Timing-driven Placement with Efficient Calibration]((https://dl.acm.org/doi/10.1145/3676536.3676803))". In Proceedings of the 43rd IEEE/ACM International Conference on Computer-Aided Design (ICCAD '24). Association for Computing Machinery, New York, NY, USA, Article 22, 1–9.
+Bangqi Fu, Lixin Liu, Martin D. F. Wong, and Evangeline F. Y. Young. "[Hybrid Modeling and Weighting for Timing-driven Placement with Efficient Calibration](https://dl.acm.org/doi/10.1145/3676536.3676803)". In Proceedings of the 43rd IEEE/ACM International Conference on Computer-Aided Design (ICCAD '24). Association for Computing Machinery, New York, NY, USA, Article 22, 1–9.
 
 (For the Xplace-NN, please refer to branch [neural](https://github.com/cuhk-eda/Xplace/tree/neural))
 
@@ -36,9 +36,10 @@ Bangqi Fu, Lixin Liu, Martin D. F. Wong, and Evangeline F. Y. Young. "[Hybrid Mo
   * [2.3. Run Your Own Design](#23-run-your-own-design)
   * [2.4. Placement Parameters](#24-placement-parameters)
 - [3. Other Features](#3-other-features)
-  * [3.1. GPU-accelerated Place and Global Route Flow](#31-gpu-accelerated-place-and-global-route-flow)
-  * [3.2. Evaluate the Routability of Placement Solution](#32-evaluate-the-routability-of-placement-solution)
-  * [3.3. Load Design from Preprocessed File](#33-load-design-from-preprocessed-file)
+  * [3.1. Standalone Timer Mode](#31-standalone-timer-mode)
+  * [3.2. GPU-accelerated Place and Global Route Flow](#32-gpu-accelerated-place-and-global-route-flow)
+  * [3.3. Evaluate the Routability of Placement Solution](#33-evaluate-the-routability-of-placement-solution)
+  * [3.4. Load Design from Preprocessed File](#34-load-design-from-preprocessed-file)
 - [4. Citation](#4-citation)
 - [5. Contact](#5-contact)
 - [6. License](#6-license)
@@ -147,9 +148,9 @@ Please refer to `main.py`.
 ## 3. Other Features
 
 ### 3.1. Standalone Timer Mode
-Setup the design parameters in `tool/timer.py` and run. Put the extracted parasitics file in `spef` option to report the spef timing. An example is given in the `timer.py` file.
+Setup the design parameters in `tool/timer.py` and run. Put the extracted parasitics file in `spef` option to report the spef timing. An example is given in the `tool/timer.py` file.
 ```bash
-python timer.py
+python tool/timer.py
 ```
 
 ### 3.2. GPU-accelerated Place and Global Route Flow
