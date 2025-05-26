@@ -157,6 +157,16 @@ public:
         }
     };
     template <typename... Args>
+    void infoif(bool flag, const char* format, Args&&... args) {
+        if (flag) {
+            if (sizeof...(args) != 0) {
+                log(LOG_INFO, format, args...);
+            } else {
+                log(LOG_INFO, format);
+            }
+        }
+    };
+    template <typename... Args>
     void notice(const char* format, Args&&... args) {
         if (sizeof...(args) != 0) {
             log(LOG_NOTICE, format, args...);
@@ -178,6 +188,16 @@ public:
             log(LOG_ERROR, format, args...);
         } else {
             log(LOG_ERROR, format);
+        }
+    };
+    template <typename... Args>
+    void errorif(bool flag, const char* format, Args&&... args) {
+        if (flag) {
+            if (sizeof...(args) != 0) {
+                log(LOG_INFO, format, args...);
+            } else {
+                log(LOG_INFO, format);
+            }
         }
     };
     template <typename... Args>
