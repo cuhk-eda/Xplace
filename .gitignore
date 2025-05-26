@@ -10,7 +10,7 @@ build/
 *.pt
 *.pkl
 *.json
-result*
+result/
 data/cad
 data/raw
 misc
