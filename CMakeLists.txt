@@ -1,4 +1,8 @@
-cmake_minimum_required(VERSION 3.18)
+cmake_minimum_required(VERSION 3.24)
+
+if (NOT DEFINED CMAKE_CUDA_ARCHITECTURES)
+  set(CMAKE_CUDA_ARCHITECTURES 80 86 CACHE STRING "CUDA architectures" FORCE)
+endif()
 
 project(xplace LANGUAGES C CXX CUDA)
 
@@ -49,10 +53,6 @@ message(STATUS "CAIRO_INCLUDE_DIRS: ${CAIRO_INCLUDE_DIRS}")
 message(STATUS "CAIRO_LIBRARIES: ${CAIRO_LIBRARIES}")
 
 # CUDA
-# set cuda arch and nvcc flags
-if (NOT DEFINED CMAKE_CUDA_ARCHITECTURES)
-  set(CMAKE_CUDA_ARCHITECTURES 80 86 CACHE STRING "CUDA architectures" FORCE)
-endif()
 message(STATUS "CMAKE_CUDA_ARCHITECTURES: ${CMAKE_CUDA_ARCHITECTURES}")
 find_package(CUDAToolkit)
 

@@ -53,12 +53,18 @@ git clone --recursive https://github.com/cuhk-eda/Xplace
 ```bash
 cd $XPLACE_HOME
 mkdir build && cd build
-cmake -DPYTHON_EXECUTABLE=$(which python) ..
+cmake -DCMAKE_CUDA_ARCHITECTURES=native -DPYTHON_EXECUTABLE=$(which python) ..
 make -j40 && make install
 ```
 
+NOTE: If `-DCMAKE_CUDA_ARCHITECTURES=native` doesn't work on your system, manually specify your GPU's compute capability instead, using`-DCMAKE_CUDA_ARCHITECTURES=your_gpu_compute_capability`.
+
+You can find your GPU's compute capability on NVIDIA's official list: [https://developer.nvidia.com/cuda-gpus](https://developer.nvidia.com/cuda-gpus).
+
+For example, RTX 3090's compute capability is 8.6. You would specify: `-DCMAKE_CUDA_ARCHITECTURES=86`.
+
 ### 1.1. Dependencies
-- [CMake](https://cmake.org/) >= 3.18
+- [CMake](https://cmake.org/) >= 3.24
 - [GCC](https://gcc.gnu.org/) >= 7.5.0
 - [Boost](https://www.boost.org/) >= 1.56.0
 - [CUDA](https://developer.nvidia.com/cuda-toolkit) >= 11.3
