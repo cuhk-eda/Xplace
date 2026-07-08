@@ -4,7 +4,7 @@ from functools import partial
 
 def get_trunc_node_pos_fn(mov_node_size, data):
     node_pos_lb = mov_node_size / 2 + data.die_ll + 1e-4 
-    node_pos_ub = data.die_ur - mov_node_size / 2 + data.die_ll - 1e-4
+    node_pos_ub = data.die_ur - mov_node_size / 2 - 1e-4
     def trunc_node_pos_fn(x):
         x.data.clamp_(min=node_pos_lb, max=node_pos_ub)
         return x
